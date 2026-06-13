@@ -86,6 +86,32 @@ export default function App() {
     }
   }, [curriculumData]);
 
+  // Deep-linking from URL query parameters on website load
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const subjectId = params.get("subjectId");
+    if (subjectId) {
+      for (const stage of curriculumData) {
+        for (const grade of stage.grades) {
+          const subject = grade.subjects.find(sub => sub.id === subjectId);
+          if (subject) {
+            setSelectedStage(stage);
+            setActiveGrade(grade);
+            setActiveSubject({
+              ...subject,
+              stageId: stage.id,
+              stageName: stage.name,
+              gradeId: grade.id,
+              gradeName: grade.name
+            } as any);
+            // Clean url parameters slightly or keep them for bookmarking
+            break;
+          }
+        }
+      }
+    }
+  }, [curriculumData]);
+
   // Function to save curriculum data directly on the server filesystem
   const saveCurriculumToServer = async (newData: Stage[], isSilent = false) => {
     try {

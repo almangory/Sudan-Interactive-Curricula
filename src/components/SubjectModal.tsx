@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import { 
   X, ExternalLink, Sparkles, BookOpen, Clock, Users, ShieldAlert,
   ChevronRight, Award, Compass, Heart, HelpCircle, Download, Video,
-  FileText, Youtube, Lock, Unlock, Save, Edit
+  FileText, Youtube, Lock, Unlock, Save, Edit, Share2, Check
 } from "lucide-react";
 import { Subject } from "../data/curriculum";
 import DynamicIcon from "./DynamicIcon";
@@ -69,6 +69,48 @@ interface SubjectModalProps {
 
 export default function SubjectModal({ stageId, stageName, gradeId, gradeName, subject, onClose, onUpdateSubject }: SubjectModalProps) {
   const [showTutor, setShowTutor] = useState(false);
+
+  // Sharing states and helper methods
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?subjectId=${subject.id}`;
+    const shareData = {
+      title: `مادة: ${subject.name} - ${gradeName}`,
+      text: `تصفح تفاصيل ومقرر مادة ${subject.name} للصف ${gradeName} عبر منصة السودان التعليمية التفاعلية 🇸🇩`,
+      url: shareUrl,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 3000);
+      }
+    } catch (err) {
+      console.error("Error sharing:", err);
+      // Fallback
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 3000);
+      } catch (clipboardErr) {
+        console.error("Clipboard copy failed:", clipboardErr);
+      }
+    }
+  };
+
+  const getShareLinks = () => {
+    const shareUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?subjectId=${subject.id}`;
+    const text = `تصفح تفاصيل ومقرر مادة ${subject.name} (${gradeName}) عبر المنصة السودانية التفاعلية 🇸🇩`;
+    return {
+      whatsapp: `https://api.whatsapp.com/send?text=${encodeURIComponent(text + "\n" + shareUrl)}`,
+      telegram: `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`
+    };
+  };
 
   // Editing and Admin authentication states
   const [isEditing, setIsEditing] = useState(false);
@@ -160,6 +202,13 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
             </button>
 
             <div className="flex items-center gap-2">
+              <button 
+                onClick={handleShare}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-950/40 hover:bg-emerald-900/40 border border-emerald-800/60 text-emerald-400 hover:text-emerald-300 rounded-xl text-3xs font-extrabold transition-all cursor-pointer shadow-sm animate-pulse hover:animate-none"
+              >
+                {isCopied ? <Check className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
+                <span>{isCopied ? "تم نسخ الرابط!" : "مشاركة المادة"}</span>
+              </button>
               <button 
                 onClick={handleEditClick}
                 className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-800 hover:bg-slate-755 border border-slate-700/80 text-amber-400 hover:text-amber-300 rounded-xl text-3xs font-bold transition-all cursor-pointer shadow-sm"
@@ -510,14 +559,67 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
             </div>
           )}
 
-          {/* Prompt action to trigger tutoring */}
+          {/* Prompt action to trigger tutoring and quick share */}
           {!showTutor && (
-            <div className="mt-6 pt-4 border-t border-slate-800/80">
+            <div className="mt-6 pt-4 border-t border-slate-800/80 space-y-4">
+              
+              {/* Premium Direct Social Share Board */}
+              <div className="bg-slate-950/45 p-4 rounded-2xl border border-slate-800/60 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-inner">
+                <div className="space-y-0.5 text-center sm:text-right">
+                  <h5 className="text-xs font-black text-slate-20 bg-gradient-to-l from-emerald-400 to-slate-200 bg-clip-text text-transparent">شارك هذا المنهج الدراسي مع أصحابك 📢</h5>
+                  <p className="text-[10px] text-slate-400">انشر الرابط لزملائك الطلاب أو مجموعات المدرسة في المحادثات</p>
+                </div>
+                
+                <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                  {/* WhatsApp */}
+                  <a
+                    href={getShareLinks().whatsapp}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] border border-[#25D366]/30 rounded-xl text-3xs font-extrabold transition-all cursor-pointer shadow-sm hover:scale-105"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#25D366] animate-pulse"></span>
+                    <span>الواتساب</span>
+                  </a>
+
+                  {/* Telegram */}
+                  <a
+                    href={getShareLinks().telegram}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0088cc]/10 hover:bg-[#0088cc]/20 text-[#0088cc] border border-[#0088cc]/30 rounded-xl text-3xs font-extrabold transition-all cursor-pointer shadow-sm hover:scale-105"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#0088cc] animate-pulse"></span>
+                    <span>تلغرام</span>
+                  </a>
+
+                  {/* Facebook */}
+                  <a
+                    href={getShareLinks().facebook}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#1877F2]/10 hover:bg-[#1877F2]/20 text-[#1877F2] border border-[#1877F2]/30 rounded-xl text-3xs font-extrabold transition-all cursor-pointer shadow-sm hover:scale-105"
+                  >
+                    <span>فيسبوك</span>
+                  </a>
+
+                  {/* Copy Link Button */}
+                  <button
+                    onClick={handleShare}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-755 border border-slate-705 text-slate-200 rounded-xl text-3xs font-extrabold transition-all cursor-pointer shadow-sm active:scale-95"
+                  >
+                    {isCopied ? <Check className="w-3 h-3 text-emerald-450" /> : <Share2 className="w-3 h-3 text-emerald-450" />}
+                    <span>{isCopied ? "تم النسخ!" : "نسخ الرابط"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Tutor Action Button */}
               <button
                 onClick={() => setShowTutor(true)}
                 className="w-full py-3 px-5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-950/30 hover:shadow-emerald-950/10 transition-all flex items-center justify-center gap-2 cursor-pointer group"
               >
-                <Sparkles className="w-4 h-4 text-amber-300 group-hover:scale-110 transition-transform" />
+                <Sparkles className="w-4 h-4 text-amber-300 group-hover:scale-110 transition-transform animate-bounce" />
                 <span>دخول غرفت المعلم السوداني الذكي التفاعلي 🇸🇩</span>
                 <ChevronRight className="w-4 h-4 transform rotate-180" />
               </button>
