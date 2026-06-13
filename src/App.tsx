@@ -37,6 +37,20 @@ export default function App() {
   const [categoryFilter, setCategoryFilter] = useState<"all" | "books" | "videos" | "interactive">("all");
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
+  // Proactively restore and sync any existing localStorage changes to the server file system
+  useEffect(() => {
+    const saved = localStorage.getItem("sudan_custom_curriculum_v2");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Sync silently on mount
+        saveCurriculumToServer(parsed, true);
+      } catch (e) {
+        console.error("Auto-sync error on mount", e);
+      }
+    }
+  }, []);
+
   // Set default stage from loaded curriculumData
   useEffect(() => {
     if (curriculumData.length > 1 && !selectedStage) {
@@ -55,9 +69,11 @@ export default function App() {
   }, [curriculumData]);
 
   // Function to save curriculum data directly on the server filesystem
-  const saveCurriculumToServer = async (newData: Stage[]) => {
+  const saveCurriculumToServer = async (newData: Stage[], isSilent = false) => {
     try {
-      setSaveStatus("جاري حفظ التعديلات على كود ملقم التعليم...");
+      if (!isSilent) {
+        setSaveStatus("جاري حفظ التعديلات على كود ملقم التعليم...");
+      }
       
       const response = await fetch("/api/curriculum/save", {
         method: "POST",
@@ -72,15 +88,21 @@ export default function App() {
 
       const result = await response.json();
       if (response.ok && result.success) {
-        setSaveStatus("تم تحديث كود برنامج المنهج (curriculum.ts) على الخادم بنجاح! 🎉");
-        setTimeout(() => setSaveStatus(null), 5000);
+        if (!isSilent) {
+          setSaveStatus("تم تحديث كود برنامج المنهج (curriculum.ts) على الخادم بنجاح! 🎉");
+          setTimeout(() => setSaveStatus(null), 5000);
+        } else {
+          console.log("Curriculum successfully synced to server file system on startup.");
+        }
       } else {
         throw new Error(result.error || "فشل غير معروف أثناء تحديث ملف الخادم.");
       }
     } catch (err: any) {
       console.error("Server save error:", err);
-      setSaveStatus(`تنبيه: تم الحفظ محلياً وفشل الحفظ على الملقم (${err.message})`);
-      setTimeout(() => setSaveStatus(null), 6000);
+      if (!isSilent) {
+        setSaveStatus(`تنبيه: تم الحفظ محلياً وفشل الحفظ على الملقم (${err.message})`);
+        setTimeout(() => setSaveStatus(null), 6000);
+      }
     }
   };
 
