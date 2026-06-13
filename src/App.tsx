@@ -51,6 +51,41 @@ export default function App() {
     }
   }, []);
 
+  // 📱 Mobile and Browser Native Back Button Integration
+  // Automatically pushes and pops from window.history stack when modals are shown / hidden
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      // When back is pressed, close any open modal
+      if (activeSubject) {
+        setActiveSubject(null);
+      } else if (addSubjectState) {
+        setAddSubjectState(null);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [activeSubject, addSubjectState]);
+
+  useEffect(() => {
+    // Check if any modal is active
+    const modalActive = !!(activeSubject || addSubjectState);
+    
+    if (modalActive) {
+      // If modal is active but history does not reflect it, push state
+      if (!window.history.state || !window.history.state.modalOpen) {
+        window.history.pushState({ modalOpen: true }, "");
+      }
+    } else {
+      // If no modals are active but history still has modalOpen, pop back to sync states
+      if (window.history.state && window.history.state.modalOpen) {
+        window.history.back();
+      }
+    }
+  }, [activeSubject, addSubjectState]);
+
   // Set default stage from loaded curriculumData
   useEffect(() => {
     if (curriculumData.length > 1 && !selectedStage) {
