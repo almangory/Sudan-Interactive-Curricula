@@ -4,6 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>My Google AI Studio App</title>
+    <script>
+      // Squelch benign background HMR WebSocket/Vite errors in the AI Studio cloud editor preview environment
+      window.addEventListener('unhandledrejection', function(event) {
+        if (event.reason) {
+          const msg = typeof event.reason === 'string' ? event.reason : (event.reason.message || '');
+          if (msg.includes('WebSocket') || msg.includes('websocket') || msg.includes('vite')) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        }
+      }, true);
+      window.addEventListener('error', function(event) {
+        const msg = event.message || '';
+        if (msg.includes('WebSocket') || msg.includes('websocket') || msg.includes('vite')) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      }, true);
+    </script>
   </head>
   <body>
     <div id="root"></div>
