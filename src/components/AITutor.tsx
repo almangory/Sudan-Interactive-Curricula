@@ -195,7 +195,7 @@ export default function AITutor({ stageName, gradeName, subjectName, onClose }: 
   };
 
   return (
-    <div className="flex flex-col h-[520px] bg-slate-900 rounded-2xl overflow-hidden border border-slate-755 shadow-2xl text-right" dir="rtl">
+    <div className="flex flex-col h-[520px] bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl text-right" dir="rtl">
       {/* Header */}
       <div className="px-6 py-4 bg-gradient-to-r from-emerald-800 to-slate-900 border-b border-emerald-900/35 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -218,7 +218,7 @@ export default function AITutor({ stageName, gradeName, subjectName, onClose }: 
             className={`px-3 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${
               activeTab === 'chat' 
                 ? 'bg-emerald-600 text-white shadow-md' 
-                : 'text-slate-400 hover:text-slate-205'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             <MessageSquare className="w-3.5 h-3.5" />
@@ -229,7 +229,7 @@ export default function AITutor({ stageName, gradeName, subjectName, onClose }: 
             className={`px-3 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${
               activeTab === 'quiz' 
                 ? 'bg-emerald-600 text-white shadow-md' 
-                : 'text-slate-400 hover:text-slate-205'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             <HelpCircle className="w-3.5 h-3.5" />

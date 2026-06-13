@@ -13,6 +13,7 @@ interface AddSubjectModalProps {
   gradeName: string;
   onClose: () => void;
   onAddSubject: (stageId: string, gradeId: string, newSubject: Subject) => void;
+  isAdminActive?: boolean;
 }
 
 const AVAILABLE_ICONS = [
@@ -43,9 +44,9 @@ const AVAILABLE_COLORS = [
   { value: "bg-pink-900/20 text-pink-400 border-pink-855", label: "وردي زاهي" }
 ];
 
-export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, onAddSubject }: AddSubjectModalProps) {
+export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, onAddSubject, isAdminActive }: AddSubjectModalProps) {
   // Authentication states
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(isAdminActive || false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
@@ -237,7 +238,7 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
                         className={`w-full py-1.5 px-3 rounded-lg border text-3xs font-bold flex items-center justify-between transition-all cursor-pointer ${
                           selectedColor === color.value 
                             ? "bg-emerald-600/10 text-emerald-350 border-emerald-500/85" 
-                            : "bg-slate-900 border-slate-800/80 text-slate-400 hover:text-slate-250"
+                            : "bg-slate-900 border-slate-800/80 text-slate-400 hover:text-slate-200"
                         }`}
                       >
                         <span>{color.label}</span>
@@ -258,7 +259,7 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
               {/* Interactive Url & Label */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-3xs font-bold text-slate-450 block">رابط البوابة التفاعلية للمقرر:</label>
+                  <label className="text-3xs font-bold text-slate-400 block">رابط البوابة التفاعلية للمقرر:</label>
                   <input
                     type="text"
                     value={interactiveUrl}
@@ -268,7 +269,7 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-3xs font-bold text-slate-455 block">اسم البوابة التفاعلية:</label>
+                  <label className="text-3xs font-bold text-slate-400 block">اسم البوابة التفاعلية:</label>
                   <input
                     type="text"
                     value={interactiveLabel}

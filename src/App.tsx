@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { 
   GraduationCap, Award, Compass, BookOpen, Clock, Heart, 
   Map, Sparkles, Star, ChevronLeft, ChevronDown, CheckCircle, 
-  Search, ShieldAlert, History, Globe, Plus, FileText, Video, Filter
+  Search, ShieldAlert, History, Globe, Plus, FileText, Video, Filter,
+  Lock, X
 } from "lucide-react";
 import { stagesData, Stage, Grade, Subject } from "./data/curriculum";
 import SubjectModal from "./components/SubjectModal";
@@ -27,6 +28,36 @@ export default function App() {
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<"all" | "books" | "videos" | "interactive">("all");
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+
+  // 🔐 Admin state variables & credentials management
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
+    return localStorage.getItem("sudan_edu_admin") === "true";
+  });
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [adminUsername, setAdminUsername] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [adminLoginError, setAdminLoginError] = useState("");
+
+  const handleAdminLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminUsername.trim().toLowerCase() === "almangory" && adminPassword === "20302060") {
+      setIsAdminLoggedIn(true);
+      localStorage.setItem("sudan_edu_admin", "true");
+      setShowAdminLogin(false);
+      setAdminLoginError("");
+      setSaveStatus("مرحباً بك يا أستاذ almangory! تم تفعيل دخول الإدارة وتعديل الكود مباشرة 🔑");
+      setTimeout(() => setSaveStatus(null), 5000);
+    } else {
+      setAdminLoginError("اسم المستخدم أو كلمة المرور غير صحيحة!");
+    }
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdminLoggedIn(false);
+    localStorage.removeItem("sudan_edu_admin");
+    setSaveStatus("تم تسجيل الخروج من لوحة الإدارة بنجاح.");
+    setTimeout(() => setSaveStatus(null), 4000);
+  };
 
   // Clean up any stale client-side curriculum caches to ensure the app loads the fresh server compiled code
   useEffect(() => {
@@ -285,6 +316,108 @@ export default function App() {
         <div className="bg-[#007229] flex-1"></div>
       </div>
 
+      {/* Top Header Bar for Admin Portal */}
+      <div className="bg-slate-900/90 border-b border-slate-800/60 px-6 py-2.5 relative z-50">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap text-right">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+            <span className="text-3xs md:text-2xs text-slate-400 font-bold">الموقع الرسمي المقارن للمناهج السودانية التفاعلية لعام ٢٠٢٦ م</span>
+          </div>
+
+          <div className="relative">
+            {isAdminLoggedIn ? (
+              <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-950/45 border border-emerald-900/65 text-emerald-400 font-extrabold text-[10px] rounded-xl shadow-inner select-none">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>🔒 صلاحية تعديل الإدارة مباشرة لـ: </span>
+                  <span className="text-white font-mono font-black">almangory</span>
+                </div>
+                <button
+                  onClick={handleAdminLogout}
+                  className="px-2.5 py-1 bg-rose-955/20 hover:bg-rose-900/20 border border-rose-900/40 text-rose-450 hover:text-rose-350 font-extrabold text-[10px] rounded-xl transition-all cursor-pointer shadow-sm active:scale-95"
+                >
+                  تسجيل الخروج
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setShowAdminLogin(prev => !prev);
+                  setAdminLoginError("");
+                  setAdminUsername("");
+                  setAdminPassword("");
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all hover:border-emerald-700/60 cursor-pointer"
+              >
+                🔐 دخول الإدارة
+              </button>
+            )}
+
+            {/* Admin Login Dialog dropdown */}
+            <AnimatePresence>
+              {showAdminLogin && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute left-0 mt-3 md:left-0 md:right-auto right-[-80px] w-72 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-4 z-[9999] space-y-3"
+                >
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h5 className="text-xs font-black text-slate-100 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>دخول إدارة المنهج التعليمي 🇸🇩</span>
+                    </h5>
+                    <button 
+                      onClick={() => setShowAdminLogin(false)}
+                      className="p-1 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-slate-300 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleAdminLoginSubmit} className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-400 font-bold block">اسم المستخدم:</label>
+                      <input
+                        type="text"
+                        required
+                        value={adminUsername}
+                        onChange={(e) => setAdminUsername(e.target.value)}
+                        placeholder="أدخل الاسم: almangory"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-3xs text-slate-100 outline-none focus:border-emerald-600 transition-all font-sans"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-400 font-bold block">كلمة المرور السرية:</label>
+                      <input
+                        type="password"
+                        required
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-3xs text-slate-100 outline-none focus:border-emerald-600 transition-all font-sans"
+                      />
+                    </div>
+
+                    {adminLoginError && (
+                      <p className="text-[10px] text-rose-500 font-bold text-center leading-normal bg-rose-955/20 border border-rose-900/40 p-1.5 rounded-lg animate-bounce">{adminLoginError}</p>
+                    )}
+
+                    <button
+                      type="submit"
+                      className="w-full py-2 bg-gradient-to-l from-emerald-600 to-emerald-700 hover:from-emerald-505 hover:to-emerald-605 text-[#ffffff] text-3xs font-black rounded-lg transition-all cursor-pointer shadow-md active:scale-95"
+                    >
+                      تفعيل صلاحيات الإدارة وحفظ الأكواد
+                    </button>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+
       {/* Embedded Sudan Cultural and Academic Hero Banner */}
       <header className="relative py-12 md:py-16 px-6 overflow-hidden">
         {/* Abstract Geometrics */}
@@ -294,14 +427,14 @@ export default function App() {
 
         <div className="max-w-7xl mx-auto relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="space-y-4 max-w-2xl text-center md:text-right">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/50 border border-emerald-900/40 text-emerald-455 text-xs font-semibold shadow-inner">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/50 border border-emerald-900/40 text-emerald-400 text-xs font-semibold shadow-inner">
               <Sparkles className="w-3.5 h-3.5" />
               <span>موقع تفاعلي لطلاب جمهورية السودان 🇸🇩</span>
             </div>
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-slate-101 tracking-tight leading-tight md:leading-normal">
-              منصة السودان <span className="text-transparent bg-clip-text bg-gradient-to-l from-emerald-400 via-emerald-500 to-yellow-405">التعليمية التفاعلية</span>
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-slate-100 tracking-tight leading-tight md:leading-normal">
+              منصة السودان <span className="text-transparent bg-clip-text bg-gradient-to-l from-emerald-400 via-emerald-500 to-yellow-400">التعليمية التفاعلية</span>
             </h1>
-            <p className="text-sm md:text-base text-slate-405 leading-relaxed max-w-xl">
+            <p className="text-sm md:text-base text-slate-400 leading-relaxed max-w-xl">
               بوابتك الذكية لاستكشاف مناهج وزارة التربية والتعليم السودانية، من رياض ومرحلة الطفولة المبكرة والابتدائي إلى المتوسط والثانوي. تصفح المواد الدراسية، والتحق بمعاملك التفاعلية وأستاذك الذكي.
             </p>
 
@@ -322,22 +455,22 @@ export default function App() {
           <div className="w-full md:w-auto grid grid-cols-2 gap-4 flex-shrink-0">
             <div 
               onClick={() => setShowOnlyFavorites(prev => !prev)}
-              className={`p-4 border rounded-2xl text-center space-y-1 min-w-[140px] shadow-lg cursor-pointer transition-all duration-205 select-none ${
+              className={`p-4 border rounded-2xl text-center space-y-1 min-w-[140px] shadow-lg cursor-pointer transition-all duration-200 select-none ${
                 showOnlyFavorites 
-                  ? "bg-amber-950/25 border-yellow-500/80 ring-2 ring-yellow-500/30 text-yellow-250 hover:bg-amber-950/40 shadow-yellow-950/40" 
-                  : "bg-slate-900/60 border-slate-800/80 hover:bg-slate-850/80 hover:border-yellow-500/40"
+                  ? "bg-amber-950/20 border-yellow-500/80 ring-2 ring-yellow-500/30 text-amber-400 hover:bg-amber-950/40 shadow-yellow-950/40" 
+                  : "bg-slate-900/60 border-slate-800/80 hover:bg-slate-800/80 hover:border-yellow-500/40"
               }`}
             >
               <Star className={`w-5 h-5 mx-auto transition-all ${showOnlyFavorites ? "text-yellow-400 fill-yellow-400 scale-110" : "text-yellow-400"}`} />
-              <span className="text-xl font-bold text-slate-101 block">{favoriteSubjects.length}</span>
+              <span className="text-xl font-bold text-slate-100 block">{favoriteSubjects.length}</span>
               <span className="text-2xs text-slate-400 block font-bold">
                 {showOnlyFavorites ? "المناهج الكاملة" : "المواد المفضلة ⭐"}
               </span>
             </div>
             <div className="bg-slate-900/60 p-4 border border-slate-800/80 rounded-2xl text-center space-y-1 min-w-[140px] shadow-lg selection:bg-transparent">
               <CheckCircle className="w-5 h-5 text-emerald-450 mx-auto" />
-              <span className="text-xl font-bold text-slate-101 block">{completedLessons.length}</span>
-              <span className="text-2xs text-slate-404 block font-medium">تمارين مكتملة</span>
+              <span className="text-xl font-bold text-slate-100 block">{completedLessons.length}</span>
+              <span className="text-2xs text-slate-400 block font-medium">تمارين مكتملة</span>
             </div>
           </div>
         </div>
@@ -348,10 +481,10 @@ export default function App() {
         
         {/* Stage selection selector tabs */}
         <section className="space-y-4">
-          <div className="flex flex-col md:flex-row items-center justify-between border-b border-slate-850 pb-4 gap-4">
+          <div className="flex flex-col md:flex-row items-center justify-between border-b border-slate-800 pb-4 gap-4">
             <div>
               <h2 className="text-base font-bold text-slate-300">مراحل التعليم الأساسي بدولة السودان:</h2>
-              <p className="text-2xs text-slate-550 mt-1">اختر المرحلة الدراسية الملائمة لتصفح الفصول والمواد الدراسية المقررة.</p>
+              <p className="text-2xs text-slate-500 mt-1">اختر المرحلة الدراسية الملائمة لتصفح الفصول والمواد الدراسية المقررة.</p>
             </div>
             
             {/* Quick notification of custom structure */}
@@ -376,8 +509,8 @@ export default function App() {
                   }}
                   className={`relative p-5 rounded-2xl text-right border transition-all text-xs md:text-sm shadow-sm overflow-hidden group cursor-pointer ${
                     isSelected 
-                      ? "bg-slate-900 border-emerald-605 shadow-md shadow-emerald-950/20" 
-                      : "bg-slate-900/40 border-slate-850/60 hover:bg-slate-900 hover:border-slate-800"
+                      ? "bg-slate-900 border-emerald-600 shadow-md shadow-emerald-950/20" 
+                      : "bg-slate-900/40 border-slate-800/60 hover:bg-slate-900 hover:border-slate-800"
                   }`}
                 >
                   {/* Decorative Subtle Accent Tag for selected */}
@@ -394,9 +527,9 @@ export default function App() {
                       {getStageIcon(stage.icon)}
                     </div>
                     <div className="space-y-1">
-                      <h3 className="font-bold text-slate-101">{stage.name}</h3>
+                      <h3 className="font-bold text-slate-100">{stage.name}</h3>
                       <p className="text-2xs text-slate-400 line-clamp-1">{stage.description}</p>
-                      <span className="text-3xs text-emerald-505 font-bold block mt-1">
+                      <span className="text-3xs text-emerald-500 font-bold block mt-1">
                         عدد الفصول: {stage.grades.length} {stage.id === "kindergarten" ? "سنوات" : "صفوف دراسية"}
                       </span>
                     </div>
@@ -416,29 +549,29 @@ export default function App() {
           >
             <div className="flex flex-col sm:flex-row items-center justify-between bg-gradient-to-br from-slate-900 via-slate-900 to-yellow-950/10 p-6 md:p-8 rounded-3xl border border-slate-800/85 gap-6 shadow-xl">
               <div className="space-y-2 text-center sm:text-right">
-                <span className="text-xs text-yellow-405 font-mono font-black uppercase tracking-widest">تصفح قائمتك الخاصة:</span>
+                <span className="text-xs text-amber-400 font-mono font-black uppercase tracking-widest">تصفح قائمتك الخاصة:</span>
                 <div className="flex items-center justify-center sm:justify-start gap-2 text-yellow-500">
                   <Star className="w-5 h-5 fill-current" />
-                  <h3 className="text-xl md:text-2xl font-black text-slate-101 animate-pulse">المواد المفضلة لديك ⭐</h3>
+                  <h3 className="text-xl md:text-2xl font-black text-slate-100 animate-pulse">المواد المفضلة لديك ⭐</h3>
                 </div>
                 <p className="text-xs text-slate-400">لقد قمت بإضافة {favoritedSubjectsList.length} مادة للمفضلة لتسهيل مراجعتها والمتابعة السريعة للفيديوهات والمعامل التفاعلية.</p>
               </div>
               
               <button
                 onClick={() => setShowOnlyFavorites(false)}
-                className="px-5 py-2 text-xs font-bold text-slate-205 bg-slate-900 hover:bg-slate-850 rounded-xl border border-slate-800 hover:border-slate-700 cursor-pointer transition-all shadow-md shrink-0"
+                className="px-5 py-2 text-xs font-bold text-slate-200 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800 hover:border-slate-700 cursor-pointer transition-all shadow-md shrink-0"
               >
                 العودة للمنهج السوداني الكامل 🇸🇩
               </button>
             </div>
 
             {favoritedSubjectsList.length === 0 ? (
-              <div className="text-center py-20 bg-slate-900/40 rounded-3xl border border-slate-850/60 border-dashed space-y-4 max-w-2xl mx-auto">
-                <div className="p-4 bg-yellow-500/5 text-yellow-550 rounded-full w-16 h-16 flex items-center justify-center mx-auto border border-yellow-500/10">
+              <div className="text-center py-20 bg-slate-900/40 rounded-3xl border border-slate-800/60 border-dashed space-y-4 max-w-2xl mx-auto">
+                <div className="p-4 bg-yellow-500/5 text-yellow-500 rounded-full w-16 h-16 flex items-center justify-center mx-auto border border-yellow-500/10">
                   <Star className="w-8 h-8 fill-current" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-bold text-slate-205">لا توجد مواد مفضلة حتى الآن</p>
+                  <p className="text-sm font-bold text-slate-200">لا توجد مواد مفضلة حتى الآن</p>
                   <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
                     لتسهيل المذاكرة والمتابعة السريعة، تصفح المراحل التعليمية واضغط على علامة النجمة (⭐) الموجودة على أي مادة دراسية لتظهر هنا تلقائياً لسهولة تصفحها.
                   </p>
@@ -469,7 +602,7 @@ export default function App() {
                             className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                               isFavorite 
                                 ? 'bg-yellow-900/20 text-yellow-500 border-yellow-800/40' 
-                                : 'bg-slate-805 text-slate-505 hover:text-slate-205 border-slate-755'
+                                : 'bg-slate-800 text-slate-500 hover:text-slate-200 border-slate-700'
                             }`}
                             title="المفضلة"
                           >
@@ -480,7 +613,7 @@ export default function App() {
                             className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                               isLessonComplete 
                                 ? 'bg-emerald-950/40 text-emerald-400 border-emerald-900/50' 
-                                : 'bg-slate-805 text-slate-505 hover:text-slate-205 border-slate-755'
+                                : 'bg-slate-800 text-slate-500 hover:text-slate-200 border-slate-700'
                             }`}
                             title="تميز بالاكتمال"
                           >
@@ -496,7 +629,7 @@ export default function App() {
                             </div>
                             <div className="space-y-0.5 max-w-[70%]">
                               <h6 className="font-extrabold text-[#ffffff] text-sm truncate">{subject.name}</h6>
-                              <span className="text-3xs text-emerald-450 font-bold block truncate">
+                              <span className="text-3xs text-emerald-400 font-bold block truncate">
                                 {subject.stageName} • {subject.gradeName}
                               </span>
                             </div>
@@ -510,11 +643,11 @@ export default function App() {
 
                         {/* Footer: entering triggers interaction */}
                         <div className="mt-5 pt-3.5 border-t border-slate-800/50 flex items-center justify-between text-2xs">
-                          <span className="text-emerald-455 font-bold flex items-center gap-1">
+                          <span className="text-emerald-400 font-bold flex items-center gap-1">
                             <Sparkles className="w-3 h-3 text-amber-400" />
                             بوابة المدرس والمناهج التفاعلية
                           </span>
-                          <span className="text-slate-400 font-medium group-hover:text-slate-205 flex items-center gap-0.5">
+                          <span className="text-slate-400 font-medium group-hover:text-slate-200 flex items-center gap-0.5">
                             دخول
                             <ChevronLeft className="w-3 h-3" />
                           </span>
@@ -537,19 +670,19 @@ export default function App() {
               {/* Stage Hero Summary */}
               <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/10 p-6 md:p-8 rounded-3xl border border-slate-800/80 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
                 <div className="space-y-3 max-w-xl text-center md:text-right">
-                  <span className="text-xs text-emerald-405 font-mono font-black uppercase tracking-widest">تصفح المواد في:</span>
-                  <h3 className="text-xl md:text-2xl font-black text-slate-101">{selectedStage.name}</h3>
+                  <span className="text-xs text-emerald-400 font-mono font-black uppercase tracking-widest">تصفح المواد في:</span>
+                  <h3 className="text-xl md:text-2xl font-black text-slate-100">{selectedStage.name}</h3>
                   <p className="text-xs md:text-sm text-slate-400 leading-relaxed">{selectedStage.description}</p>
                 </div>
                 
                 {/* Informative indicator card */}
-                <div className="p-4 bg-slate-950 border border-slate-850 rounded-2xl flex items-center gap-3.5 flex-shrink-0">
-                  <div className="p-2 bg-emerald-500/10 text-emerald-450 rounded-xl">
+                <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl flex items-center gap-3.5 flex-shrink-0">
+                  <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
                     <CheckCircle className="w-5 h-5" />
                   </div>
                   <div>
                     <span className="text-2xs text-slate-400 block leading-none">مجموع المواد التفاعلية</span>
-                    <span className="text-lg font-black text-slate-101 block mt-1">
+                    <span className="text-lg font-black text-slate-100 block mt-1">
                       {selectedStage.grades.reduce((sum, g) => sum + g.subjects.length, 0)} مواد دراسية
                     </span>
                   </div>
@@ -593,7 +726,7 @@ export default function App() {
                       <motion.div 
                         key={grade.id}
                         layout
-                        className="bg-slate-900/60 border border-slate-805 rounded-2xl overflow-hidden shadow-md"
+                        className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-md"
                       >
                         {/* Grade Title / Header accordion tab */}
                         <button
@@ -611,7 +744,7 @@ export default function App() {
                               {grade.subjects.length}
                             </div>
                             <div>
-                              <h5 className="font-extrabold text-slate-101 group-hover:text-emerald-300 transition-colors">{grade.name}</h5>
+                              <h5 className="font-extrabold text-slate-100 group-hover:text-emerald-300 transition-colors">{grade.name}</h5>
                               <p className="text-3xs text-slate-400 mt-1 flex items-center gap-1">
                                 <Sparkles className="w-3 h-3 text-emerald-500 animate-pulse" />
                                 <span>انقر لتصفح المواد كشبكة تفاعلية مصنفة</span>
@@ -632,17 +765,17 @@ export default function App() {
                               animate={{ height: "auto", opacity: 1 }}
                               exit={{ height: 0, opacity: 0 }}
                               transition={{ duration: 0.28 }}
-                              className="border-t border-slate-850 bg-slate-950/40"
+                              className="border-t border-slate-800 bg-slate-950/40"
                             >
                               <div className="p-6 space-y-5">
                                 
                                 {/* 🏷️ Category Filter Bar */}
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-950/50 p-3 rounded-2xl border border-slate-850">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-950/50 p-3 rounded-2xl border border-slate-800">
                                   <div className="flex items-center gap-2 text-slate-400 text-3xs font-extrabold pb-1 sm:pb-0">
                                     <Filter className="w-3.5 h-3.5 text-emerald-400" />
                                     <span>تصنيف محتوى المواد وعرض المقررات:</span>
                                   </div>
-                                  <div className="flex flex-wrap items-center gap-1.55">
+                                  <div className="flex flex-wrap items-center gap-1.5">
                                     <button
                                       type="button"
                                       onClick={() => setCategoryFilter("all")}
@@ -710,8 +843,8 @@ export default function App() {
                                             onClick={(e) => toggleFavorite(subject.id, e)}
                                             className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                                               isFavorite 
-                                                ? 'bg-yellow-905/30 text-yellow-400 border-yellow-800/60 scale-105' 
-                                                : 'bg-slate-950/60 text-slate-500 hover:text-yellow-400 border-slate-850 hover:border-yellow-950/30'
+                                                ? 'bg-yellow-950/30 text-yellow-400 border-yellow-800/60 scale-105' 
+                                                : 'bg-slate-950/60 text-slate-500 hover:text-yellow-400 border-slate-800 hover:border-yellow-950/30'
                                             }`}
                                             title="المفضلة"
                                           >
@@ -721,8 +854,8 @@ export default function App() {
                                             onClick={(e) => toggleLessonComplete(subject.id, e)}
                                             className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                                               isLessonComplete 
-                                                ? 'bg-emerald-955/45 text-emerald-400 border-emerald-900/60 scale-105' 
-                                                : 'bg-slate-950/60 text-slate-500 hover:text-emerald-400 border-slate-850 hover:border-emerald-950/30'
+                                                ? 'bg-emerald-950/45 text-emerald-400 border-emerald-900/60 scale-105' 
+                                                : 'bg-slate-950/60 text-slate-500 hover:text-emerald-400 border-slate-800 hover:border-emerald-950/30'
                                             }`}
                                             title="تميز بالاكتمال"
                                           >
@@ -812,7 +945,7 @@ export default function App() {
 
                                   {/* Empty State when filter yields 0 matches */}
                                   {filteredSubjects.length === 0 && (
-                                    <div className="col-span-full py-12 px-6 bg-slate-900/20 border border-slate-850/60 rounded-3xl text-center flex flex-col items-center justify-center space-y-3">
+                                    <div className="col-span-full py-12 px-6 bg-slate-900/20 border border-slate-800/60 rounded-3xl text-center flex flex-col items-center justify-center space-y-3">
                                       <div className="p-3 bg-slate-950 rounded-full text-slate-500">
                                         <Filter className="w-6 h-6" />
                                       </div>
@@ -833,10 +966,10 @@ export default function App() {
                                       gradeId: grade.id,
                                       gradeName: grade.name
                                     })}
-                                    className="relative p-5 bg-slate-900/30 border border-dashed border-slate-850 hover:border-emerald-600/60 rounded-2xl transition-all duration-200 hover:bg-slate-900/50 cursor-pointer flex flex-col justify-center items-center text-center space-y-3 min-h-[180px]"
+                                    className="relative p-5 bg-slate-900/30 border border-dashed border-slate-800 hover:border-emerald-600/60 rounded-2xl transition-all duration-200 hover:bg-slate-900/50 cursor-pointer flex flex-col justify-center items-center text-center space-y-3 min-h-[180px]"
                                   >
                                     <div className="p-3 bg-slate-950/80 border border-slate-800 text-slate-400 hover:text-emerald-400 rounded-xl transition-colors">
-                                      <Plus className="w-5 h-5 text-emerald-450" />
+                                      <Plus className="w-5 h-5 text-emerald-400" />
                                     </div>
                                     <div className="space-y-1">
                                       <h6 className="font-bold text-slate-200 text-xs">إضافة مادة مخصصة جديدة</h6>
@@ -871,6 +1004,7 @@ export default function App() {
             subject={activeSubject}
             onClose={() => setActiveSubject(null)}
             onUpdateSubject={updateSubject}
+            isAdminActive={isAdminLoggedIn}
           />
         )}
       </AnimatePresence>
@@ -884,12 +1018,13 @@ export default function App() {
             gradeName={addSubjectState.gradeName}
             onClose={() => setAddSubjectState(null)}
             onAddSubject={addSubject}
+            isAdminActive={isAdminLoggedIn}
           />
         )}
       </AnimatePresence>
 
       {/* Sticky footer info */}
-      <footer className="mt-20 border-t border-slate-850/80 pt-10 text-center max-w-7xl mx-auto px-6">
+      <footer className="mt-20 border-t border-slate-800/80 pt-10 text-center max-w-7xl mx-auto px-6">
         <div className="space-y-4 text-xs text-slate-400">
           <p className="font-semibold text-slate-300">🇸🇩 منصة المناهج السودانية التفاعلية لعام 2026</p>
           <p className="max-w-xl mx-auto text-2xs text-slate-500 leading-relaxed">

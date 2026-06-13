@@ -65,9 +65,10 @@ interface SubjectModalProps {
   subject: Subject;
   onClose: () => void;
   onUpdateSubject?: (stageId: string, gradeId: string, subjectId: string, updatedFields: Partial<Subject>) => void;
+  isAdminActive?: boolean;
 }
 
-export default function SubjectModal({ stageId, stageName, gradeId, gradeName, subject, onClose, onUpdateSubject }: SubjectModalProps) {
+export default function SubjectModal({ stageId, stageName, gradeId, gradeName, subject, onClose, onUpdateSubject, isAdminActive }: SubjectModalProps) {
   const [showTutor, setShowTutor] = useState(false);
 
   // Sharing states and helper methods
@@ -139,9 +140,13 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
       setEditVideoUrl(subject.videoUrl || "");
       setEditCurriculumSummary(subject.curriculumSummary || "");
     } else {
-      setShowPasswordPrompt(true);
-      setPasswordInput("");
-      setPasswordError("");
+      if (isAdminActive) {
+        setIsEditing(true);
+      } else {
+        setShowPasswordPrompt(true);
+        setPasswordInput("");
+        setPasswordError("");
+      }
     }
   };
 
@@ -211,10 +216,14 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
               </button>
               <button 
                 onClick={handleEditClick}
-                className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-800 hover:bg-slate-755 border border-slate-700/80 text-amber-400 hover:text-amber-300 rounded-xl text-3xs font-bold transition-all cursor-pointer shadow-sm"
+                className={`inline-flex items-center gap-1.5 px-3 py-1 border rounded-xl text-3xs font-bold transition-all cursor-pointer shadow-sm ${
+                  isAdminActive 
+                    ? 'bg-emerald-900/30 hover:bg-emerald-900/40 border-emerald-800/80 text-emerald-450 hover:text-emerald-300' 
+                    : 'bg-slate-800 hover:bg-slate-755 border-slate-700/80 text-amber-400 hover:text-amber-300'
+                }`}
               >
                 <Edit className="w-3 h-3" />
-                <span>{isEditing ? "إلغاء التعديل" : "تعديل المادة والروابط"}</span>
+                <span>{isEditing ? "إلغاء التعديل" : isAdminActive ? "تعديل الإدارة الفوري 🔑" : "تعديل المادة والروابط"}</span>
               </button>
               <div className={`px-3 py-1 rounded-full text-xs font-semibold ${subject.colorClass} border`}>
                 {gradeName}
@@ -265,13 +274,13 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
           ) : isEditing ? (
             <div className="space-y-4 flex-1 overflow-y-auto">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <h3 className="text-xs font-bold text-slate-205">تحرير المادة: {subject.name}</h3>
+                <h3 className="text-xs font-bold text-slate-200">تحرير المادة: {subject.name}</h3>
                 <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-900/40">المعلم نشط 🔐</span>
               </div>
 
               {/* Subject Name */}
               <div className="space-y-1">
-                <label className="text-3xs font-bold text-slate-450 uppercase block">اسم المادة الدراسية:</label>
+                <label className="text-3xs font-bold text-slate-400 uppercase block">اسم المادة الدراسية:</label>
                 <input
                   type="text"
                   value={editName}
@@ -282,7 +291,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
 
               {/* Curriculum Summary */}
               <div className="space-y-1">
-                <label className="text-3xs font-bold text-slate-450 uppercase block">تفاصيل المنهج السوداني المقرر:</label>
+                <label className="text-3xs font-bold text-slate-400 uppercase block">تفاصيل المنهج السوداني المقرر:</label>
                 <textarea
                   value={editCurriculumSummary}
                   onChange={(e) => setEditCurriculumSummary(e.target.value)}
@@ -294,7 +303,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
               {/* Interactive Url & Label */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-3xs font-bold text-slate-450 uppercase block">رابط البوابة التفاعلية للمقرر:</label>
+                  <label className="text-3xs font-bold text-slate-400 uppercase block">رابط البوابة التفاعلية للمقرر:</label>
                   <input
                     type="text"
                     value={editInteractiveUrl}
@@ -304,7 +313,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-3xs font-bold text-slate-450 uppercase block">تسمية البوابة التفاعلية:</label>
+                  <label className="text-3xs font-bold text-slate-400 uppercase block">تسمية البوابة التفاعلية:</label>
                   <input
                     type="text"
                     value={editInteractiveLabel}
@@ -317,7 +326,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
 
               {/* PDF Url */}
               <div className="space-y-1">
-                <label className="text-3xs font-bold text-slate-450 uppercase block">رابط تنزيل كتاب المقرر PDF:</label>
+                <label className="text-3xs font-bold text-slate-400 uppercase block">رابط تنزيل كتاب المقرر PDF:</label>
                 <input
                   type="text"
                   value={editPdfUrl}
@@ -329,7 +338,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
 
               {/* Memo PDF Url */}
               <div className="space-y-1">
-                <label className="text-3xs font-bold text-slate-450 uppercase block">رابط ملخص أو مذكرة المادة PDF:</label>
+                <label className="text-3xs font-bold text-slate-400 uppercase block">رابط ملخص أو مذكرة المادة PDF:</label>
                 <input
                   type="text"
                   value={editMemoPdfUrl}
@@ -341,7 +350,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
 
               {/* Video Url */}
               <div className="space-y-1">
-                <label className="text-3xs font-bold text-slate-450 uppercase block">رابط شرح المادة بالفيديو (يوتيوب):</label>
+                <label className="text-3xs font-bold text-slate-400 uppercase block">رابط شرح المادة بالفيديو (يوتيوب):</label>
                 <input
                   type="text"
                   value={editVideoUrl}
@@ -355,7 +364,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                 <button
                   type="button"
                   onClick={() => setIsEditing(false)}
-                  className="px-4 py-1.5 text-xs text-slate-405 bg-slate-800 hover:bg-slate-755 rounded-xl transition-all cursor-pointer"
+                  className="px-4 py-1.5 text-xs text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all cursor-pointer"
                 >
                   إلغاء
                 </button>
@@ -566,7 +575,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
               {/* Premium Direct Social Share Board */}
               <div className="bg-slate-950/45 p-4 rounded-2xl border border-slate-800/60 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-inner">
                 <div className="space-y-0.5 text-center sm:text-right">
-                  <h5 className="text-xs font-black text-slate-20 bg-gradient-to-l from-emerald-400 to-slate-200 bg-clip-text text-transparent">شارك هذا المنهج الدراسي مع أصحابك 📢</h5>
+                  <h5 className="text-xs font-black text-slate-200 bg-gradient-to-l from-emerald-400 to-slate-200 bg-clip-text text-transparent">شارك هذا المنهج الدراسي مع أصحابك 📢</h5>
                   <p className="text-[10px] text-slate-400">انشر الرابط لزملائك الطلاب أو مجموعات المدرسة في المحادثات</p>
                 </div>
                 
@@ -606,7 +615,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   {/* Copy Link Button */}
                   <button
                     onClick={handleShare}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-755 border border-slate-705 text-slate-200 rounded-xl text-3xs font-extrabold transition-all cursor-pointer shadow-sm active:scale-95"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl text-3xs font-extrabold transition-all cursor-pointer shadow-sm active:scale-95"
                   >
                     {isCopied ? <Check className="w-3 h-3 text-emerald-450" /> : <Share2 className="w-3 h-3 text-emerald-450" />}
                     <span>{isCopied ? "تم النسخ!" : "نسخ الرابط"}</span>
