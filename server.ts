@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import fs from "fs/promises";
 
 dotenv.config();
 
@@ -23,8 +24,9 @@ if (apiKey) {
   });
 }
 
-// Middleware for JSON parsing
-app.use(express.json());
+// Middleware for JSON parsing with 50mb limit to handle large curriculum payloads
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // API route for AI Tutor chat
 app.post("/api/tutor/chat", async (req, res) => {
@@ -136,7 +138,6 @@ app.post("/api/curriculum/save", async (req, res) => {
       return res.status(400).json({ error: "بيانات المنهج غير صالحة." });
     }
 
-    const fs = await import("fs/promises");
     const filePath = path.join(process.cwd(), "src", "data", "curriculum.ts");
 
     // Reconstruct the full TS file content
@@ -200,6 +201,15 @@ app.get("/api/proxy-pdf", async (req, res) => {
     console.error("PDF proxy error:", error);
     res.status(500).json({ error: "حدث خطأ أثناء جلب الملف: " + error.message });
   }
+});
+
+// Global JSON error handling middleware to safely catch body-parser/payload and unexpected server errors
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("Express App Error:", err);
+  res.status(err.status || err.statusCode || 500).json({
+    success: false,
+    error: err.message || "حدث خطأ داخلي على الملقم."
+  });
 });
 
 async function startServer() {
