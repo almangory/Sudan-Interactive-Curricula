@@ -3,11 +3,13 @@ import { motion } from "motion/react";
 import { 
   X, ExternalLink, Sparkles, BookOpen, Clock, Users, ShieldAlert,
   ChevronRight, Award, Compass, Heart, HelpCircle, Download, Video,
-  FileText, Youtube, Lock, Unlock, Save, Edit, Share2, Check
+  FileText, Youtube, Lock, Unlock, Save, Edit, Share2, Check,
+  Cloud, RefreshCw
 } from "lucide-react";
 import { Subject } from "../data/curriculum";
 import DynamicIcon from "./DynamicIcon";
 import AITutor from "./AITutor";
+import { googleSignIn, saveUrlToGoogleDrive, createFolder, getAccessToken } from "../lib/driveAuth";
 
 function getVideoEmbedUrl(url: string): { url: string; isYouTube: boolean; isDrive: boolean } | null {
   if (!url) return null;
@@ -70,6 +72,54 @@ interface SubjectModalProps {
 
 export default function SubjectModal({ stageId, stageName, gradeId, gradeName, subject, onClose, onUpdateSubject, isAdminActive }: SubjectModalProps) {
   const [showTutor, setShowTutor] = useState(false);
+
+  // Google Drive integration states
+  const [driveSaveState, setDriveSaveState] = useState<{ [key: string]: "idle" | "saving" | "success" | "error" }>({});
+  const [driveError, setDriveError] = useState<string | null>(null);
+
+  const handleSaveToDrive = async (fileUrl: string, fileLabel: string, key: string) => {
+    try {
+      setDriveSaveState(prev => ({ ...prev, [key]: "saving" }));
+      setDriveError(null);
+      
+      // 1. Retrieve cached token or trigger on-demand Google Sign-in popup
+      let token = await getAccessToken();
+      if (!token) {
+        const authResult = await googleSignIn();
+        if (!authResult) {
+          throw new Error("لم يتم منح صلاحيات الوصول لحساب Google Drive.");
+        }
+        token = authResult.accessToken;
+      }
+      
+      // 2. Setup the study folder
+      const folderId = await createFolder(token, "المناهج السودانية 🇸🇩");
+      
+      // 3. Download from ministerial URL (protected by CORS proxy) and stream to Google Drive API
+      await saveUrlToGoogleDrive(token, fileUrl, `${subject.name} - ${fileLabel}.pdf`, folderId);
+      
+      setDriveSaveState(prev => ({ ...prev, [key]: "success" }));
+      setTimeout(() => {
+        setDriveSaveState(prev => ({ ...prev, [key]: "idle" }));
+      }, 4500);
+    } catch (err: any) {
+      console.error("Save to Drive error:", err);
+      setDriveSaveState(prev => ({ ...prev, [key]: "error" }));
+      
+      let friendlyMessage = "فشلت عملية الحفظ في Google Drive.";
+      if (err.code === "auth/popup-closed-by-user" || (err.message && (err.message.includes("popup-closed-by-user") || err.message.includes("closed-by-user")))) {
+        friendlyMessage = "تم إغلاق نافذة تسجيل الدخول قبل اكتمال عملية الحفظ وتخويل Google Drive.";
+      } else if (err.message) {
+        friendlyMessage = err.message;
+      }
+      
+      setDriveError(friendlyMessage);
+      setTimeout(() => {
+        setDriveSaveState(prev => ({ ...prev, [key]: "idle" }));
+        setDriveError(null);
+      }, 6000);
+    }
+  };
 
   // Sharing states and helper methods
   const [isCopied, setIsCopied] = useState(false);
@@ -457,15 +507,46 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   </div>
                   <div>
                     {subject.pdfUrl ? (
-                      <a 
-                        href={subject.pdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-650 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>تنزيل كتاب المقرر PDF</span>
-                      </a>
+                      <div className="space-y-2">
+                        <a 
+                          href={subject.pdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-650 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>تنزيل كتاب المقرر PDF</span>
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveToDrive(subject.pdfUrl!, "كتاب المقرر", "book")}
+                          disabled={driveSaveState["book"] === "saving"}
+                          className={`w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 border rounded-xl text-2xs font-bold transition-all shadow-sm ${
+                            driveSaveState["book"] === "saving"
+                              ? "bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed animate-pulse"
+                              : driveSaveState["book"] === "success"
+                              ? "bg-emerald-950/40 border-emerald-500/80 text-emerald-400 font-extrabold"
+                              : driveSaveState["book"] === "error"
+                              ? "bg-red-950/40 border-red-500 text-red-400"
+                              : "bg-slate-900 hover:bg-slate-800 border-slate-800 hover:border-slate-700 text-slate-300 cursor-pointer"
+                          }`}
+                        >
+                          {driveSaveState["book"] === "saving" ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                          ) : (
+                            <Cloud className={`w-3.5 h-3.5 ${driveSaveState["book"] === "success" ? "text-emerald-400 fill-emerald-500/10" : "text-emerald-400"}`} />
+                          )}
+                          <span>
+                            {driveSaveState["book"] === "saving"
+                              ? "جاري الحفظ في الـ Drive..."
+                              : driveSaveState["book"] === "success"
+                              ? "✓ تم الحفظ في قوقل درايف بنجاح!"
+                              : driveSaveState["book"] === "error"
+                              ? "فشل الحفظ (حاول مجدداً)"
+                              : "حفظ نسخة في Google Drive 💾"}
+                          </span>
+                        </button>
+                      </div>
                     ) : (
                       <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 cursor-not-allowed opacity-60">
                         <Download className="w-3.5 h-3.5 text-slate-500/80" />
@@ -490,15 +571,46 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   </div>
                   <div>
                     {subject.memoPdfUrl ? (
-                      <a 
-                        href={subject.memoPdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-550 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
-                      >
-                        <Download className="w-3.5 h-3.5 animate-pulse" />
-                        <span>تنزيل مذكرة المادة PDF</span>
-                      </a>
+                      <div className="space-y-2">
+                        <a 
+                          href={subject.memoPdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-550 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5 animate-pulse" />
+                          <span>تنزيل مذكرة المادة PDF</span>
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveToDrive(subject.memoPdfUrl!, "ملخص المادة", "memo")}
+                          disabled={driveSaveState["memo"] === "saving"}
+                          className={`w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 border rounded-xl text-2xs font-bold transition-all shadow-sm ${
+                            driveSaveState["memo"] === "saving"
+                              ? "bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed animate-pulse"
+                              : driveSaveState["memo"] === "success"
+                              ? "bg-emerald-950/40 border-emerald-500/80 text-emerald-400 font-extrabold"
+                              : driveSaveState["memo"] === "error"
+                              ? "bg-red-950/40 border-red-500 text-red-400"
+                              : "bg-slate-900 hover:bg-slate-800 border-slate-800 hover:border-slate-700 text-slate-300 cursor-pointer"
+                          }`}
+                        >
+                          {driveSaveState["memo"] === "saving" ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                          ) : (
+                            <Cloud className={`w-3.5 h-3.5 ${driveSaveState["memo"] === "success" ? "text-emerald-400 fill-emerald-500/10" : "text-emerald-400"}`} />
+                          )}
+                          <span>
+                            {driveSaveState["memo"] === "saving"
+                              ? "جاري الحفظ في الـ Drive..."
+                              : driveSaveState["memo"] === "success"
+                              ? "✓ تم الحفظ في قوقل درايف بنجاح!"
+                              : driveSaveState["memo"] === "error"
+                              ? "فشل الحفظ (حاول مجدداً)"
+                              : "حفظ نسخة في Google Drive 💾"}
+                          </span>
+                        </button>
+                      </div>
                     ) : (
                       <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 cursor-not-allowed opacity-60">
                         <Download className="w-3.5 h-3.5 text-slate-500/80" />
@@ -507,6 +619,13 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                     )}
                   </div>
                 </div>
+
+              {/* Error or general alert feedback for Drive actions */}
+              {driveError && (
+                <div className="px-3 py-2.5 bg-red-950/45 border border-red-900/45 text-red-400 text-2xs font-bold rounded-2xl text-center shadow-md">
+                  ⚠️ قوقل درايف: {driveError}
+                </div>
+              )}
 
                 {/* Video Card */}
                 <div className={`p-4 rounded-2xl bg-slate-950/40 border border-slate-800/80 flex flex-col justify-between space-y-3 ${subject.videoUrl ? "col-span-1 sm:col-span-2" : ""}`}>

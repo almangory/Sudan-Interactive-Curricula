@@ -179,6 +179,29 @@ export const stagesData: Stage[] = ${JSON.stringify(stages, null, 2)};
   }
 });
 
+// PDF Proxy Endpoint to bypass CORS when sending documents to Google Drive client-side
+app.get("/api/proxy-pdf", async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url || typeof url !== "string") {
+      return res.status(400).json({ error: "رابط الملف مطلوب." });
+    }
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      return res.status(response.status).json({ error: "فشل تحميل الملف من المصدر الخارجي." });
+    }
+
+    const buffer = await response.arrayBuffer();
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="book.pdf"`);
+    res.send(Buffer.from(buffer));
+  } catch (error: any) {
+    console.error("PDF proxy error:", error);
+    res.status(500).json({ error: "حدث خطأ أثناء جلب الملف: " + error.message });
+  }
+});
+
 async function startServer() {
   // Serve assets with Vite in development, static in production
   if (process.env.NODE_ENV !== "production") {

@@ -10,6 +10,7 @@ import { stagesData, Stage, Grade, Subject } from "./data/curriculum";
 import SubjectModal from "./components/SubjectModal";
 import AddSubjectModal from "./components/AddSubjectModal";
 import DynamicIcon from "./components/DynamicIcon";
+import GoogleDriveBackpack from "./components/GoogleDriveBackpack";
 
 export default function App() {
   // Curriculum data is retrieved directly from the server-side compiled curriculum.ts (stagesData)
@@ -479,6 +480,11 @@ export default function App() {
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-6 space-y-12">
         
+        {/* Google Drive Personal Backpack & Document Cloud Backup */}
+        <section className="pt-2">
+          <GoogleDriveBackpack />
+        </section>
+
         {/* Stage selection selector tabs */}
         <section className="space-y-4">
           <div className="flex flex-col md:flex-row items-center justify-between border-b border-slate-800 pb-4 gap-4">
