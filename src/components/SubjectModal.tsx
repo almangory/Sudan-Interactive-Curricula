@@ -3,13 +3,11 @@ import { motion } from "motion/react";
 import { 
   X, ExternalLink, Sparkles, BookOpen, Clock, Users, ShieldAlert,
   ChevronRight, Award, Compass, Heart, HelpCircle, Download, Video,
-  FileText, Youtube, Lock, Unlock, Save, Edit, Share2, Check,
-  Cloud, RefreshCw
+  FileText, Youtube, Lock, Unlock, Save, Edit, Share2, Check
 } from "lucide-react";
 import { Subject } from "../data/curriculum";
 import DynamicIcon from "./DynamicIcon";
 import AITutor from "./AITutor";
-import { googleSignIn, saveUrlToGoogleDrive, createFolder, getAccessToken } from "../lib/driveAuth";
 
 function getVideoEmbedUrl(url: string): { url: string; isYouTube: boolean; isDrive: boolean } | null {
   if (!url) return null;
@@ -72,54 +70,6 @@ interface SubjectModalProps {
 
 export default function SubjectModal({ stageId, stageName, gradeId, gradeName, subject, onClose, onUpdateSubject, isAdminActive }: SubjectModalProps) {
   const [showTutor, setShowTutor] = useState(false);
-
-  // Google Drive integration states
-  const [driveSaveState, setDriveSaveState] = useState<{ [key: string]: "idle" | "saving" | "success" | "error" }>({});
-  const [driveError, setDriveError] = useState<string | null>(null);
-
-  const handleSaveToDrive = async (fileUrl: string, fileLabel: string, key: string) => {
-    try {
-      setDriveSaveState(prev => ({ ...prev, [key]: "saving" }));
-      setDriveError(null);
-      
-      // 1. Retrieve cached token or trigger on-demand Google Sign-in popup
-      let token = await getAccessToken();
-      if (!token) {
-        const authResult = await googleSignIn();
-        if (!authResult) {
-          throw new Error("لم يتم منح صلاحيات الوصول لحساب Google Drive.");
-        }
-        token = authResult.accessToken;
-      }
-      
-      // 2. Setup the study folder
-      const folderId = await createFolder(token, "المناهج السودانية 🇸🇩");
-      
-      // 3. Download from ministerial URL (protected by CORS proxy) and stream to Google Drive API
-      await saveUrlToGoogleDrive(token, fileUrl, `${subject.name} - ${fileLabel}.pdf`, folderId);
-      
-      setDriveSaveState(prev => ({ ...prev, [key]: "success" }));
-      setTimeout(() => {
-        setDriveSaveState(prev => ({ ...prev, [key]: "idle" }));
-      }, 4500);
-    } catch (err: any) {
-      console.error("Save to Drive error:", err);
-      setDriveSaveState(prev => ({ ...prev, [key]: "error" }));
-      
-      let friendlyMessage = "فشلت عملية الحفظ في Google Drive.";
-      if (err.code === "auth/popup-closed-by-user" || (err.message && (err.message.includes("popup-closed-by-user") || err.message.includes("closed-by-user")))) {
-        friendlyMessage = "تم إغلاق نافذة تسجيل الدخول قبل اكتمال عملية الحفظ وتخويل Google Drive.";
-      } else if (err.message) {
-        friendlyMessage = err.message;
-      }
-      
-      setDriveError(friendlyMessage);
-      setTimeout(() => {
-        setDriveSaveState(prev => ({ ...prev, [key]: "idle" }));
-        setDriveError(null);
-      }, 6000);
-    }
-  };
 
   // Sharing states and helper methods
   const [isCopied, setIsCopied] = useState(false);
@@ -241,41 +191,48 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
         initial={{ scale: 0.93, opacity: 0, y: 15 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.93, opacity: 0, y: 15 }}
-        className="relative bg-slate-900 border border-slate-800 rounded-3xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col md:flex-row h-auto md:h-[620px] text-right"
+        className="relative bg-slate-900 border border-slate-800 rounded-2xl md:rounded-3xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col md:flex-row h-auto md:h-[650px] max-h-[92vh] md:max-h-[650px] text-right animate-fadeIn"
       >
         
         {/* Left pane: Details (Hidden if Tutor is fullscreen on mobile, but side-by-side on desktop) */}
-        <div className={`p-6 md:p-8 flex-1 flex flex-col justify-between overflow-y-auto ${showTutor ? 'hidden md:flex md:w-[45%]' : 'w-full'}`}>
+        <div className={`p-5 md:p-8 flex-1 flex flex-col justify-between overflow-y-auto ${showTutor ? 'hidden md:flex md:w-[45%]' : 'w-full'} max-h-[92vh] md:max-h-full`}>
           
           {/* Header Close button */}
-          <div className="flex items-center justify-between mb-6">
-            <button 
-              onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-5 border-b border-slate-800/40 pb-4">
+            <div className="flex items-center justify-between w-full sm:w-auto">
+              <button 
+                onClick={onClose}
+                className="p-2 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              {/* Render grade marker next to close button on mobile ONLY for compact elegance */}
+              <div className={`sm:hidden px-3 py-1 rounded-full text-3xs font-black ${subject.colorClass} border`}>
+                {gradeName}
+              </div>
+            </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto justify-end">
               <button 
                 onClick={handleShare}
-                className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-950/40 hover:bg-emerald-900/40 border border-emerald-800/60 text-emerald-400 hover:text-emerald-300 rounded-xl text-3xs font-extrabold transition-all cursor-pointer shadow-sm animate-pulse hover:animate-none"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-950/40 hover:bg-emerald-900/40 border border-emerald-800/60 text-emerald-400 hover:text-emerald-300 rounded-xl text-3xs font-extrabold transition-all cursor-pointer shadow-sm"
               >
                 {isCopied ? <Check className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
-                <span>{isCopied ? "تم نسخ الرابط!" : "مشاركة المادة"}</span>
+                <span>{isCopied ? "تم النسخ!" : "مشاركة المادة"}</span>
               </button>
               <button 
                 onClick={handleEditClick}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 border rounded-xl text-3xs font-bold transition-all cursor-pointer shadow-sm ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 border rounded-xl text-3xs font-bold transition-all cursor-pointer shadow-sm ${
                   isAdminActive 
                     ? 'bg-emerald-900/30 hover:bg-emerald-900/40 border-emerald-800/80 text-emerald-450 hover:text-emerald-300' 
                     : 'bg-slate-800 hover:bg-slate-755 border-slate-700/80 text-amber-400 hover:text-amber-300'
                 }`}
               >
                 <Edit className="w-3 h-3" />
-                <span>{isEditing ? "إلغاء التعديل" : isAdminActive ? "تعديل الإدارة الفوري 🔑" : "تعديل المادة والروابط"}</span>
+                <span>{isEditing ? "إلغاء التعديل" : isAdminActive ? "تعديل الإدارة 🔑" : "تعديل الروابط"}</span>
               </button>
-              <div className={`px-3 py-1 rounded-full text-xs font-semibold ${subject.colorClass} border`}>
+              <div className={`hidden sm:block px-3 py-1 rounded-full text-xs font-semibold ${subject.colorClass} border`}>
                 {gradeName}
               </div>
             </div>
@@ -507,46 +464,15 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   </div>
                   <div>
                     {subject.pdfUrl ? (
-                      <div className="space-y-2">
-                        <a 
-                          href={subject.pdfUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-650 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>تنزيل كتاب المقرر PDF</span>
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() => handleSaveToDrive(subject.pdfUrl!, "كتاب المقرر", "book")}
-                          disabled={driveSaveState["book"] === "saving"}
-                          className={`w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 border rounded-xl text-2xs font-bold transition-all shadow-sm ${
-                            driveSaveState["book"] === "saving"
-                              ? "bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed animate-pulse"
-                              : driveSaveState["book"] === "success"
-                              ? "bg-emerald-950/40 border-emerald-500/80 text-emerald-400 font-extrabold"
-                              : driveSaveState["book"] === "error"
-                              ? "bg-red-950/40 border-red-500 text-red-400"
-                              : "bg-slate-900 hover:bg-slate-800 border-slate-800 hover:border-slate-700 text-slate-300 cursor-pointer"
-                          }`}
-                        >
-                          {driveSaveState["book"] === "saving" ? (
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-                          ) : (
-                            <Cloud className={`w-3.5 h-3.5 ${driveSaveState["book"] === "success" ? "text-emerald-400 fill-emerald-500/10" : "text-emerald-400"}`} />
-                          )}
-                          <span>
-                            {driveSaveState["book"] === "saving"
-                              ? "جاري الحفظ في الـ Drive..."
-                              : driveSaveState["book"] === "success"
-                              ? "✓ تم الحفظ في قوقل درايف بنجاح!"
-                              : driveSaveState["book"] === "error"
-                              ? "فشل الحفظ (حاول مجدداً)"
-                              : "حفظ نسخة في Google Drive 💾"}
-                          </span>
-                        </button>
-                      </div>
+                      <a 
+                        href={subject.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-650 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>تنزيل كتاب المقرر PDF</span>
+                      </a>
                     ) : (
                       <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 cursor-not-allowed opacity-60">
                         <Download className="w-3.5 h-3.5 text-slate-500/80" />
@@ -571,46 +497,15 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   </div>
                   <div>
                     {subject.memoPdfUrl ? (
-                      <div className="space-y-2">
-                        <a 
-                          href={subject.memoPdfUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-550 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
-                        >
-                          <Download className="w-3.5 h-3.5 animate-pulse" />
-                          <span>تنزيل مذكرة المادة PDF</span>
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() => handleSaveToDrive(subject.memoPdfUrl!, "ملخص المادة", "memo")}
-                          disabled={driveSaveState["memo"] === "saving"}
-                          className={`w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 border rounded-xl text-2xs font-bold transition-all shadow-sm ${
-                            driveSaveState["memo"] === "saving"
-                              ? "bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed animate-pulse"
-                              : driveSaveState["memo"] === "success"
-                              ? "bg-emerald-950/40 border-emerald-500/80 text-emerald-400 font-extrabold"
-                              : driveSaveState["memo"] === "error"
-                              ? "bg-red-950/40 border-red-500 text-red-400"
-                              : "bg-slate-900 hover:bg-slate-800 border-slate-800 hover:border-slate-700 text-slate-300 cursor-pointer"
-                          }`}
-                        >
-                          {driveSaveState["memo"] === "saving" ? (
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-                          ) : (
-                            <Cloud className={`w-3.5 h-3.5 ${driveSaveState["memo"] === "success" ? "text-emerald-400 fill-emerald-500/10" : "text-emerald-400"}`} />
-                          )}
-                          <span>
-                            {driveSaveState["memo"] === "saving"
-                              ? "جاري الحفظ في الـ Drive..."
-                              : driveSaveState["memo"] === "success"
-                              ? "✓ تم الحفظ في قوقل درايف بنجاح!"
-                              : driveSaveState["memo"] === "error"
-                              ? "فشل الحفظ (حاول مجدداً)"
-                              : "حفظ نسخة في Google Drive 💾"}
-                          </span>
-                        </button>
-                      </div>
+                      <a 
+                        href={subject.memoPdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-550 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5 animate-pulse" />
+                        <span>تنزيل مذكرة المادة PDF</span>
+                      </a>
                     ) : (
                       <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 cursor-not-allowed opacity-60">
                         <Download className="w-3.5 h-3.5 text-slate-500/80" />
@@ -620,12 +515,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   </div>
                 </div>
 
-              {/* Error or general alert feedback for Drive actions */}
-              {driveError && (
-                <div className="px-3 py-2.5 bg-red-950/45 border border-red-900/45 text-red-400 text-2xs font-bold rounded-2xl text-center shadow-md">
-                  ⚠️ قوقل درايف: {driveError}
-                </div>
-              )}
+
 
                 {/* Video Card */}
                 <div className={`p-4 rounded-2xl bg-slate-950/40 border border-slate-800/80 flex flex-col justify-between space-y-3 ${subject.videoUrl ? "col-span-1 sm:col-span-2" : ""}`}>
@@ -757,7 +647,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
 
         {/* Right pane / Overlaid Fullscreen on mobile: The Smart AI Tutor Interactive Room */}
         {showTutor && (
-          <div className="w-full md:w-[55%] border-r border-slate-800 flex flex-col h-[520px] md:h-full justify-between">
+          <div className="w-full md:w-[55%] border-r border-slate-800 flex flex-col h-[560px] md:h-full justify-between max-h-[92vh] md:max-h-full">
             <AITutor 
               stageName={stageName}
               gradeName={gradeName}
@@ -765,10 +655,10 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
               onClose={() => setShowTutor(false)}
             />
             {/* Control to go back to description for smaller views */}
-            <div className="p-3 bg-slate-950 border-t border-slate-850 md:hidden text-center">
+            <div className="p-3 bg-slate-950 border-t border-slate-850 md:hidden text-center flex-shrink-0">
               <button
                 onClick={() => setShowTutor(false)}
-                className="text-xs text-emerald-400 font-semibold"
+                className="text-xs text-emerald-400 font-bold tracking-wide py-1 px-4 rounded-lg bg-emerald-950/20 active:bg-emerald-950/40 border border-emerald-900/30 w-full"
               >
                 ← العودة إلى خلاصة منهج المادة
               </button>

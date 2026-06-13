@@ -204,7 +204,7 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
                     <Palette className="w-3 h-3 text-emerald-400" />
                     <span>أيقونة المادة المميزة:</span>
                   </label>
-                  <div className="grid grid-cols-5 gap-1.5 bg-slate-950/50 p-3 rounded-2xl border border-slate-800 max-h-[140px] overflow-y-auto">
+                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5 bg-slate-950/50 p-3 rounded-2xl border border-slate-800 max-h-[140px] overflow-y-auto">
                     {AVAILABLE_ICONS.map((icon) => (
                       <button
                         key={icon.name}

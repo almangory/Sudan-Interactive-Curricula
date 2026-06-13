@@ -195,44 +195,44 @@ export default function AITutor({ stageName, gradeName, subjectName, onClose }: 
   };
 
   return (
-    <div className="flex flex-col h-[520px] bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl text-right" dir="rtl">
+    <div className="flex flex-col h-full min-h-[480px] md:h-full bg-slate-900 rounded-2xl md:rounded-r-none overflow-hidden border border-slate-800/50 text-right w-full" dir="rtl">
       {/* Header */}
-      <div className="px-6 py-4 bg-gradient-to-r from-emerald-800 to-slate-900 border-b border-emerald-900/35 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-emerald-700/30 rounded-xl text-emerald-400">
-            <Sparkles className="w-5 h-5 animate-pulse" />
+      <div className="px-5 py-3.5 bg-gradient-to-r from-emerald-800 to-slate-900 border-b border-emerald-900/35 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 bg-emerald-700/30 rounded-lg text-emerald-400">
+            <Sparkles className="w-4 h-4 animate-pulse" />
           </div>
           <div>
-            <span className="text-xs text-emerald-400 font-mono tracking-wide">{gradeName} • {stageName}</span>
-            <h3 className="text-base font-bold text-slate-100 flex items-center gap-1.5">
-              <span>بوابة تفاعلية:</span>
-              <span className="text-emerald-300">{subjectName}</span>
+            <span className="text-[10px] text-emerald-400 font-mono tracking-wide block leading-none mb-1">{gradeName} • {stageName}</span>
+            <h3 className="text-sm font-black text-slate-100 flex items-center gap-1">
+              <span>بوابة:</span>
+              <span className="text-emerald-300 truncate max-w-[120px]">{subjectName}</span>
             </h3>
           </div>
         </div>
         
         {/* Tab Controls */}
-        <div className="flex bg-slate-800/80 p-0.5 rounded-lg border border-slate-700/50">
+        <div className="flex bg-slate-950/70 p-0.5 rounded-lg border border-slate-800/40 w-full sm:w-auto justify-between sm:justify-start">
           <button
             onClick={() => setActiveTab('chat')}
-            className={`px-3 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${
+            className={`flex-1 sm:flex-initial px-2.5 py-1 text-[10px] md:text-xs font-bold rounded-md transition-all flex items-center justify-center gap-1 ${
               activeTab === 'chat' 
                 ? 'bg-emerald-600 text-white shadow-md' 
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <MessageSquare className="w-3.5 h-3.5" />
-            أستاذك السوداني الذكي
+            <MessageSquare className="w-3 h-3" />
+            أستاذك السوداني
           </button>
           <button
             onClick={() => setActiveTab('quiz')}
-            className={`px-3 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${
+            className={`flex-1 sm:flex-initial px-2.5 py-1 text-[10px] md:text-xs font-bold rounded-md transition-all flex items-center justify-center gap-1 ${
               activeTab === 'quiz' 
                 ? 'bg-emerald-600 text-white shadow-md' 
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <HelpCircle className="w-3.5 h-3.5" />
+            <HelpCircle className="w-3 h-3" />
             اختبارات مبسطة
           </button>
         </div>

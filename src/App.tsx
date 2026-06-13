@@ -10,12 +10,21 @@ import { stagesData, Stage, Grade, Subject } from "./data/curriculum";
 import SubjectModal from "./components/SubjectModal";
 import AddSubjectModal from "./components/AddSubjectModal";
 import DynamicIcon from "./components/DynamicIcon";
-import GoogleDriveBackpack from "./components/GoogleDriveBackpack";
 
 export default function App() {
   // Curriculum data is retrieved directly from the server-side compiled curriculum.ts (stagesData)
-  // This is the absolute single source of truth for all devices and users.
-  const [curriculumData, setCurriculumData] = useState<Stage[]>(stagesData);
+  // We use local storage fallback for cross-environment consistency (e.g. on Vercel)
+  const [curriculumData, setCurriculumData] = useState<Stage[]>(() => {
+    const cached = localStorage.getItem("sudan_custom_curriculum_v3");
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        console.error("Failed to parse cached curriculum", e);
+      }
+    }
+    return stagesData;
+  });
 
   const [selectedStage, setSelectedStage] = useState<Stage | null>(null);
   const [activeGrade, setActiveGrade] = useState<Grade | null>(null);
@@ -58,6 +67,99 @@ export default function App() {
     localStorage.removeItem("sudan_edu_admin");
     setSaveStatus("تم تسجيل الخروج من لوحة الإدارة بنجاح.");
     setTimeout(() => setSaveStatus(null), 4000);
+  };
+
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const downloadCurriculumFile = () => {
+    const fileContent = `export interface Subject {
+  id: string;
+  name: string;
+  iconName: string; // Used to select Lucide icon dynamically
+  colorClass: string; // Tailwind bg/text/border color classes
+  interactiveUrl: string; // External interactive website url
+  interactiveLabel: string; // Friendly label for the external link
+  curriculumSummary: string; // Short summary of what is taught in Sudan
+  pdfUrl?: string; // Optional download link for the E-Book
+  memoPdfUrl?: string; // Optional link to a PDF memorandum
+  videoUrl?: string; // Optional YouTube channel or lesson video link
+}
+
+export interface Grade {
+  id: string;
+  name: string;
+  subjects: Subject[];
+}
+
+export interface Stage {
+  id: string;
+  name: string;
+  description: string;
+  colorTheme: string; // Tailwind color theme for this stage
+  icon: string; // Lucide icon
+  grades: Grade[];
+}
+
+export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
+`;
+
+    const blob = new Blob([fileContent], { type: "text/typescript;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "curriculum.ts");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const copyCurriculumCode = () => {
+    const fileContent = `export interface Subject {
+  id: string;
+  name: string;
+  iconName: string; // Used to select Lucide icon dynamically
+  colorClass: string; // Tailwind bg/text/border color classes
+  interactiveUrl: string; // External interactive website url
+  interactiveLabel: string; // Friendly label for the external link
+  curriculumSummary: string; // Short summary of what is taught in Sudan
+  pdfUrl?: string; // Optional download link for the E-Book
+  memoPdfUrl?: string; // Optional link to a PDF memorandum
+  videoUrl?: string; // Optional YouTube channel or lesson video link
+}
+
+export interface Grade {
+  id: string;
+  name: string;
+  subjects: Subject[];
+}
+
+export interface Stage {
+  id: string;
+  name: string;
+  description: string;
+  colorTheme: string; // Tailwind color theme for this stage
+  icon: string; // Lucide icon
+  grades: Grade[];
+}
+
+export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
+`;
+
+    navigator.clipboard.writeText(fileContent).then(() => {
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 4000);
+    }).catch(err => {
+      console.error("Could not copy curriculum code", err);
+    });
+  };
+
+  const resetCurriculumToDefault = () => {
+    if (window.confirm("هل أنت متأكد من رغبتك في استعادة المنهج الدراسي الافتراضي الأصلي وحذف كل التعديلات المحلية الحالية؟")) {
+      localStorage.removeItem("sudan_custom_curriculum_v3");
+      setCurriculumData(stagesData);
+      setSaveStatus("تمت استعادة المنهج الدراسي الافتراضي بنجاح! 🔄");
+      setTimeout(() => setSaveStatus(null), 4000);
+    }
   };
 
   // Clean up any stale client-side curriculum caches to ensure the app loads the fresh server compiled code
@@ -210,6 +312,7 @@ export default function App() {
       };
     });
     setCurriculumData(newData);
+    localStorage.setItem("sudan_custom_curriculum_v3", JSON.stringify(newData));
     
     // Auto sync to server file system code!
     saveCurriculumToServer(newData);
@@ -238,6 +341,7 @@ export default function App() {
       };
     });
     setCurriculumData(newData);
+    localStorage.setItem("sudan_custom_curriculum_v3", JSON.stringify(newData));
 
     // Auto sync to server file system code!
     saveCurriculumToServer(newData);
@@ -426,6 +530,52 @@ export default function App() {
         </div>
       </div>
 
+      {/* Admin Operations Section */}
+      {isAdminLoggedIn && (
+        <div id="admin-git-integration" className="bg-slate-900 border-b border-emerald-900/40 px-6 py-4 pb-5 relative z-40 text-right font-sans" dir="rtl">
+          <div className="max-w-7xl mx-auto space-y-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+              <div className="space-y-1">
+                <span className="text-emerald-400 text-3xs font-black block">⚙️ أدوات نقل وتحديث المنهج التعليمي (GitHub / Vercel / Live-Server):</span>
+                <p className="text-xs text-slate-300 font-bold">
+                  لقد قمت بإجراء تعديلات على مسميات أو روابط المواد الدراسية. يمكنك تصدير الملف لتحديثه على <span className="font-mono text-emerald-400">GitHub</span> من هنا ليعمل على جميع المنصات مجاناً وبشكل دائم!
+                </p>
+              </div>
+
+              {/* Reset button */}
+              <button
+                onClick={resetCurriculumToDefault}
+                className="px-3.5 py-1.5 bg-red-950/10 hover:bg-red-950/30 border border-red-900/40 hover:border-red-550 text-red-400 text-3xs font-extrabold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span>استعادة المنهج الأصلي 🔄</span>
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Copy Code Button */}
+              <button
+                onClick={copyCurriculumCode}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-550 text-white text-2xs font-extrabold rounded-2xl transition-all shadow-md cursor-pointer flex items-center gap-2"
+              >
+                <span>{copySuccess ? "✓ تم نسخ الكود!" : "📋 نسخ كود الملف الكامل (curriculum.ts)"}</span>
+              </button>
+
+              {/* Download File Button */}
+              <button
+                onClick={downloadCurriculumFile}
+                className="px-4 py-2.5 bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-slate-705 text-slate-100 text-2xs font-extrabold rounded-2xl transition-all shadow-md cursor-pointer flex items-center gap-2"
+              >
+                <span>📥 تنزيل ملف المنهج المحدث (curriculum.ts)</span>
+              </button>
+
+              <span className="text-3xs text-slate-400 max-w-sm leading-normal">
+                💡 **طريقة النقل**: قم بتنزيل أو نسخ الملف المحدث أعلاه، واستبدل به الملف القديم في كود مستودع GitHub الخاص بك في هذا المسار تماماً: <code className="bg-slate-950 text-yellow-400 px-1.5 py-0.5 rounded text-3xs font-mono">src/data/curriculum.ts</code> ، وسيتم تحديث ونقل جميع تعديلات الروابط والمسميات تلقائياً فوراً!
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Embedded Sudan Cultural and Academic Hero Banner */}
       <header className="relative py-12 md:py-16 px-6 overflow-hidden">
         {/* Abstract Geometrics */}
@@ -487,10 +637,7 @@ export default function App() {
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-6 space-y-12">
         
-        {/* Google Drive Personal Backpack & Document Cloud Backup */}
-        <section className="pt-2">
-          <GoogleDriveBackpack />
-        </section>
+
 
         {/* Stage selection selector tabs */}
         <section className="space-y-4">
