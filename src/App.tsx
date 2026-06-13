@@ -11,18 +11,9 @@ import AddSubjectModal from "./components/AddSubjectModal";
 import DynamicIcon from "./components/DynamicIcon";
 
 export default function App() {
-  // Load custom curriculum data if modified by teacher, or use raw stagesData
-  const [curriculumData, setCurriculumData] = useState<Stage[]>(() => {
-    const saved = localStorage.getItem("sudan_custom_curriculum_v2");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error("Failed to parse custom curriculum", e);
-      }
-    }
-    return stagesData;
-  });
+  // Curriculum data is retrieved directly from the server-side compiled curriculum.ts (stagesData)
+  // This is the absolute single source of truth for all devices and users.
+  const [curriculumData, setCurriculumData] = useState<Stage[]>(stagesData);
 
   const [selectedStage, setSelectedStage] = useState<Stage | null>(null);
   const [activeGrade, setActiveGrade] = useState<Grade | null>(null);
@@ -37,18 +28,10 @@ export default function App() {
   const [categoryFilter, setCategoryFilter] = useState<"all" | "books" | "videos" | "interactive">("all");
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
-  // Proactively restore and sync any existing localStorage changes to the server file system
+  // Clean up any stale client-side curriculum caches to ensure the app loads the fresh server compiled code
   useEffect(() => {
-    const saved = localStorage.getItem("sudan_custom_curriculum_v2");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // Sync silently on mount
-        saveCurriculumToServer(parsed, true);
-      } catch (e) {
-        console.error("Auto-sync error on mount", e);
-      }
-    }
+    localStorage.removeItem("sudan_custom_curriculum_v2");
+    localStorage.removeItem("sudan_custom_curriculum"); // Purge very old version if any
   }, []);
 
   // 📱 Mobile and Browser Native Back Button Integration
@@ -162,7 +145,6 @@ export default function App() {
       };
     });
     setCurriculumData(newData);
-    localStorage.setItem("sudan_custom_curriculum_v2", JSON.stringify(newData));
     
     // Auto sync to server file system code!
     saveCurriculumToServer(newData);
@@ -191,7 +173,6 @@ export default function App() {
       };
     });
     setCurriculumData(newData);
-    localStorage.setItem("sudan_custom_curriculum_v2", JSON.stringify(newData));
 
     // Auto sync to server file system code!
     saveCurriculumToServer(newData);
