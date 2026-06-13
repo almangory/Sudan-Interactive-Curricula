@@ -35,7 +35,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<"all" | "books" | "videos" | "interactive">("all");
-  
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+
   // Set default stage from loaded curriculumData
   useEffect(() => {
     if (curriculumData.length > 1 && !selectedStage) {
@@ -52,6 +53,36 @@ export default function App() {
       }
     }
   }, [curriculumData]);
+
+  // Function to save curriculum data directly on the server filesystem
+  const saveCurriculumToServer = async (newData: Stage[]) => {
+    try {
+      setSaveStatus("جاري حفظ التعديلات على كود ملقم التعليم...");
+      
+      const response = await fetch("/api/curriculum/save", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          password: "20302060",
+          stages: newData
+        })
+      });
+
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setSaveStatus("تم تحديث كود برنامج المنهج (curriculum.ts) على الخادم بنجاح! 🎉");
+        setTimeout(() => setSaveStatus(null), 5000);
+      } else {
+        throw new Error(result.error || "فشل غير معروف أثناء تحديث ملف الخادم.");
+      }
+    } catch (err: any) {
+      console.error("Server save error:", err);
+      setSaveStatus(`تنبيه: تم الحفظ محلياً وفشل الحفظ على الملقم (${err.message})`);
+      setTimeout(() => setSaveStatus(null), 6000);
+    }
+  };
 
   const updateSubject = (stageId: string, gradeId: string, subjectId: string, updatedFields: Partial<Subject>) => {
     const newData = curriculumData.map(stg => {
@@ -75,6 +106,9 @@ export default function App() {
     });
     setCurriculumData(newData);
     localStorage.setItem("sudan_custom_curriculum_v2", JSON.stringify(newData));
+    
+    // Auto sync to server file system code!
+    saveCurriculumToServer(newData);
 
     // Update active subject if it is currently open
     if (activeSubject && activeSubject.id === subjectId) {
@@ -101,6 +135,9 @@ export default function App() {
     });
     setCurriculumData(newData);
     localStorage.setItem("sudan_custom_curriculum_v2", JSON.stringify(newData));
+
+    // Auto sync to server file system code!
+    saveCurriculumToServer(newData);
   };
 
   // Local achievements stats stored in localStorage
@@ -796,6 +833,21 @@ export default function App() {
           </p>
         </div>
       </footer>
+
+      {/* Save Status Floating Toast */}
+      <AnimatePresence>
+        {saveStatus && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className="fixed bottom-6 left-6 md:left-auto md:right-6 z-[9999] bg-slate-950 border border-emerald-500/60 text-emerald-400 px-5 py-3.5 rounded-2xl flex items-center gap-2.5 shadow-2xl"
+          >
+            <CheckCircle className="w-5 h-5 text-emerald-400 animate-pulse" />
+            <span className="text-xs font-extrabold text-slate-200">{saveStatus}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

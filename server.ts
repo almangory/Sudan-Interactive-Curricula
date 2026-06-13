@@ -123,6 +123,62 @@ app.post("/api/tutor/quiz", async (req, res) => {
   }
 });
 
+// API route for writing modified curriculum data directly to the code (persistent for publishing)
+app.post("/api/curriculum/save", async (req, res) => {
+  try {
+    const { password, stages } = req.body;
+
+    if (password !== "20302060") {
+      return res.status(403).json({ error: "كلمة المرور الإدارية غير صحيحة." });
+    }
+
+    if (!stages || !Array.isArray(stages)) {
+      return res.status(400).json({ error: "بيانات المنهج غير صالحة." });
+    }
+
+    const fs = await import("fs/promises");
+    const filePath = path.join(process.cwd(), "src", "data", "curriculum.ts");
+
+    // Reconstruct the full TS file content
+    const fileContent = `export interface Subject {
+  id: string;
+  name: string;
+  iconName: string; // Used to select Lucide icon dynamically
+  colorClass: string; // Tailwind bg/text/border color classes
+  interactiveUrl: string; // External interactive website url
+  interactiveLabel: string; // Friendly label for the external link
+  curriculumSummary: string; // Short summary of what is taught in Sudan
+  pdfUrl?: string; // Optional download link for the E-Book
+  memoPdfUrl?: string; // Optional link to a PDF memorandum
+  videoUrl?: string; // Optional YouTube channel or lesson video link
+}
+
+export interface Grade {
+  id: string;
+  name: string;
+  subjects: Subject[];
+}
+
+export interface Stage {
+  id: string;
+  name: string;
+  description: string;
+  colorTheme: string; // Tailwind color theme for this stage
+  icon: string; // Lucide icon
+  grades: Grade[];
+}
+
+export const stagesData: Stage[] = ${JSON.stringify(stages, null, 2)};
+`;
+
+    await fs.writeFile(filePath, fileContent, "utf8");
+    res.json({ success: true, message: "تم تحديث كود المنهج وحفظه بنجاح في ملقم التعليم!" });
+  } catch (err: any) {
+    console.error("Save curriculum error:", err);
+    res.status(500).json({ error: err.message || "فشل كتابة وحفظ كود المنهج الدراسي." });
+  }
+});
+
 async function startServer() {
   // Serve assets with Vite in development, static in production
   if (process.env.NODE_ENV !== "production") {
