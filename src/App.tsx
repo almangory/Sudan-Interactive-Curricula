@@ -162,7 +162,14 @@ export default function App() {
         })
       });
 
-      const result = await response.json();
+      const contentType = response.headers.get("content-type");
+      let result;
+      if (contentType && contentType.includes("application/json")) {
+        result = await response.json();
+      } else {
+        throw new Error("استجابة الخادم ليست ملف JSON. يرجى العلم أن السيرفرات السحابية المؤقتة والمنصات غير المطورة بالكامل (مثل Vercel) لا تدعم ميزة الكتابة والتعديل المباشر لملفات الكود، ولكن تم حفظ تعديلاتك محلياً في المتصفح بنجاح! 💾");
+      }
+
       if (response.ok && result.success) {
         if (!isSilent) {
           setSaveStatus("تم تحديث كود برنامج المنهج (curriculum.ts) على الخادم بنجاح! 🎉");
