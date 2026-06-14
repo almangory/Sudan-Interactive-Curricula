@@ -10,6 +10,9 @@ import { stagesData, Stage, Grade, Subject } from "./data/curriculum";
 import SubjectModal from "./components/SubjectModal";
 import AddSubjectModal from "./components/AddSubjectModal";
 import DynamicIcon from "./components/DynamicIcon";
+import StudyCamp from "./components/StudyCamp";
+import AdminDashboard from "./components/AdminDashboard";
+import { fetchCurriculumFromSupabase, verifyAdminInSupabase } from "./lib/supabase";
 
 export default function App() {
   // Curriculum data is retrieved directly from the server-side compiled curriculum.ts (stagesData)
@@ -36,8 +39,26 @@ export default function App() {
   } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+  const [showStudyCamp, setShowStudyCamp] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<"all" | "books" | "videos" | "interactive">("all");
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [showAdminDashboard, setShowAdminDashboard] = useState(false);
+
+  // Load from Supabase on start if available
+  useEffect(() => {
+    const loadSupabaseData = async () => {
+      try {
+        const cloudData = await fetchCurriculumFromSupabase();
+        if (cloudData && Array.isArray(cloudData) && cloudData.length > 0) {
+          setCurriculumData(cloudData);
+          console.log("Successfully loaded dynamic curriculum from Supabase database!");
+        }
+      } catch (err) {
+        console.error("Failed to load dynamic curriculum from Supabase", err);
+      }
+    };
+    loadSupabaseData();
+  }, []);
 
   // 🔐 Admin state variables & credentials management
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
@@ -48,22 +69,42 @@ export default function App() {
   const [adminPassword, setAdminPassword] = useState("");
   const [adminLoginError, setAdminLoginError] = useState("");
 
-  const handleAdminLoginSubmit = (e: React.FormEvent) => {
+  const handleAdminLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminUsername.trim().toLowerCase() === "almangory" && adminPassword === "20302060") {
+    const cleanUser = adminUsername.trim();
+    
+    // 1. First try to authenticate against the Supabase DB
+    let authenticated = false;
+    try {
+      authenticated = await verifyAdminInSupabase(cleanUser, adminPassword);
+    } catch (err) {
+      console.warn("DB authentication check yielded error:", err);
+    }
+
+    // 2. If DB validation succeeded, or fallback user matched standard offline password
+    const isOfflineFallback = cleanUser.toLowerCase() === "almangory" && adminPassword === "20302060";
+
+    if (authenticated || isOfflineFallback) {
       setIsAdminLoggedIn(true);
       localStorage.setItem("sudan_edu_admin", "true");
       setShowAdminLogin(false);
+      setShowAdminDashboard(true); // Automatically toggle on dynamic edit panel
       setAdminLoginError("");
-      setSaveStatus("مرحباً بك يا أستاذ almangory! تم تفعيل دخول الإدارة وتعديل الكود مباشرة 🔑");
-      setTimeout(() => setSaveStatus(null), 5000);
+      
+      const welcomeMsg = authenticated 
+        ? `مرحباً بك يا ${cleanUser}! تم التحقق من هويتك سحابياً عبر جدول admin_users بنجاح 🔑`
+        : `مرحباً بك يا أستاذ almangory! تم تفعيل دخول الإدارة عبر الهوية الاحتياطية بنجاح 🔑`;
+        
+      setSaveStatus(welcomeMsg);
+      setTimeout(() => setSaveStatus(null), 6000);
     } else {
-      setAdminLoginError("اسم المستخدم أو كلمة المرور غير صحيحة!");
+      setAdminLoginError("اسم المستخدم أو كلمة المرور غير صحيحة! يرجى التحقق من جدول admin_users في سوبابيس أو استخدام كلمة المرور الاحتياطية.");
     }
   };
 
   const handleAdminLogout = () => {
     setIsAdminLoggedIn(false);
+    setShowAdminDashboard(false);
     localStorage.removeItem("sudan_edu_admin");
     setSaveStatus("تم تسجيل الخروج من لوحة الإدارة بنجاح.");
     setTimeout(() => setSaveStatus(null), 4000);
@@ -609,10 +650,14 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             </div>
           </div>
 
-          {/* Simple Statistics widget */}
-          <div className="w-full md:w-auto grid grid-cols-2 gap-4 flex-shrink-0">
+          {/* Simple Statistics & Admin Gate widgets */}
+          <div className="w-full md:w-auto grid grid-cols-2 md:grid-cols-3 gap-4 flex-shrink-0">
             <div 
-              onClick={() => setShowOnlyFavorites(prev => !prev)}
+              onClick={() => {
+                setShowOnlyFavorites(prev => !prev);
+                setShowStudyCamp(false);
+                setShowAdminDashboard(false);
+              }}
               className={`p-4 border rounded-2xl text-center space-y-1 min-w-[140px] shadow-lg cursor-pointer transition-all duration-200 select-none ${
                 showOnlyFavorites 
                   ? "bg-amber-950/20 border-yellow-500/80 ring-2 ring-yellow-500/30 text-amber-400 hover:bg-amber-950/40 shadow-yellow-950/40" 
@@ -625,10 +670,41 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 {showOnlyFavorites ? "المناهج الكاملة" : "المواد المفضلة ⭐"}
               </span>
             </div>
+
             <div className="bg-slate-900/60 p-4 border border-slate-800/80 rounded-2xl text-center space-y-1 min-w-[140px] shadow-lg selection:bg-transparent">
               <CheckCircle className="w-5 h-5 text-emerald-450 mx-auto" />
               <span className="text-xl font-bold text-slate-100 block">{completedLessons.length}</span>
               <span className="text-2xs text-slate-400 block font-medium">تمارين مكتملة</span>
+            </div>
+
+            <div 
+              onClick={() => {
+                if (isAdminLoggedIn) {
+                  setShowAdminDashboard(prev => !prev);
+                  setSelectedStage(null);
+                  setActiveGrade(null);
+                  setShowStudyCamp(false);
+                  setShowOnlyFavorites(false);
+                } else {
+                  setShowAdminLogin(true);
+                  setAdminLoginError("");
+                  setAdminUsername("");
+                  setAdminPassword("");
+                }
+              }}
+              className={`p-4 border rounded-2xl text-center space-y-1 min-w-[140px] shadow-lg cursor-pointer transition-all duration-200 select-none col-span-2 md:col-span-1 ${
+                isAdminLoggedIn 
+                  ? "bg-emerald-950/20 border-emerald-500/80 ring-2 ring-emerald-500/30 text-emerald-400 hover:bg-emerald-950/40" 
+                  : "bg-slate-900/60 border-slate-800/80 hover:bg-slate-850 hover:border-emerald-500/40"
+              }`}
+            >
+              <Lock className={`w-5 h-5 mx-auto transition-all ${isAdminLoggedIn ? "text-emerald-400" : "text-slate-400"}`} />
+              <span className="text-xs font-bold text-slate-100 block leading-tight pt-1">
+                {isAdminLoggedIn ? "لوحة التحكم" : "بوابة الإدارة"}
+              </span>
+              <span className="text-3xs text-emerald-450 block font-bold mt-1">
+                {isAdminLoggedIn ? "تعديل المناهج ⚙️" : "دخول الإدارة 🔐"}
+              </span>
             </div>
           </div>
         </div>
@@ -655,9 +731,9 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           </div>
 
           {/* Grid of Stage Selector Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-1">
             {curriculumData.map((stage) => {
-              const isSelected = selectedStage?.id === stage.id && !showOnlyFavorites;
+              const isSelected = selectedStage?.id === stage.id && !showOnlyFavorites && !showStudyCamp;
               
               return (
                 <button
@@ -666,6 +742,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     setSelectedStage(stage);
                     setActiveGrade(null);
                     setShowOnlyFavorites(false);
+                    setShowStudyCamp(false);
                   }}
                   className={`relative p-5 rounded-2xl text-right border transition-all text-xs md:text-sm shadow-sm overflow-hidden group cursor-pointer ${
                     isSelected 
@@ -697,11 +774,64 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 </button>
               );
             })}
+
+            {/* Study Camp Activator Card */}
+            <button
+              onClick={() => {
+                setShowStudyCamp(true);
+                setSelectedStage(null);
+                setActiveGrade(null);
+                setShowOnlyFavorites(false);
+              }}
+              className={`relative p-5 rounded-2xl text-right border transition-all text-xs md:text-sm shadow-sm overflow-hidden group cursor-pointer ${
+                showStudyCamp 
+                  ? "bg-slate-900 border-indigo-600 shadow-md shadow-indigo-950/20" 
+                  : "bg-slate-900/40 border-slate-800/60 hover:bg-slate-900 hover:border-indigo-650/40"
+              }`}
+            >
+              {/* Decorative Subtle Accent Tag for selected */}
+              {showStudyCamp && (
+                <span className="absolute top-0 right-0 bottom-0 w-1.5 bg-gradient-to-b from-indigo-505 to-indigo-705" />
+              )}
+
+              <div className="flex items-start gap-4">
+                <div className={`p-3 rounded-xl transition-all ${
+                  showStudyCamp 
+                    ? "bg-indigo-600/20 text-indigo-400" 
+                    : "bg-slate-800 text-slate-400 group-hover:text-indigo-405"
+                }`}>
+                  <Sparkles className="w-5 h-5 text-indigo-400" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-bold text-slate-100">مخيم المذاكرة وأدوات التفوق ⚡</h3>
+                  <p className="text-2xs text-slate-400 line-clamp-1">تدريبات تفاعلية وحاسبات ذكية</p>
+                  <span className="text-3xs text-indigo-455 font-bold block mt-1 animate-pulse">
+                    اختبارات، درجات، وجداول 📅
+                  </span>
+                </div>
+              </div>
+            </button>
           </div>
         </section>
 
-        {/* Render Favorited Subjects when filtered, otherwise Stage Exploration */}
-        {showOnlyFavorites ? (
+        {/* Render Admin Dashboard, Favorited Subjects when filtered, otherwise Stage Exploration */}
+        {showAdminDashboard ? (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <AdminDashboard 
+              stages={curriculumData}
+              onUpdateCurriculum={(newStages) => {
+                setCurriculumData(newStages);
+                localStorage.setItem("sudan_custom_curriculum_v3", JSON.stringify(newStages));
+                saveCurriculumToServer(newStages, true);
+              }}
+              onClose={() => setShowAdminDashboard(false)}
+            />
+          </motion.div>
+        ) : showOnlyFavorites ? (
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -817,6 +947,15 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   })}
               </div>
             )}
+          </motion.div>
+        ) : showStudyCamp ? (
+          <motion.div
+            key="study-camp-view"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <StudyCamp stages={curriculumData} />
           </motion.div>
         ) : (
           selectedStage && (
