@@ -12,7 +12,7 @@ import AddSubjectModal from "./components/AddSubjectModal";
 import DynamicIcon from "./components/DynamicIcon";
 import StudyCamp from "./components/StudyCamp";
 import AdminDashboard from "./components/AdminDashboard";
-import { fetchCurriculumFromSupabase, verifyAdminInSupabase } from "./lib/supabase";
+import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig } from "./lib/supabase";
 
 export default function App() {
   // Curriculum data is retrieved directly from the server-side compiled curriculum.ts (stagesData)
@@ -332,6 +332,31 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
     }
   };
 
+  const saveCurriculumToCloudAutomatically = async (newData: Stage[]) => {
+    const config = getSupabaseConfig();
+    if (!config.isConfigured) {
+      console.log("Supabase not configured, skipping background cloud sync.");
+      return;
+    }
+
+    try {
+      setSaveStatus("☁️ جاري مزامنة وحفظ التعديلات تلقائياً في سوبابيس (Supabase)...");
+      const result = await saveCurriculumToSupabase(newData);
+      if (result && result.success) {
+        setSaveStatus("✅ تم مزامنة وحفظ كافة التعديلات في قاعدة البيانات سوبابيس بنجاح! ☁️");
+        setTimeout(() => setSaveStatus(null), 5000);
+      } else {
+        console.warn("Background cloud sync errors:", result.errors);
+        setSaveStatus("⚠️ تم الحفظ محلياً وفشلت المزامنة التلقائية مع سوبابيس (يرجى مراجعة إعدادات الجدول أو الـ RLS)");
+        setTimeout(() => setSaveStatus(null), 7000);
+      }
+    } catch (err: any) {
+      console.error("Background cloud sync error:", err);
+      setSaveStatus(`⚠️ خطأ في المزامنة التلقائية: ${err.message || err}`);
+      setTimeout(() => setSaveStatus(null), 5000);
+    }
+  };
+
   const updateSubject = (stageId: string, gradeId: string, subjectId: string, updatedFields: Partial<Subject>) => {
     const newData = curriculumData.map(stg => {
       if (stg.id !== stageId) return stg;
@@ -357,6 +382,9 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
     
     // Auto sync to server file system code!
     saveCurriculumToServer(newData);
+    
+    // Auto sync to Supabase database!
+    saveCurriculumToCloudAutomatically(newData);
 
     // Update active subject if it is currently open
     if (activeSubject && activeSubject.id === subjectId) {
@@ -386,6 +414,9 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
     // Auto sync to server file system code!
     saveCurriculumToServer(newData);
+
+    // Auto sync to Supabase database!
+    saveCurriculumToCloudAutomatically(newData);
   };
 
   // Local achievements stats stored in localStorage
@@ -827,6 +858,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 setCurriculumData(newStages);
                 localStorage.setItem("sudan_custom_curriculum_v3", JSON.stringify(newStages));
                 saveCurriculumToServer(newStages, true);
+                saveCurriculumToCloudAutomatically(newStages);
               }}
               onClose={() => setShowAdminDashboard(false)}
             />
