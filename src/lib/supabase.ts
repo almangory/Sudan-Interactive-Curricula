@@ -9,20 +9,23 @@ const STORAGE_KEYS = {
 
 /**
  * Dynamically gets the active Supabase configurations from localstorage or environment variables.
+ * Prioritizes production environment variables (like those in Vercel) over local storage so the live app remains stable.
  */
 export function getSupabaseConfig() {
-  const localUrl = localStorage.getItem(STORAGE_KEYS.URL);
-  const localKey = localStorage.getItem(STORAGE_KEYS.ANON_KEY);
+  const envUrl = (((import.meta as any).env?.VITE_SUPABASE_URL || "") as string).trim();
+  const envKey = (((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || "") as string).trim();
 
-  // Fallbacks to environment variables if available
-  const envUrl = ((import.meta as any).env?.VITE_SUPABASE_URL || "") as string;
-  const envKey = ((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || "") as string;
+  const localUrl = (localStorage.getItem(STORAGE_KEYS.URL) || "").trim();
+  const localKey = (localStorage.getItem(STORAGE_KEYS.ANON_KEY) || "").trim();
+
+  const activeUrl = envUrl || localUrl || "";
+  const activeKey = envKey || localKey || "";
 
   return {
-    url: localUrl || envUrl || "",
-    anonKey: localKey || envKey || "",
-    isConfigured: !!(localUrl || envUrl) && !!(localKey || envKey),
-    source: (localUrl && localKey) ? "localStorage" : (envUrl && envKey) ? "env" : "none",
+    url: activeUrl,
+    anonKey: activeKey,
+    isConfigured: !!activeUrl && !!activeKey,
+    source: (envUrl && envKey) ? "env" : (localUrl && localKey) ? "localStorage" : "none",
   };
 }
 
@@ -229,12 +232,29 @@ export async function fetchCurriculumFromSupabase(): Promise<Stage[] | null> {
   return null;
 }
 
+export interface SyncResult {
+  success: boolean;
+  savedTable: "curricula_links" | "curriculum_config" | "none";
+  method: "row_by_row" | "single_json_row" | "none";
+  rowCount: number;
+  errors: string[];
+}
+
 /**
  * Upserts custom curriculum stages to Supabase. Supports both structured rows and single row JSON structures.
+ * Returns detailed SyncResult information on which database tables and columns successfully updated.
  */
-export async function saveCurriculumToSupabase(stages: Stage[]): Promise<boolean> {
+export async function saveCurriculumToSupabase(stages: Stage[]): Promise<SyncResult> {
   const client = getSupabaseClient();
-  if (!client) return false;
+  if (!client) {
+    return {
+      success: false,
+      savedTable: "none",
+      method: "none",
+      rowCount: 0,
+      errors: ["عميل Supabase غير متاح أو غير مهيأ بالكامل لاستقبال البيانات."]
+    };
+  }
 
   const errors: string[] = [];
 
@@ -276,9 +296,15 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<boolean
 
       if (!insertErr) {
         console.log("Successfully saved row-by-row into curricula_links!");
-        return true;
+        return {
+          success: true,
+          savedTable: "curricula_links",
+          method: "row_by_row",
+          rowCount: flatRows.length,
+          errors
+        };
       }
-      errors.push(`[جدول المناهج التفصيلي - curricula_links] ${insertErr.message} (رمز الخطأ: ${insertErr.code || ''})`);
+      errors.push(`[سطور تفصيلية بـ curricula_links] ${insertErr.message} (كود: ${insertErr.code || ''})`);
       console.warn("Attempt to save row-by-row to curricula_links yielded error, trying fallback:", insertErr);
     } catch (e: any) {
       errors.push(`[خطأ اتصال بـ curricula_links] ${e.message || e}`);
@@ -297,7 +323,13 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<boolean
 
       if (!jsonErr) {
         console.log("Successfully saved single-row JSON to curricula_links!");
-        return true;
+        return {
+          success: true,
+          savedTable: "curricula_links",
+          method: "single_json_row",
+          rowCount: 1,
+          errors
+        };
       }
       errors.push(`[مزامنة JSON في curricula_links] ${jsonErr.message}`);
     } catch (e: any) {
@@ -316,7 +348,13 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<boolean
 
       if (!fallbackErr) {
         console.log("Successfully saved using legacy curriculum_config (stages only) fallback!");
-        return true;
+        return {
+          success: true,
+          savedTable: "curriculum_config",
+          method: "single_json_row",
+          rowCount: 1,
+          errors
+        };
       }
       errors.push(`[الجدول القديم curriculum_config بدون updated_at] ${fallbackErr.message}`);
     } catch (e: any) {
@@ -336,17 +374,36 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<boolean
 
       if (!fallbackErrWithTime) {
         console.log("Successfully saved using legacy curriculum_config with updated_at!");
-        return true;
+        return {
+          success: true,
+          savedTable: "curriculum_config",
+          method: "single_json_row",
+          rowCount: 1,
+          errors
+        };
       }
+      errors.push(`[الجدول القديم مع الوقت] ${fallbackErrWithTime.message}`);
     } catch (e: any) {
       console.warn("Legacy with time error:", e);
     }
 
     // If we came here, all options failed. Give the user an comprehensive overview of why
     const combinedErrorMessage = errors.join(" \n ");
-    throw new Error(combinedErrorMessage || "فشلت المزامنة على كافة الجداول المتاحة في قاعدة البيانات.");
+    return {
+      success: false,
+      savedTable: "none",
+      method: "none",
+      rowCount: 0,
+      errors: [combinedErrorMessage || "فشلت المزامنة على كافة الجداول المتاحة في قاعدة البيانات."]
+    };
   } catch (err: any) {
     console.error("Error writing data to Supabase:", err);
-    throw err;
+    return {
+      success: false,
+      savedTable: "none",
+      method: "none",
+      rowCount: 0,
+      errors: [err.message || String(err)]
+    };
   }
 }

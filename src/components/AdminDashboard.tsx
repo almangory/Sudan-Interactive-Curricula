@@ -39,6 +39,8 @@ export default function AdminDashboard({ stages, onUpdateCurriculum, onClose }: 
   const [sbAnonKey, setSbAnonKey] = useState("");
   const [sbStatus, setSbStatus] = useState<string | null>(null);
   const [isSbLoading, setIsSbLoading] = useState(false);
+  const [showSqlBlock, setShowSqlBlock] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
   
   // Notification states
   const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: "success" | "error" | "info" } | null>(null);
@@ -302,11 +304,31 @@ export default function AdminDashboard({ stages, onUpdateCurriculum, onClose }: 
     setIsSbLoading(true);
     try {
       const response = await saveCurriculumToSupabase(stages);
-      if (response) {
-        showFeedback("تم رفع وحفظ المنهج الدراسي بالكامل إلى جدول curricula_links السحابي بنجاح! ⭐", "success");
-        setSbStatus("✅ تمت المزامنة السحابية الأخيرة بنجاح داخل جدول curricula_links.");
+      if (response && response.success) {
+        if (response.savedTable === "curricula_links") {
+          showFeedback("تم رفع وحفظ المنهج الدراسي بالكامل كسطور منفردة في جدول curricula_links بنجاح! ⭐", "success");
+          setSbStatus(
+            `✅ تم حفظ ومزامنة المناهج بنجاح سحابياً!\n` +
+            `• جدول الاستقبال النشط: 'curricula_links' (المناهج التفصيلية)\n` +
+            `• نمط التخزين: سطور تفصيلية منفصلة (${response.rowCount} مادة دراسية ومستند تم توزيعها بنجاح)\n\n` +
+            `تأكد من فتح جدول 'curricula_links' في سوبابيس لرؤية البيانات تفصيلياً.`
+          );
+        } else {
+          showFeedback("⚠️ تم الرفع الاحتياطي بجدول التكوين بنجاح.", "info");
+          setSbStatus(
+            `⚠️ تنبيه: تم الرفع بنجاح ولكن عبر جدول النسخ الاحتياطية 'curriculum_config' كمصفوفة JSON مجتمعة.\n` +
+            `السبب هو أن جدول التفاصيل 'curricula_links' ربما غير جاهز للاستقبال المباشر بسبب قاعدة الأمان أو صلاحيات RLS.\n\n` +
+            `الأخطاء التي حدثت أثناء محاولة الاستعلام للجدول العام:\n` +
+            `${response.errors.join("\n")}\n\n` +
+            `💡 لتوزيع المناهج بسطور تفصيلية كاملة بـ curricula_links:\n` +
+            `1. تأكد من تشغيل كود الإنشاء (SQL Script) لجدول 'curricula_links' وصلاحيات RLS المرافقة له بالكامل.\n` +
+            `2. إذا كان الجدول قد تم إنشاؤه مسبقاً، يرجى تشغيل الكود التالي في لوحة تحكم سوبابيس لإعادة تنشيط الذاكرة المؤقتة:\n` +
+            `NOTIFY pgrst, 'reload schema';`
+          );
+        }
       } else {
-        throw new Error("فشل الرفع السحابي.");
+        const errorDetail = response?.errors?.join(" \n ") || "فشل غير معروف.";
+        throw new Error(errorDetail);
       }
     } catch (err: any) {
       setSbStatus(`❌ فشل المزامنة السحابية. يرجى التحقق من صلاحيات الجدول RLS وقواعد الأمان. الخطأ: ${err.message}`);
@@ -333,9 +355,9 @@ export default function AdminDashboard({ stages, onUpdateCurriculum, onClose }: 
       if (loadedStages && Array.isArray(loadedStages) && loadedStages.length > 0) {
         onUpdateCurriculum(loadedStages);
         showFeedback("تم سحب وتحديث المنهج من سوبابيس بنجاح! ☁️", "success");
-        setSbStatus("✅ تم سحب البيانات المحدثة ديناميكياً من جدول curricula_links بنجاح وتحميلها بالكامل.");
+        setSbStatus("✅ تم سحب البيانات المحدثة ديناميكياً من سوبابيس بنجاح وتحميلها بالكامل في متصفحك الحالي.");
       } else {
-        throw new Error("قاعدة بيانات سوبابيس لا تحتوي على منهج محفوظ تحت المعرف 'curriculum' أو أن الجدول فارغ.");
+        throw new Error("قاعدة بيانات سوبابيس لا تحتوي على منهج محفوظ تحت المعرف 'curriculum' أو أن المسميات فارغة.");
       }
     } catch (err: any) {
       setSbStatus(`❌ فشل تحميل البيانات من السحابة: ${err.message}`);
@@ -345,53 +367,63 @@ export default function AdminDashboard({ stages, onUpdateCurriculum, onClose }: 
     }
   };
 
-  const handleCreateDatabaseTable = async () => {
-    const config = getSupabaseConfig();
-    if (!config.isConfigured) {
-      showFeedback("يرجى تهيئة مفاتيح سوبابيس أولاً.", "error");
-      return;
-    }
+  const sqlCode = `-- 1. إنشاء جدول المناهج والروابط
+CREATE TABLE IF NOT EXISTS curricula_links (
+  id TEXT PRIMARY KEY,
+  stage_id TEXT,
+  stage_name TEXT,
+  stage_description TEXT,
+  stage_theme TEXT,
+  stage_icon TEXT,
+  grade_id TEXT,
+  grade_name TEXT,
+  name TEXT,
+  icon_name TEXT,
+  color_class TEXT,
+  interactive_url TEXT,
+  interactive_label TEXT,
+  curriculum_summary TEXT,
+  pdf_url TEXT,
+  memo_pdf_url TEXT,
+  video_url TEXT,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
 
-    alert(
-      "لتهيئة الجداول بنجاح في Supabase وصلاحياتها، يرجى نسخ وتنفيذ هذا الكود (SQL) في لوحة التحكم الخاصة بموقع سوبابيس (SQL Editor):\n\n" +
-      "-- 1. إنشاء جدول المناهج والروابط\n" +
-      "CREATE TABLE IF NOT EXISTS curricula_links (\n" +
-      "  id TEXT PRIMARY KEY,\n" +
-      "  stage_id TEXT,\n" +
-      "  stage_name TEXT,\n" +
-      "  stage_description TEXT,\n" +
-      "  stage_theme TEXT,\n" +
-      "  stage_icon TEXT,\n" +
-      "  grade_id TEXT,\n" +
-      "  grade_name TEXT,\n" +
-      "  name TEXT,\n" +
-      "  icon_name TEXT,\n" +
-      "  color_class TEXT,\n" +
-      "  interactive_url TEXT,\n" +
-      "  interactive_label TEXT,\n" +
-      "  curriculum_summary TEXT,\n" +
-      "  pdf_url TEXT,\n" +
-      "  memo_pdf_url TEXT,\n" +
-      "  video_url TEXT,\n" +
-      "  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())\n" +
-      ");\n\n" +
-      "-- تمكين الوصول العام للقراءة والكتابة لـ RLS:\n" +
-      "ALTER TABLE curricula_links ENABLE ROW LEVEL SECURITY;\n" +
-      "CREATE POLICY \"Allow read write for all\" ON curricula_links FOR ALL USING (true) WITH CHECK (true);\n\n" +
-      "-- 2. إنشاء جدول المستخدمين للمصادقة\n" +
-      "CREATE TABLE IF NOT EXISTS admin_users (\n" +
-      "  id SERIAL PRIMARY KEY,\n" +
-      "  username TEXT UNIQUE NOT NULL,\n" +
-      "  password TEXT NOT NULL,\n" +
-      "  email TEXT,\n" +
-      "  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())\n" +
-      ");\n\n" +
-      "ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;\n" +
-      "CREATE POLICY \"Allow select for everyone\" ON admin_users FOR SELECT USING (true);\n" +
-      "CREATE POLICY \"Allow insert update for all\" ON admin_users FOR ALL USING (true) WITH CHECK (true);\n\n" +
-      "-- إضافة مستخدم إداري افتراضي:\n" +
-      "INSERT INTO admin_users (username, password) VALUES ('almangory', '20302060') ON CONFLICT DO NOTHING;"
-    );
+-- تمكين الوصول العام للقراءة والكتابة لـ RLS:
+ALTER TABLE curricula_links ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow read write for all" ON curricula_links FOR ALL USING (true) WITH CHECK (true);
+
+-- 2. إنشاء جدول المستخدمين للمصادقة
+CREATE TABLE IF NOT EXISTS admin_users (
+  id SERIAL PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  email TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow select for everyone" ON admin_users FOR SELECT USING (true);
+CREATE POLICY "Allow insert update for all" ON admin_users FOR ALL USING (true) WITH CHECK (true);
+
+-- إضافة مستخدم إداري افتراضي:
+INSERT INTO admin_users (username, password) VALUES ('almangory', '20302060') ON CONFLICT DO NOTHING;
+
+-- 3. تنشيط ذاكرة الكاش المؤقتة لـ PostgREST لتسريع قراءة وحفظ الأعمدة الجديدة:
+NOTIFY pgrst, 'reload schema';`;
+
+  const handleCreateDatabaseTable = async () => {
+    setShowSqlBlock(prev => !prev);
+    if (!showSqlBlock) {
+      showFeedback("تم تفعيل كود الـ SQL بالأسفل، تفضل بنسخه الآن! 📋", "info");
+    }
+  };
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(sqlCode);
+    setCopiedSql(true);
+    showFeedback("تم نسخ كود SQL الإنشاء إلى كاش السيرفر الحافظ بنجاح! 📋", "success");
+    setTimeout(() => setCopiedSql(false), 3000);
   };
 
   return (
@@ -783,6 +815,55 @@ export default function AdminDashboard({ stages, onUpdateCurriculum, onClose }: 
               />
             </div>
           </div>
+
+          {showSqlBlock && (
+            <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-5 space-y-4 text-right animate-fade-in relative z-10" dir="rtl">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 bg-yellow-600/20 text-yellow-400 rounded-lg text-xs leading-none">⚠️</span>
+                  <h4 className="text-xs font-black text-slate-100">تهيئة وتأسيس الجداول في لوحة سوبابيس (SQL Script)</h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopySql}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-550 text-[#ffffff] rounded-lg text-3xs font-extrabold cursor-pointer transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95"
+                >
+                  {copiedSql ? "✅ تم نسخ الكود" : "📋 نسخ الكود بالكامل"}
+                </button>
+              </div>
+
+              <p className="text-3xs text-slate-400 leading-relaxed">
+                يرجى نسخ الكود بالكامل ثم لصقه وتشغيله في صفحة <strong className="text-indigo-300">SQL Editor</strong> الممتازة بمشروعك في لوحة تحكم <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">Supabase</a> لتأسيس وبناء جدول المناهج <code className="text-indigo-300 font-mono">curricula_links</code> وصلاحيات الأمان بنجاح.
+              </p>
+
+              <div className="relative">
+                <textarea
+                  readOnly
+                  rows={8}
+                  value={sqlCode}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-3xs font-mono text-slate-300 cursor-text leading-relaxed select-all"
+                  style={{ direction: "ltr", textAlign: "left" }}
+                />
+              </div>
+
+              <div className="p-3 bg-indigo-950/20 border border-indigo-900/30 rounded-xl space-y-1.5">
+                <h5 className="text-3xs font-black text-indigo-300 flex items-center gap-1">
+                  <span>💡 تنبيه هام لعملاء منصة الاستضافة (Vercel):</span>
+                </h5>
+                <p className="text-3xs text-slate-400 leading-normal">
+                  لضمان بقاء المنصة متصلة بقاعدتكم السحابية سوبابيس دائماً دون انقطاع أو الحاجة لتسجيل الكود، يرجى ملء مفتاح ورابط المشروع في إعدادات البيئة (Environment Variables) بموقع <strong className="text-slate-200">Vercel</strong> بالأسماء التالية:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-3xs font-mono text-indigo-200 bg-slate-900/50 p-2.5 rounded-lg border border-slate-800">
+                  <div>
+                    <span className="text-slate-400">اسم المتغير 1:</span> <span className="text-emerald-400 select-all">VITE_SUPABASE_URL</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">اسم المتغير 2:</span> <span className="text-emerald-400 select-all">VITE_SUPABASE_ANON_KEY</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {sbStatus && (
             <div className="p-4 rounded-xl text-3xs font-mono border bg-slate-950/80 border-slate-800 text-slate-350 leading-relaxed whitespace-pre-line">
