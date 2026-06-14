@@ -1437,42 +1437,47 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             <StudyCamp stages={displayedStages} />
           </motion.div>
         ) : (
-          selectedStage && (
-            <motion.div 
-              key={selectedStage.id}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-8"
-            >
-              {/* Stage Hero Summary */}
-              <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/10 p-6 md:p-8 rounded-3xl border border-slate-800/80 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
-                <div className="space-y-3 max-w-xl text-center md:text-right">
-                  <span className="text-xs text-emerald-400 font-mono font-black uppercase tracking-widest">تصفح المواد في:</span>
-                  <h3 className="text-xl md:text-2xl font-black text-slate-100">{selectedStage.name}</h3>
-                  <p className="text-xs md:text-sm text-slate-400 leading-relaxed">{selectedStage.description}</p>
-                </div>
-                
-                {/* Informative indicator card */}
-                <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl flex items-center gap-3.5 flex-shrink-0">
-                  <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
-                    <CheckCircle className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-2xs text-slate-400 block leading-none">مجموع المواد التفاعلية</span>
-                    <span className="text-lg font-black text-slate-100 block mt-1">
-                      {selectedStage.grades.reduce((sum, g) => sum + g.subjects.length, 0)} مواد دراسية
-                    </span>
-                  </div>
-                </div>
-              </div>
+          selectedStage && (() => {
+            const renderedGrades = currentUser && currentUser.user_role === "student" && currentUser.grade_id
+              ? selectedStage.grades.filter(g => g.id === currentUser.grade_id)
+              : selectedStage.grades;
 
-              {/* List of Grades (الصفوف الدراسية لهذه المرحلة) */}
-              <div className="space-y-6">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">المستويات الدراسية السنوية:</h4>
-                
+            return (
+              <motion.div 
+                key={selectedStage.id}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-8"
+              >
+                {/* Stage Hero Summary */}
+                <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/10 p-6 md:p-8 rounded-3xl border border-slate-800/80 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
+                  <div className="space-y-3 max-w-xl text-center md:text-right">
+                    <span className="text-xs text-emerald-400 font-mono font-black uppercase tracking-widest">تصفح المواد في:</span>
+                    <h3 className="text-xl md:text-2xl font-black text-slate-100">{selectedStage.name}</h3>
+                    <p className="text-xs md:text-sm text-slate-400 leading-relaxed">{selectedStage.description}</p>
+                  </div>
+                  
+                  {/* Informative indicator card */}
+                  <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl flex items-center gap-3.5 flex-shrink-0">
+                    <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
+                      <CheckCircle className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-2xs text-slate-400 block leading-none">مجموع المواد التفاعلية</span>
+                      <span className="text-lg font-black text-slate-105 block mt-1">
+                        {renderedGrades.reduce((sum, g) => sum + g.subjects.length, 0)} مواد دراسية
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* List of Grades (الصفوف الدراسية لهذه المرحلة) */}
                 <div className="space-y-6">
-                  {selectedStage.grades.map((grade) => {
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">المستويات الدراسية السنوية:</h4>
+                  
+                  <div className="space-y-6">
+                    {renderedGrades.map((grade) => {
                     const isGradeExpanded = activeGrade?.id === grade.id;
                     
                     // Interactive grade filtering logic
@@ -1767,8 +1772,8 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 </div>
               </div>
             </motion.div>
-          )
-        )}
+          );
+        })())}
       </main>
 
       {/* Embedded Subject entry gate Modal */}
