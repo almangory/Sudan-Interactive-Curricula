@@ -203,6 +203,74 @@ app.get("/api/proxy-pdf", async (req, res) => {
   }
 });
 
+// API Endpoint to check and retrieve Supabase details dynamically from Server Env Variables (for zero-configuration on clients)
+app.get("/api/config/supabase", (req, res) => {
+  try {
+    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
+    const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+    
+    res.json({
+      url: url.trim(),
+      anonKey: anonKey.trim(),
+      isConfigured: !!url && !!anonKey
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Realtime sync states for SSE (Server-Sent Events)
+let sseClients: any[] = [];
+
+// API Endpoint for Server-Sent Events (SSE)
+app.get("/api/events", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  
+  // Send initial connection feedback
+  res.write(`data: ${JSON.stringify({ type: "connected", message: "متصل بنجاح بقناة المزامنة الفورية للبيانات" })}\n\n`);
+  
+  const clientId = Date.now();
+  const newClient = {
+    id: clientId,
+    res
+  };
+  sseClients.push(newClient);
+  
+  req.on("close", () => {
+    sseClients = sseClients.filter(client => client.id !== clientId);
+  });
+});
+
+// API Webhook Endpoint to receive notifications from Supabase
+app.post("/api/webhooks/supabase", (req, res) => {
+  try {
+    const payload = req.body;
+    console.log("Supabase Webhook Triggered with payload:", JSON.stringify(payload, null, 2));
+
+    // Broadcast the "reload_curriculum" event to all active clients
+    sseClients.forEach((client) => {
+      client.res.write(`data: ${JSON.stringify({
+        type: "reload_curriculum",
+        table: payload?.table || "unknown",
+        operation: payload?.type || "unknown",
+        record: payload?.record || null,
+        timestamp: new Date().toISOString()
+      })}\n\n`);
+    });
+
+    res.json({
+      success: true,
+      message: "تم استلام حدث التحديث من سوبابيس بنجاح وبثه لجميع المستخدمين المتصلين فورياً!",
+      connections: sseClients.length
+    });
+  } catch (err: any) {
+    console.error("Supabase webhook process error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Global JSON error handling middleware to safely catch body-parser/payload and unexpected server errors
 app.use((err: any, req: any, res: any, next: any) => {
   console.error("Express App Error:", err);

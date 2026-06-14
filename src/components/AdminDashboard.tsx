@@ -923,6 +923,56 @@ NOTIFY pgrst, 'reload schema';`;
               </button>
             </div>
           </div>
+
+          {/* Webhook Sync Guide Box */}
+          <div className="border border-indigo-905/40 rounded-2xl p-5 bg-indigo-950/20 space-y-3.5 text-right" dir="rtl">
+            <div className="flex items-center gap-2 border-b border-indigo-900/40 pb-2.5">
+              <span className="p-1 bg-indigo-650/30 text-indigo-400 rounded-lg text-xs leading-none">⚡</span>
+              <h5 className="text-xs font-black text-slate-200">مزامنة تلقائية فورية للمستعرضات (Realtime Webhooks Setup):</h5>
+            </div>
+
+            <p className="text-2xs text-slate-400 leading-relaxed text-right">
+              لتفعيل المزامنة الفورية لمستشعرات التعديل (Webhook) لتعكس بيانات سوبابيس في الموقع بشكل لحظي ودون الحاجة لتحديث الصفحة، اتبع الخطوات التالية في لوحة تحكم سوبابيس الخاصة بك:
+            </p>
+
+            <ul className="list-decimal list-inside text-3xs text-slate-350 space-y-2 leading-relaxed text-right">
+              <li>
+                اذهب إلى صفحة <strong className="text-indigo-300">Database {"->"} Webhooks</strong> في سوبابيس.
+              </li>
+              <li>
+                اضغط على زر <strong className="text-emerald-400">Create Webhook</strong> لإنشاء إشعار ويب جديد.
+              </li>
+              <li>
+                سمّ التنبيه مثلاً: <code className="text-indigo-300 font-mono bg-slate-900 px-1 py-0.5 rounded border border-slate-800">sync_curriculum</code>، واختر الجدول <code className="text-indigo-300 font-mono bg-slate-900 px-1 py-0.5 rounded border border-slate-800">curricula_links</code>.
+              </li>
+              <li>
+                اختر الأحداث أو التعديلات: <strong className="text-slate-200">INSERT, UPDATE, DELETE</strong>.
+              </li>
+              <li>
+                اجعل طريقة الطلب <strong className="text-indigo-400">POST</strong>، والصق الرابط التالي في خانه الـ <strong className="text-indigo-300">Webhook URL</strong>:
+              </li>
+            </ul>
+
+            <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center justify-between gap-3 font-mono text-3xs overflow-x-auto text-emerald-400 select-all" style={{ direction: "ltr", textAlign: "left" }}>
+              <span>{`${window.location.origin}/api/webhooks/supabase`}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/supabase`);
+                  showFeedback("تم نسخ رابط الويب هوك بنجاح! 📋", "success");
+                }}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-indigo-600 text-[#ffffff] rounded-lg text-3xs font-black cursor-pointer transition-all shrink-0 select-none animate-pulse-subtle"
+              >
+                نسخ الرابط
+              </button>
+            </div>
+
+            <div className="p-3 bg-indigo-950/40 border border-indigo-900/30 rounded-xl">
+              <p className="text-3xs text-slate-405 leading-normal text-right">
+                💡 <strong className="text-indigo-350 font-black">كيف تعمل؟</strong> بمجرد قيامك (أو أي مستخدم) بتعديل المناهج من هنا أو يدوياً عبر قاعدة البيانات، يقوم الـ Webhook بتنبيه الخادم الخاص بنا فورياً، ويقوم الخادم بدوره ببث تحديث لحظي لجميع المتصفحات المفتوحة حالياً لتحديث الواجهات بثوانٍ بدون لمس زر التحديث!
+              </p>
+            </div>
+          </div>
         </form>
       )}
     </div>

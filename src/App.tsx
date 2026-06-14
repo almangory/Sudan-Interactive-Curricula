@@ -12,7 +12,7 @@ import AddSubjectModal from "./components/AddSubjectModal";
 import DynamicIcon from "./components/DynamicIcon";
 import StudyCamp from "./components/StudyCamp";
 import AdminDashboard from "./components/AdminDashboard";
-import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig } from "./lib/supabase";
+import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig } from "./lib/supabase";
 
 export default function App() {
   // Curriculum data is retrieved directly from the server-side compiled curriculum.ts (stagesData)
@@ -44,10 +44,29 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
 
-  // Load from Supabase on start if available
+  // Load from Supabase on start if available and subscribe to Webhook SSE events
   useEffect(() => {
     const loadSupabaseData = async () => {
       try {
+        // 1. Try to fetch dynamic Supabase keys from the server first to bootstrap all client instances
+        try {
+          const configRes = await fetch("/api/config/supabase");
+          if (configRes.ok) {
+            const configData = await configRes.json();
+            if (configData.isConfigured && configData.url && configData.anonKey) {
+              const currentCfg = getSupabaseConfig();
+              // Only save if it's different to prevent redundant writes
+              if (currentCfg.url !== configData.url || currentCfg.anonKey !== configData.anonKey) {
+                console.log("Bootstrapping client Supabase connection parameters from production server environmental keys...");
+                saveSupabaseConfig(configData.url, configData.anonKey);
+              }
+            }
+          }
+        } catch (configErr) {
+          console.warn("Could not check backend Supabase config fallback, continuing client-side check.", configErr);
+        }
+
+        // 2. Fetch the actual content from Supabase
         const cloudData = await fetchCurriculumFromSupabase();
         if (cloudData && Array.isArray(cloudData) && cloudData.length > 0) {
           setCurriculumData(cloudData);
@@ -58,6 +77,34 @@ export default function App() {
       }
     };
     loadSupabaseData();
+
+    // ⚡ Subscribe to server-sent events for instant Supabase Webhook notification updates
+    const eventSource = new EventSource("/api/events");
+    
+    eventSource.onmessage = async (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "reload_curriculum") {
+          console.log("Received instant sync webhook trigger from server:", data);
+          setSaveStatus("⚡ تحديث تلقائي فوري: تم رصد تعديل في قاعدة البيانات سوبابيس، جاري مزامنة الموقع...");
+          const freshData = await fetchCurriculumFromSupabase();
+          if (freshData && Array.isArray(freshData) && freshData.length > 0) {
+            setCurriculumData(freshData);
+            localStorage.setItem("sudan_custom_curriculum_v3", JSON.stringify(freshData));
+            setSaveStatus("✅ تم مزامنة وتحديث بيانات المناهج فورياً دون الحاجة لتحديث الصفحة! ⚡");
+            setTimeout(() => setSaveStatus(null), 4000);
+          } else {
+            setSaveStatus(null);
+          }
+        }
+      } catch (err) {
+        console.error("SSE parsing error:", err);
+      }
+    };
+
+    return () => {
+      eventSource.close();
+    };
   }, []);
 
   // 🔐 Admin state variables & credentials management
