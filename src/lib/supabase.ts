@@ -236,6 +236,8 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<boolean
   const client = getSupabaseClient();
   if (!client) return false;
 
+  const errors: string[] = [];
+
   try {
     // 1. Flatten nested Stage structure into sequential database rows for structured row-by-row saving
     const flatRows: any[] = [];
@@ -273,14 +275,17 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<boolean
         .upsert(flatRows);
 
       if (!insertErr) {
+        console.log("Successfully saved row-by-row into curricula_links!");
         return true;
       }
+      errors.push(`[جدول المناهج التفصيلي - curricula_links] ${insertErr.message} (رمز الخطأ: ${insertErr.code || ''})`);
       console.warn("Attempt to save row-by-row to curricula_links yielded error, trying fallback:", insertErr);
-    } catch (e) {
+    } catch (e: any) {
+      errors.push(`[خطأ اتصال بـ curricula_links] ${e.message || e}`);
       console.warn("Row-by-row insert failed, trying JSON fallback:", e);
     }
 
-    // Attempt 2: Try single-row JSON configuration approach directly on curricula_links
+    // Attempt 2: Try single-row JSON configuration approach directly on curricula_links (in case they have a combined schema representation)
     try {
       const { error: jsonErr } = await client
         .from("curricula_links")
@@ -290,23 +295,57 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<boolean
           updated_at: new Date().toISOString()
         });
 
-      if (!jsonErr) return true;
-    } catch (e) {}
-
-    // Attempt 3: Try legacy curriculum_config table fallback
-    const { error: fallbackErr } = await client
-      .from("curriculum_config")
-      .upsert({
-        id: "curriculum",
-        stages: stages,
-        updated_at: new Date().toISOString()
-      });
-
-    if (fallbackErr) {
-      throw fallbackErr;
+      if (!jsonErr) {
+        console.log("Successfully saved single-row JSON to curricula_links!");
+        return true;
+      }
+      errors.push(`[مزامنة JSON في curricula_links] ${jsonErr.message}`);
+    } catch (e: any) {
+      console.warn("JSON upsert to curricula_links failed:", e);
     }
-    return true;
-  } catch (err) {
+
+    // Attempt 3: Try legacy curriculum_config table fallback WITHOUT updated_at column
+    // This is crucial to bypass the "Could not find the 'updated_at' column in the schema cache" error
+    try {
+      const { error: fallbackErr } = await client
+        .from("curriculum_config")
+        .upsert({
+          id: "curriculum",
+          stages: stages
+        });
+
+      if (!fallbackErr) {
+        console.log("Successfully saved using legacy curriculum_config (stages only) fallback!");
+        return true;
+      }
+      errors.push(`[الجدول القديم curriculum_config بدون updated_at] ${fallbackErr.message}`);
+    } catch (e: any) {
+      errors.push(`[خطأ الجدول القديم] ${e.message || e}`);
+      console.warn("Legacy save without updated_at error:", e);
+    }
+
+    // Attempt 4: Try legacy curriculum_config table WITH updated_at just in case they have it
+    try {
+      const { error: fallbackErrWithTime } = await client
+        .from("curriculum_config")
+        .upsert({
+          id: "curriculum",
+          stages: stages,
+          updated_at: new Date().toISOString()
+        });
+
+      if (!fallbackErrWithTime) {
+        console.log("Successfully saved using legacy curriculum_config with updated_at!");
+        return true;
+      }
+    } catch (e: any) {
+      console.warn("Legacy with time error:", e);
+    }
+
+    // If we came here, all options failed. Give the user an comprehensive overview of why
+    const combinedErrorMessage = errors.join(" \n ");
+    throw new Error(combinedErrorMessage || "فشلت المزامنة على كافة الجداول المتاحة في قاعدة البيانات.");
+  } catch (err: any) {
     console.error("Error writing data to Supabase:", err);
     throw err;
   }
