@@ -154,6 +154,19 @@ export default function App() {
   const [userAuthSuccess, setUserAuthSuccess] = useState("");
   const [isAuthLoading, setIsAuthLoading] = useState(false);
 
+  // Filter stages based on logged-in student profile or admin view
+  const displayedStages = React.useMemo(() => {
+    if (currentUser && currentUser.user_role === "student" && currentUser.grade_id) {
+      const studentStage = curriculumData.find(stage => 
+        stage.grades.some(g => g.id === currentUser.grade_id)
+      );
+      if (studentStage) {
+        return [studentStage];
+      }
+    }
+    return curriculumData;
+  }, [curriculumData, currentUser]);
+
   const triggerEditProfile = () => {
     if (!currentUser) return;
     setUserEmail(currentUser.email);
@@ -605,14 +618,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
     }
   }, [activeSubject, addSubjectState]);
 
-  // Set default stage from loaded curriculumData
-  useEffect(() => {
-    if (curriculumData.length > 1 && !selectedStage) {
-      setSelectedStage(curriculumData[1]); // Default to primary stage
-    }
-  }, [curriculumData]);
-
-  // 🎓 Auto-select Student's registered grade & stage upon login/session restore
+  // Set default stage from loaded curriculumData or enforce registered student stage
   useEffect(() => {
     if (currentUser && currentUser.user_role === "student" && currentUser.grade_id && curriculumData.length > 0) {
       let foundStage = null;
@@ -632,8 +638,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         setShowStudyCamp(false);
         setShowAdminDashboard(false);
       }
+    } else if (curriculumData.length > 1 && !selectedStage) {
+      setSelectedStage(curriculumData[1]); // Default to primary stage
     }
-  }, [currentUser, curriculumData]);
+  }, [curriculumData, currentUser]);
 
   // Handle active stage changing when curriculumData is updated to keep selectedStage reference in sync
   useEffect(() => {
@@ -1202,7 +1210,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
           {/* Grid of Stage Selector Buttons */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-1">
-            {curriculumData.map((stage) => {
+            {displayedStages.map((stage) => {
               const isSelected = selectedStage?.id === stage.id && !showOnlyFavorites && !showStudyCamp;
               
               return (
@@ -1426,7 +1434,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <StudyCamp stages={curriculumData} />
+            <StudyCamp stages={displayedStages} />
           </motion.div>
         ) : (
           selectedStage && (
