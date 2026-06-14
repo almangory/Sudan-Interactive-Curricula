@@ -58,7 +58,7 @@ export function getSupabaseClient() {
   try {
     return createClient(url, anonKey, {
       auth: {
-        persistSession: false, // Purely for stateless data updates
+        persistSession: true, // Allow session persistence for user registration & login sessions
       }
     });
   } catch (error) {
@@ -407,3 +407,333 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<SyncRes
     };
   }
 }
+
+export interface AppUser {
+  id: string;
+  username: string;
+  email: string;
+  provider: string;
+  user_role?: string;       // 'student' | 'teacher' | 'admin'
+  grade_id?: string;
+  grade_name?: string;
+  specialties?: string;     // Specialized subjects e.g. "الكيمياء, الرياضيات"
+  contact_method?: string;  // Phone number or email
+  status?: string;          // 'pending' or 'active'
+  is_approved_teacher?: boolean;
+  created_at?: string;
+}
+
+/**
+ * Registers a new user directly in the database 'users' table, and optionally via Supabase Auth.
+ */
+export async function registerUser(
+  username: string, 
+  email: string, 
+  password?: string, 
+  provider = "email",
+  userRole = "student",
+  gradeId?: string,
+  gradeName?: string,
+  specialties?: string,
+  contactMethod?: string
+): Promise<{ success: boolean; error?: string; user?: AppUser }> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: false, error: "قاعدة بيانات سوبابيس (Supabase) غير مهيأة بعد." };
+  }
+
+  try {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanUsername = username.trim();
+
+    // 1. Try to register in the custom 'users' table first to satisfy the requirement
+    const userDataToInsert = {
+      username: cleanUsername,
+      email: cleanEmail,
+      password: password || "", // plain password for direct table fallback
+      password_hash: password || "", 
+      provider: provider,
+      user_role: userRole,
+      grade_id: gradeId || null,
+      grade_name: gradeName || null,
+      specialties: specialties || null,
+      contact_method: contactMethod || null,
+      status: userRole === "teacher" ? "pending" : "active",
+      is_approved_teacher: false,
+      created_at: new Date().toISOString()
+    };
+
+    const { data: insertData, error: insertError } = await client
+      .from("users")
+      .insert([userDataToInsert])
+      .select();
+
+    if (insertError) {
+      console.warn("Error inserting to 'users' table with full schema, attempting fallback...", insertError);
+      
+      // Try fallback schema in case user_role or other helper columns are not yet created in the DB table
+      const { data: fallbackData, error: fallbackError } = await client
+        .from("users")
+        .insert([{
+          username: cleanUsername,
+          email: cleanEmail,
+          password: password || "",
+          provider: provider
+        }])
+        .select();
+
+      if (fallbackError) {
+        if (fallbackError.code === "PGRST404") {
+          return {
+            success: false,
+            error: "⚠️ جدول المستخدمين 'users' غير متوفر في سوبابيس حالياً. تفضل بإنشائه من زر الإنشاء في لوحة تحكم الإدارة بالمنهج."
+          };
+        }
+        return { success: false, error: `فشل الحفظ بجدول 'users': ${fallbackError.message}` };
+      }
+
+      const returnedUser = fallbackData?.[0];
+      return {
+        success: true,
+        user: {
+          id: returnedUser?.id || String(Date.now()),
+          username: returnedUser?.username || cleanUsername,
+          email: returnedUser?.email || cleanEmail,
+          provider: returnedUser?.provider || provider,
+          user_role: "student",
+          status: "active"
+        }
+      };
+    }
+
+    const returnedUser = insertData?.[0];
+    return {
+      success: true,
+      user: {
+        id: returnedUser?.id || String(Date.now()),
+        username: returnedUser?.username || cleanUsername,
+        email: returnedUser?.email || cleanEmail,
+        provider: returnedUser?.provider || provider,
+        user_role: returnedUser?.user_role || userRole,
+        grade_id: returnedUser?.grade_id,
+        grade_name: returnedUser?.grade_name,
+        specialties: returnedUser?.specialties,
+        contact_method: returnedUser?.contact_method,
+        status: returnedUser?.status,
+        is_approved_teacher: returnedUser?.is_approved_teacher
+      }
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || String(err) };
+  }
+}
+
+/**
+ * Logs in a user by checking the database 'users' table.
+ */
+export async function loginUser(email: string, password?: string): Promise<{ success: boolean; error?: string; user?: AppUser }> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: false, error: "قاعدة بيانات سوبابيس (Supabase) غير مهيأة بعد." };
+  }
+
+  try {
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Query standard custom table
+    const { data, error } = await client
+      .from("users")
+      .select("*")
+      .eq("email", cleanEmail)
+      .limit(1);
+
+    if (error) {
+      return { success: false, error: `فشل البحث في جدول المستخدمين: ${error.message}` };
+    }
+
+    if (!data || data.length === 0) {
+      return { success: false, error: "هذا البريد الإلكتروني غير مسجل لدينا سيدي. يرجى إنشاء حساب أولاً." };
+    }
+
+    const userEntry = data[0];
+    
+    // Check password (checking password or password_hash columns)
+    const storedPass = userEntry.password || userEntry.password_hash || "";
+    if (password && storedPass !== password) {
+      return { success: false, error: "كلمة المرور المدخلة غير صحيحة! يرجى إعادة المحاولة." };
+    }
+
+    return {
+      success: true,
+      user: {
+        id: userEntry.id || String(Date.now()),
+        username: userEntry.username || userEntry.name || "مستخدم جديد",
+        email: userEntry.email,
+        provider: userEntry.provider || "email",
+        user_role: userEntry.user_role || "student",
+        grade_id: userEntry.grade_id,
+        grade_name: userEntry.grade_name,
+        specialties: userEntry.specialties,
+        contact_method: userEntry.contact_method,
+        status: userEntry.status || "active",
+        is_approved_teacher: !!userEntry.is_approved_teacher
+      }
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || String(err) };
+  }
+}
+
+/**
+ * Fetches all registered users from the database 'users' table for Admin use.
+ */
+export async function fetchAllRegisteredUsers(): Promise<AppUser[]> {
+  const client = getSupabaseClient();
+  if (!client) return [];
+  try {
+    const { data, error } = await client
+      .from("users")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching users list:", error);
+      return [];
+    }
+
+    return (data || []).map((x: any) => ({
+      id: x.id,
+      username: x.username,
+      email: x.email,
+      provider: x.provider || "email",
+      user_role: x.user_role || "student",
+      grade_id: x.grade_id,
+      grade_name: x.grade_name,
+      specialties: x.specialties,
+      contact_method: x.contact_method,
+      status: x.status || "active",
+      is_approved_teacher: !!x.is_approved_teacher,
+      created_at: x.created_at
+    }));
+  } catch (e) {
+    console.warn("Failed retrieving users from database:", e);
+    return [];
+  }
+}
+
+/**
+ * Updates a user's type, approval level and status.
+ */
+export async function updateUserRoleAndPermissions(
+  userId: string, 
+  userRole: string,
+  isApproved: boolean,
+  status: string
+): Promise<{ success: boolean; error?: string }> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: false, error: "قاعدة بيانات سوبابيس (Supabase) غير مهيأة بعد." };
+  }
+
+  try {
+    const { error } = await client
+      .from("users")
+      .update({
+        user_role: userRole,
+        is_approved_teacher: isApproved,
+        status: status
+      })
+      .eq("id", userId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || String(err) };
+  }
+}
+
+/**
+ * Handles initiating Sign In with Google via Supabase OAuth.
+ */
+export async function signInWithGoogle(): Promise<{ success: boolean; error?: string }> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: false, error: "قاعدة بيانات سوبابيس (Supabase) غير مهيأة بعد." };
+  }
+
+  try {
+    const { error } = await client.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin,
+      }
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || String(err) };
+  }
+}
+
+/**
+ * Checks if there is a logged in session (e.g. after Google Sign-In redirect)
+ * and automatically registers them in the custom 'users' table if they aren't there yet.
+ */
+export async function checkAndSyncGoogleSession(): Promise<AppUser | null> {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const { data: { session } } = await client.auth.getSession();
+    if (session && session.user) {
+      const gUser = session.user;
+      const email = gUser.email || "";
+      const metadata = gUser.user_metadata || {};
+      const username = metadata.full_name || metadata.name || email.split("@")[0] || "مستخدم قوقل";
+
+      if (!email) return null;
+
+      // Check if user is already registered in custom table
+      const { data, error } = await client
+        .from("users")
+        .select("*")
+        .eq("email", email.trim().toLowerCase())
+        .limit(1);
+
+      if (!error && data && data.length > 0) {
+        // Already exists in table, map and return
+        const usr = data[0];
+        return {
+          id: usr.id || gUser.id,
+          username: usr.username || username,
+          email: usr.email || email,
+          provider: usr.provider || "google"
+        };
+      }
+
+      // Automatically register them dynamically into the custom 'users' table
+      const reg = await registerUser(username, email, "oauth_google_verified", "google");
+      if (reg.success && reg.user) {
+        return reg.user;
+      }
+
+      return {
+        id: gUser.id,
+        username,
+        email,
+        provider: "google"
+      };
+    }
+  } catch (e) {
+    console.warn("Failed checking/syncing user session:", e);
+  }
+  return null;
+}
+

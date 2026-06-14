@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { 
   Database, Save, Plus, Trash2, Edit3, Settings, AlertTriangle, CheckCircle, 
-  RefreshCw, Globe, BookOpen, Video, FileText, LayoutGrid, X, Sparkles, Award
+  RefreshCw, Globe, BookOpen, Video, FileText, LayoutGrid, X, Sparkles, Award,
+  Users, ShieldAlert, CheckCircle2, UserCheck
 } from "lucide-react";
 import { Stage, Grade, Subject } from "../data/curriculum";
-import { getSupabaseConfig, saveSupabaseConfig, getSupabaseClient, saveCurriculumToSupabase, fetchCurriculumFromSupabase, testSupabaseConnection } from "../lib/supabase";
+import { getSupabaseConfig, saveSupabaseConfig, getSupabaseClient, saveCurriculumToSupabase, fetchCurriculumFromSupabase, testSupabaseConnection, AppUser, fetchAllRegisteredUsers, updateUserRoleAndPermissions } from "../lib/supabase";
 
 interface AdminDashboardProps {
   stages: Stage[];
@@ -13,7 +14,7 @@ interface AdminDashboardProps {
 }
 
 export default function AdminDashboard({ stages, onUpdateCurriculum, onClose }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"edit" | "supabase">("edit");
+  const [activeTab, setActiveTab] = useState<"edit" | "supabase" | "users">("edit");
   
   // Selection States
   const [selectedStageId, setSelectedStageId] = useState<string>(stages[1]?.id || stages[0]?.id || "");
@@ -41,6 +42,31 @@ export default function AdminDashboard({ stages, onUpdateCurriculum, onClose }: 
   const [isSbLoading, setIsSbLoading] = useState(false);
   const [showSqlBlock, setShowSqlBlock] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
+
+  // User & Teacher Management States
+  const [usersList, setUsersList] = useState<AppUser[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [modifyingUserId, setModifyingUserId] = useState<string | null>(null);
+
+  const fetchUsers = async () => {
+    const config = getSupabaseConfig();
+    if (!config.isConfigured) return;
+    setIsLoadingUsers(true);
+    try {
+      const list = await fetchAllRegisteredUsers();
+      setUsersList(list);
+    } catch (e) {
+      console.warn("Could not load users:", e);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "users") {
+      fetchUsers();
+    }
+  }, [activeTab]);
   
   // Notification states
   const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: "success" | "error" | "info" } | null>(null);
@@ -279,7 +305,27 @@ export default function AdminDashboard({ stages, onUpdateCurriculum, onClose }: 
         statusMsg += `⚠️ فشل الاستعلام من admin_users: ${err.message || err}\n`;
       }
 
-      setSbStatus(statusMsg || "✅ تم الاتصال والتحقق من كلا الجدولين 'curricula_links' و 'admin_users' بنجاح سحابياً!");
+      // Test connection to 'users' table (general student registration)
+      try {
+        const { error: genUsersError } = await client
+          .from("users")
+          .select("id")
+          .limit(1);
+
+        if (genUsersError) {
+          if (genUsersError.code === "PGRST404") {
+            statusMsg += "⚠️ الجدول 'users' الخاص بـتسجيل الطلاب غير متوفر حالياً في قاعدة بياناتك.\n";
+          } else {
+            statusMsg += `⚠️ خطأ في جدول 'users': ${genUsersError.message}\n`;
+          }
+        } else {
+          statusMsg += "✅ تم الاتصال والتحقق من جدول الحسابات العامة 'users' بنجاح!\n";
+        }
+      } catch (err: any) {
+        statusMsg += `⚠️ فشل الاستعلام من جدول 'users': ${err.message || err}\n`;
+      }
+
+      setSbStatus(statusMsg || "✅ تم الاتصال والتحقق من جداول المناهج والمستخدمين بنجاح سحابياً!");
       showFeedback("تم تحديث وحفظ مفاتيح السوبابيس بنجاح! ⚡", "success");
     } catch (err: any) {
       console.error(err);
@@ -409,7 +455,29 @@ CREATE POLICY "Allow insert update for all" ON admin_users FOR ALL USING (true) 
 -- إضافة مستخدم إداري افتراضي:
 INSERT INTO admin_users (username, password) VALUES ('almangory', '20302060') ON CONFLICT DO NOTHING;
 
--- 3. تنشيط ذاكرة الكاش المؤقتة لـ PostgREST لتسريع قراءة وحفظ الأعمدة الجديدة:
+-- 3. إنشاء جدول الطلاب والمستخدمين العامين وتراخيص الأساتذة (users)
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  username TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  password TEXT,
+  password_hash TEXT,
+  provider TEXT DEFAULT 'email',
+  user_role TEXT DEFAULT 'student',
+  grade_id TEXT DEFAULT NULL,
+  grade_name TEXT DEFAULT NULL,
+  specialties TEXT DEFAULT NULL,
+  contact_method TEXT DEFAULT NULL,
+  status TEXT DEFAULT 'active',
+  is_approved_teacher BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow select for everyone on users" ON users FOR SELECT USING (true);
+CREATE POLICY "Allow insert update for all on users" ON users FOR ALL USING (true) WITH CHECK (true);
+
+-- 4. تنشيط ذاكرة الكاش المؤقتة لـ PostgREST لتسريع قراءة وحفظ الأعمدة الجديدة:
 NOTIFY pgrst, 'reload schema';`;
 
   const handleCreateDatabaseTable = async () => {
@@ -481,6 +549,18 @@ NOTIFY pgrst, 'reload schema';`;
         >
           <Database className="w-4 h-4" />
           <span>إعداد ومزامنة سوبابيس (Supabase) ☁️</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("users")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === "users"
+              ? "bg-violet-600 text-[#ffffff] shadow-md shadow-violet-950"
+              : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>👤 إدارة الحسابات وصلاحيات المعلمين</span>
         </button>
       </div>
 
@@ -974,6 +1054,227 @@ NOTIFY pgrst, 'reload schema';`;
             </div>
           </div>
         </form>
+      )}
+
+      {/* Tab Contents: Users & Teachers Management */}
+      {activeTab === "users" && (
+        <div className="space-y-6 relative z-10 text-right" dir="rtl">
+          <div className="border border-slate-800 rounded-3xl p-6 bg-slate-900/60 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3 border-b border-slate-800 pb-4">
+              <div>
+                <h4 className="text-sm font-black text-slate-100 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-violet-400" />
+                  <span>إدارة حسابات المعلمين والطلاب وتخصيص الصلاحيات</span>
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">يمكنك تفعيل صلاحيات الأساتذة للتحكم بالمحتوى وتصفح الصفوف والمواد لكل مستخدم مسجل بقاعدة بياناتك.</p>
+              </div>
+              <button
+                type="button"
+                onClick={fetchUsers}
+                disabled={isLoadingUsers}
+                className="px-3.5 py-1.5 bg-slate-950 hover:bg-slate-850 active:scale-95 text-slate-300 hover:text-white border border-slate-800 rounded-xl text-3xs font-black transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingUsers ? "animate-spin" : ""}`} />
+                <span>تحديث القائمة</span>
+              </button>
+            </div>
+
+            {/* If Supabase connection is not verified or initialized */}
+            {!getSupabaseConfig().isConfigured ? (
+              <div className="p-5 bg-amber-955/25 border border-amber-900/40 rounded-2xl space-y-2 text-right">
+                <div className="flex items-center gap-1.5 text-amber-450 font-bold text-xs">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                  <span>سوبابيس (Supabase) غير مهيأة بعد!</span>
+                </div>
+                <p className="text-3xs text-slate-300 leading-normal">
+                  يرجى الانتقال أولاً إلى تبويب <strong className="text-amber-400">"إعداد ومزامنة سوبابيس"</strong> وإدخال مفاتيح الربط لتأسيس الجداول والحصول على بيانات الحسابات من السيرفر.
+                </p>
+              </div>
+            ) : isLoadingUsers ? (
+              <div className="py-12 text-center text-slate-400 space-y-2.5">
+                <RefreshCw className="w-7 h-7 mx-auto animate-spin text-violet-500" />
+                <p className="text-3xs font-bold font-sans">جاري تحميل وسحب بيانات الحسابات من سوبابيس...</p>
+              </div>
+            ) : usersList.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 space-y-2.5 border border-dashed border-slate-800/70 rounded-2xl bg-slate-950/20">
+                <Users className="w-8 h-8 mx-auto text-slate-600" />
+                <p className="text-3xs font-black font-sans">لم يتم تسجيل أي طالب أو أستاذ بقاعدة البيانات حالياً.</p>
+                <p className="text-[10px] text-slate-505 font-sans">حاول تسجيل حساب جديد من زر "حساب الطالب" بالصفحة الرئيسية أولاً.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/30">
+                <table className="w-full border-collapse text-right text-xs">
+                  <thead>
+                    <tr className="bg-slate-950 text-slate-400 border-b border-slate-800 text-[10px] font-black uppercase">
+                      <th className="p-3.5 pr-5">المستخدم والبريد الإلكتروني</th>
+                      <th className="p-3.5">نوع الحساب</th>
+                      <th className="p-3.5">التفاصيل / التخصص الدراسي</th>
+                      <th className="p-3.5">وسيلة التواصل</th>
+                      <th className="p-3.5">حالة وتراخيص الأستاذ</th>
+                      <th className="p-3.5 pl-5 text-center">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-850/60 text-slate-300">
+                    {usersList.map((usr) => {
+                      const isTeacher = usr.user_role === "teacher";
+                      const isApproved = !!usr.is_approved_teacher;
+                      
+                      return (
+                        <tr key={usr.id} className="hover:bg-slate-900/35 transition-colors">
+                          <td className="p-3.5 pr-5">
+                            <div className="font-extrabold text-slate-200 flex items-center gap-1.5">
+                              <span>{usr.username}</span>
+                              {usr.provider === "google" ? (
+                                <span className="px-1.5 py-0.5 bg-sky-950 text-sky-404 border border-sky-900/40 rounded-md text-[8px] font-black">Google</span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-md text-[8px]">بريد</span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-mono mt-0.5 select-all">{usr.email}</div>
+                          </td>
+                          <td className="p-3.5">
+                            {isTeacher ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-955/40 text-amber-400 border border-amber-900/40 rounded-xl text-[10px] font-black shadow-inner">
+                                👨‍🏫 أستاذ / معلم
+                              </span>
+                            ) : usr.user_role === "admin" ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-rose-955/40 text-rose-455 border border-rose-900/40 rounded-xl text-[10px] font-black shadow-inner">
+                                🔑 مدير النظام
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-indigo-950/40 text-indigo-400 border border-indigo-900/40 rounded-xl text-[10px] font-black shadow-inner">
+                                🎓 طالب مصدق
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3.5">
+                            {isTeacher ? (
+                              <div className="space-y-1">
+                                <span className="text-[10px] text-slate-400 font-bold block text-right">تخصص المواد:</span>
+                                <div className="flex flex-wrap gap-1 justify-start">
+                                  {usr.specialties ? (
+                                    usr.specialties.split(",").map((spec, i) => (
+                                      <span key={i} className="px-1.5 py-0.5 bg-slate-900 border border-slate-800 rounded-lg text-[9px] text-[#ffffff] font-extrabold">
+                                        {spec.trim()}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="text-[10px] text-slate-500 italic">غير محدد بعد</span>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="space-y-1">
+                                <span className="text-[10px] text-slate-400 font-bold">الصف والمرحلة:</span>
+                                <p className="text-[10px] text-slate-200 font-medium">{usr.grade_name || "غير محدد / لم يدرس بعد"}</p>
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3.5">
+                            {usr.contact_method ? (
+                              <span className="font-mono text-3xs text-slate-300 bg-slate-950 px-2 py-1 rounded-lg border border-slate-850 select-all">
+                                {usr.contact_method}
+                              </span>
+                            ) : (
+                              <span className="text-slate-500 italic text-[10px]">غير متوفر</span>
+                            )}
+                          </td>
+                          <td className="p-3.5">
+                            {isTeacher ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1">
+                                  <span className={`w-1.5 h-1.5 rounded-full ${isApproved ? "bg-emerald-500" : "bg-rose-500 animate-pulse"}`}></span>
+                                  <span className={`text-[10px] font-extrabold ${isApproved ? "text-emerald-455" : "text-rose-450"}`}>
+                                    {isApproved ? "تم تفعيل الصلاحية" : "تحت المراجعة (معطل)"}
+                                  </span>
+                                </div>
+                                <p className="text-[9px] text-slate-500 block">حالة الحساب: {usr.status === "active" ? "نشط" : "معلق"}</p>
+                              </div>
+                            ) : (
+                              <span className="text-slate-500 italic text-[10px]">- لا ينطبق -</span>
+                            )}
+                          </td>
+                          <td className="p-3.5 pl-5 text-center">
+                            {modifyingUserId === usr.id ? (
+                              <span className="text-3xs text-slate-400 font-bold animate-pulse">جاري التحديث...</span>
+                            ) : (
+                              <div className="flex items-center justify-center gap-1.5">
+                                {isTeacher ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        setModifyingUserId(usr.id);
+                                        const res = await updateUserRoleAndPermissions(usr.id, "teacher", !isApproved, "active");
+                                        if (res.success) {
+                                          showFeedback(isApproved ? "🚫 تم إيقاف صلاحيات المعلم بنجاح" : "✅ تم تفعيل صلاحيات المعلم وتنشيطه بنجاح", "success");
+                                          fetchUsers();
+                                        } else {
+                                          showFeedback(`خطأ في التحديث: ${res.error}`, "error");
+                                        }
+                                        setModifyingUserId(null);
+                                      }}
+                                      className={`px-2.5 py-1 text-[10px] font-black rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                                        isApproved
+                                          ? "bg-rose-955/35 hover:bg-rose-955/50 text-rose-455 border border-rose-900/60"
+                                          : "bg-emerald-950 hover:bg-emerald-900 text-emerald-455 border border-emerald-800"
+                                      }`}
+                                    >
+                                      {isApproved ? "إلغاء الترخيص" : "تفعيل المعلم 👨‍🏫"}
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        setModifyingUserId(usr.id);
+                                        const res = await updateUserRoleAndPermissions(usr.id, "student", false, "active");
+                                        if (res.success) {
+                                          showFeedback("🔄 تم تحويل الحساب بنجاح لصفة طالب", "success");
+                                          fetchUsers();
+                                        } else {
+                                          showFeedback(`خطأ: ${res.error}`, "error");
+                                        }
+                                        setModifyingUserId(null);
+                                      }}
+                                      className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white rounded-lg text-3xs font-extrabold cursor-pointer transition-all"
+                                      title="تحويل الحساب إلى طالب"
+                                    >
+                                      طالب 🎓
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        setModifyingUserId(usr.id);
+                                        const res = await updateUserRoleAndPermissions(usr.id, "teacher", true, "active");
+                                        if (res.success) {
+                                          showFeedback("🔄 تم ترقية الطالب بنجاح لصفة أستاذ مرخص", "success");
+                                          fetchUsers();
+                                        } else {
+                                          showFeedback(`خطأ: ${res.error}`, "error");
+                                        }
+                                        setModifyingUserId(null);
+                                      }}
+                                      className="px-2.5 py-1 bg-indigo-950/40 hover:bg-indigo-900/40 border border-indigo-900 text-indigo-400 hover:text-indigo-305 rounded-lg text-3xs font-black cursor-pointer transition-all"
+                                    >
+                                      ترقية لأستاذ 👨‍🏫
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -494,17 +494,15 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                 {isCopied ? <Check className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
                 <span>{isCopied ? "تم النسخ!" : "مشاركة المادة"}</span>
               </button>
-              <button 
-                onClick={handleEditClick}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 border rounded-xl text-3xs font-bold transition-all cursor-pointer shadow-sm ${
-                  isAdminActive 
-                    ? 'bg-emerald-900/30 hover:bg-emerald-900/40 border-emerald-800/80 text-emerald-450 hover:text-emerald-300' 
-                    : 'bg-slate-800 hover:bg-slate-755 border-slate-700/80 text-amber-400 hover:text-amber-300'
-                }`}
-              >
-                <Edit className="w-3 h-3" />
-                <span>{isEditing ? "إلغاء التعديل" : isAdminActive ? "تعديل الإدارة 🔑" : "تعديل الروابط"}</span>
-              </button>
+              {isAdminActive && (
+                <button 
+                  onClick={handleEditClick}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border rounded-xl text-3xs font-bold transition-all cursor-pointer shadow-sm bg-emerald-900/30 hover:bg-emerald-900/40 border-emerald-800/80 text-emerald-450 hover:text-emerald-300"
+                >
+                  <Edit className="w-3 h-3" />
+                  <span>{isEditing ? "إلغاء التعديل" : "تعديل الإدارة 🔑"}</span>
+                </button>
+              )}
               <div className={`hidden sm:block px-3 py-1 rounded-full text-xs font-semibold ${subject.colorClass} border`}>
                 {gradeName}
               </div>

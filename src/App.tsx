@@ -12,7 +12,7 @@ import AddSubjectModal from "./components/AddSubjectModal";
 import DynamicIcon from "./components/DynamicIcon";
 import StudyCamp from "./components/StudyCamp";
 import AdminDashboard from "./components/AdminDashboard";
-import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig } from "./lib/supabase";
+import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient } from "./lib/supabase";
 
 export default function App() {
   // Curriculum data is retrieved directly from the server-side compiled curriculum.ts (stagesData)
@@ -78,6 +78,23 @@ export default function App() {
     };
     loadSupabaseData();
 
+    // Verify and synchronize active Google OAuth session
+    const syncGoogleUserSession = async () => {
+      try {
+        const checkUser = await checkAndSyncGoogleSession();
+        if (checkUser) {
+          console.log("Synchronized and logged in Google active session:", checkUser);
+          setCurrentUser(checkUser);
+          localStorage.setItem("sudan_auth_user", JSON.stringify(checkUser));
+          setSaveStatus(`👋 مرحبًا بك مجددًا يا ${checkUser.username}! تم تسجيل دخولك بنجاح بنظام سوبابيس.`);
+          setTimeout(() => setSaveStatus(null), 5000);
+        }
+      } catch (e) {
+        console.warn("Failed checking/syncing active Google session:", e);
+      }
+    };
+    syncGoogleUserSession();
+
     // ⚡ Subscribe to server-sent events for instant Supabase Webhook notification updates
     const eventSource = new EventSource("/api/events");
     
@@ -115,6 +132,33 @@ export default function App() {
   const [adminUsername, setAdminUsername] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [adminLoginError, setAdminLoginError] = useState("");
+
+  // 👤 Student & general user registration & login states (for standard 'users' table)
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
+    const cached = localStorage.getItem("sudan_auth_user");
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        console.warn("Could not load user session cached:", e);
+      }
+    }
+    return null;
+  });
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [userModalTab, setUserModalTab] = useState<"login" | "register">("login");
+  const [userEmail, setUserEmail] = useState("");
+  const [userPassword, setUserPassword] = useState("");
+  const [userUsername, setUserUsername] = useState("");
+  const [userAuthError, setUserAuthError] = useState("");
+  const [userAuthSuccess, setUserAuthSuccess] = useState("");
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  // 🎓 Student & Teacher Custom Fields
+  const [regUserRole, setRegUserRole] = useState<"student" | "teacher">("student");
+  const [regGradeId, setRegGradeId] = useState("");
+  const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
+  const [regContactMethod, setRegContactMethod] = useState("");
 
   const handleAdminLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,6 +199,161 @@ export default function App() {
     localStorage.removeItem("sudan_edu_admin");
     setSaveStatus("تم تسجيل الخروج من لوحة الإدارة بنجاح.");
     setTimeout(() => setSaveStatus(null), 4000);
+  };
+
+  const handleUserRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUserAuthError("");
+    setUserAuthSuccess("");
+    setIsAuthLoading(true);
+
+    try {
+      if (!userUsername.trim()) {
+        setUserAuthError("⚠️ يرجى تزويد اسم مستخدم أو اسم ثلاثي صحيح.");
+        setIsAuthLoading(false);
+        return;
+      }
+      if (!userEmail.includes("@")) {
+        setUserAuthError("⚠️ يرجى تزويد بريد إلكتروني صحيح لتسجيل الدخول.");
+        setIsAuthLoading(false);
+        return;
+      }
+      if (userPassword.length < 4) {
+        setUserAuthError("⚠️ كلمة المرور يجب أن لا تقل عن ٤ خانات لتأمين حسابك.");
+        setIsAuthLoading(false);
+        return;
+      }
+
+      const checkConfig = getSupabaseConfig();
+      if (!checkConfig.isConfigured) {
+        setUserAuthError("⚠️ سوبابيس (Supabase) غير مهيأة بعد من قبل مسؤول النظام. يرجى تهيئتها أولاً.");
+        setIsAuthLoading(false);
+        return;
+      }
+
+      // Extract Student Grade Details
+      let resolvedGradeId = undefined;
+      let resolvedGradeName = undefined;
+      if (regUserRole === "student") {
+        const fallbackGradeId = regGradeId || curriculumData[0]?.grades[0]?.id || "";
+        resolvedGradeId = fallbackGradeId;
+        const matchedGrade = curriculumData.flatMap(stage => stage.grades).find(g => g.id === fallbackGradeId);
+        resolvedGradeName = matchedGrade ? matchedGrade.name : "";
+      }
+
+      // Extract Teacher Specialties & Contact Methods
+      let resolvedSpecialties = undefined;
+      let resolvedContactMethod = undefined;
+      if (regUserRole === "teacher") {
+        if (selectedSpecialties.length === 0) {
+          setUserAuthError("⚠️ يرجى تحديد مادة واحدة على الأقل لتخصصك الدراسي.");
+          setIsAuthLoading(false);
+          return;
+        }
+        if (!regContactMethod.trim()) {
+          setUserAuthError("⚠️ يرجى تزويد رقم الهاتف أو وسيلة تواصل صحيحة لتلقي التراخيص.");
+          setIsAuthLoading(false);
+          return;
+        }
+        resolvedSpecialties = selectedSpecialties.join(", ");
+        resolvedContactMethod = regContactMethod.trim();
+      }
+
+      const res = await registerUser(
+        userUsername, 
+        userEmail, 
+        userPassword, 
+        "email",
+        regUserRole,
+        resolvedGradeId,
+        resolvedGradeName,
+        resolvedSpecialties,
+        resolvedContactMethod
+      );
+
+      if (res.success && res.user) {
+        if (regUserRole === "teacher") {
+          setUserAuthSuccess("🎉 تم تسجيل حسابك كمعلم بنجاح! يخضع حسابك المبرمج حالياً للمراجعة من قبل الإدارة وسنتواصل معك قريباً.");
+        } else {
+          setUserAuthSuccess("🎉 تم تسجيل حسابك والدخول كطالب بنجاح!");
+        }
+        setCurrentUser(res.user);
+        localStorage.setItem("sudan_auth_user", JSON.stringify(res.user));
+        
+        setSaveStatus(`👋 مرحبًا بك يا ${res.user.username}! تم تسجيل حسابك وعملك كسوبابيس.`);
+        setTimeout(() => setSaveStatus(null), 5000);
+
+        setTimeout(() => {
+          setShowUserModal(false);
+          setUserAuthSuccess("");
+        }, 3000);
+      } else {
+        setUserAuthError(res.error || "فشل التسجيل. يرجى مراجعة إعدادات قاعدة البيانات.");
+      }
+    } catch (err: any) {
+      setUserAuthError(`خطأ أثناء عملية التسجيل: ${err.message || err}`);
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const handleUserLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUserAuthError("");
+    setUserAuthSuccess("");
+    setIsAuthLoading(true);
+
+    try {
+      if (!userEmail.includes("@")) {
+        setUserAuthError("⚠️ يرجى إدخال بريد إلكتروني صحيح.");
+        setIsAuthLoading(false);
+        return;
+      }
+
+      const checkConfig = getSupabaseConfig();
+      if (!checkConfig.isConfigured) {
+        setUserAuthError("⚠️ سوبابيس غير مهيأة بعد من قبل المسؤول.");
+        setIsAuthLoading(false);
+        return;
+      }
+
+      // Try table login
+      const res = await loginUser(userEmail, userPassword);
+      if (res.success && res.user) {
+        setUserAuthSuccess("🟢 تم التحقق وتسجيل الدخول بنجاح!");
+        setCurrentUser(res.user);
+        localStorage.setItem("sudan_auth_user", JSON.stringify(res.user));
+        
+        setSaveStatus(`👋 مرحبًا بك مجددًا يا ${res.user.username}! تصفح ممتع للمناهج السودانية.`);
+        setTimeout(() => setSaveStatus(null), 5050);
+
+        setTimeout(() => {
+          setShowUserModal(false);
+          setUserAuthSuccess("");
+        }, 1500);
+      } else {
+        setUserAuthError(res.error || "خطأ غير معروف في التحقق من الحساب.");
+      }
+    } catch (err: any) {
+      setUserAuthError(`خطأ أثناء عملية الدخول: ${err.message || err}`);
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const handleGoogleOAuthLogin = async () => {
+    setUserAuthError("");
+    setUserAuthSuccess("");
+    try {
+      const res = await signInWithGoogle();
+      if (res.success) {
+        setUserAuthSuccess("جاري تحويلك إلى قوقل للمصادقة وتخزين البيانات...");
+      } else {
+        setUserAuthError(res.error || "فشل بدء تسجيل الدخول بقوقل.");
+      }
+    } catch (err: any) {
+      setUserAuthError(`خطأ أثناء تسجيل قوقل: ${err.message || err}`);
+    }
   };
 
   const [copySuccess, setCopySuccess] = useState(false);
@@ -519,6 +718,9 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
     }
   };
 
+  // Compute if the logged in user or admin has license to modify content (Admin or Approved Teacher)
+  const hasEditPermissions = isAdminLoggedIn || (!!currentUser && currentUser.user_role === "teacher" && !!currentUser.is_approved_teacher);
+
   // Gather favorited subjects list with their stage and grade info
   const favoritedSubjectsList: any[] = [];
   curriculumData.forEach(stage => {
@@ -555,7 +757,47 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             <span className="text-3xs md:text-2xs text-slate-400 font-bold">الموقع الرسمي المقارن للمناهج السودانية التفاعلية لعام ٢٠٢٦ م</span>
           </div>
 
-          <div className="relative">
+          <div className="flex items-center gap-3 relative">
+            {/* Student / user login trigger */}
+            {currentUser ? (
+              <div className="inline-flex items-center gap-2 bg-slate-950 px-3 py-1.5 border border-indigo-950/70 rounded-xl shadow-inner select-none">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                <span className="text-[10px] text-indigo-400 font-extrabold max-w-[110px] truncate">
+                  👤 {currentUser.username}
+                </span>
+                <button
+                  onClick={() => {
+                    setCurrentUser(null);
+                    localStorage.removeItem("sudan_auth_user");
+                    const client = getSupabaseClient();
+                    if (client) {
+                      client.auth.signOut();
+                    }
+                    setSaveStatus("🚪 تم تسجيل الخروج من حسابك بنجاح.");
+                    setTimeout(() => setSaveStatus(null), 3000);
+                  }}
+                  className="text-[9px] text-rose-450 hover:text-rose-400 mr-1.5 pr-1.5 border-r border-slate-800 transition-colors cursor-pointer font-bold"
+                >
+                  خروج
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setShowUserModal(true);
+                  setUserModalTab("login");
+                  setUserEmail("");
+                  setUserPassword("");
+                  setUserUsername("");
+                  setUserAuthError("");
+                  setUserAuthSuccess("");
+                }}
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-950/40 hover:bg-indigo-900/40 border border-indigo-900/60 text-indigo-400 hover:text-indigo-300 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all cursor-pointer"
+              >
+                👤 حساب الطالب
+              </button>
+            )}
+
             {isAdminLoggedIn ? (
               <div className="flex items-center gap-2 md:gap-3 flex-wrap">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-950/45 border border-emerald-900/65 text-emerald-400 font-extrabold text-[10px] rounded-xl shadow-inner select-none">
@@ -1382,7 +1624,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             subject={activeSubject}
             onClose={() => setActiveSubject(null)}
             onUpdateSubject={updateSubject}
-            isAdminActive={isAdminLoggedIn}
+            isAdminActive={hasEditPermissions}
           />
         )}
       </AnimatePresence>
@@ -1396,8 +1638,285 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             gradeName={addSubjectState.gradeName}
             onClose={() => setAddSubjectState(null)}
             onAddSubject={addSubject}
-            isAdminActive={isAdminLoggedIn}
+            isAdminActive={hasEditPermissions}
           />
+        )}
+      </AnimatePresence>
+
+      {/* 👤 Student/User Registration and Login Modal */}
+      <AnimatePresence>
+        {showUserModal && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[99999] flex items-center justify-center p-4 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative text-right font-sans"
+              dir="rtl"
+            >
+              {/* Pattern Background Accent */}
+              <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-indigo-900/10 to-transparent pointer-events-none" />
+              
+              {/* Modal Upper Top Bar */}
+              <div className="p-6 pb-4 border-b border-slate-800/60 flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 bg-indigo-600/15 text-indigo-400 rounded-xl">
+                    <GraduationCap className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h5 className="text-sm font-black text-slate-100">
+                      بوابة الطالب والزائر 🇸🇩
+                    </h5>
+                    <p className="text-[10px] text-slate-400 mt-0.5">منصة المناهج السودانية التفاعلية لعام ٢٠٢٦</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowUserModal(false)}
+                  className="p-1.5 bg-slate-950 hover:bg-slate-850 border border-slate-800 rounded-xl text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Tabs list (Sign-in / Register) */}
+              <div className="px-6 pt-4 flex gap-2 relative z-10">
+                <button
+                  onClick={() => {
+                    setUserModalTab("login");
+                    setUserAuthError("");
+                    setUserAuthSuccess("");
+                  }}
+                  className={`flex-1 py-1.5 text-xs font-extrabold rounded-xl border transition-all cursor-pointer ${
+                    userModalTab === "login"
+                      ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-950/40"
+                      : "bg-slate-950/30 border-slate-800 text-slate-400 hover:text-slate-205"
+                  }`}
+                >
+                  تسجيل الدخول للطلاب
+                </button>
+                <button
+                  onClick={() => {
+                    setUserModalTab("register");
+                    setUserAuthError("");
+                    setUserAuthSuccess("");
+                  }}
+                  className={`flex-1 py-1.5 text-xs font-extrabold rounded-xl border transition-all cursor-pointer ${
+                    userModalTab === "register"
+                      ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-950/40"
+                      : "bg-slate-950/30 border-slate-800 text-slate-400 hover:text-slate-205"
+                  }`}
+                >
+                  إنشاء حساب جديد
+                </button>
+              </div>
+
+              {/* Form segment */}
+              <div className="p-6 relative z-10 space-y-4">
+                <form
+                  onSubmit={
+                    userModalTab === "login"
+                      ? handleUserLoginSubmit
+                      : handleUserRegisterSubmit
+                  }
+                  className="space-y-3.5"
+                >
+                  {userModalTab === "register" && (
+                    <>
+                      <div className="space-y-1.5 text-right">
+                        <label className="text-[10px] text-slate-400 font-bold block">الاسم بالكامل (أو اسم المستخدم):</label>
+                        <input
+                          type="text"
+                          required
+                          value={userUsername}
+                          onChange={(e) => setUserUsername(e.target.value)}
+                          placeholder="مثال: يوسف أحمد التكينة"
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 outline-none focus:border-indigo-600 transition-all font-sans"
+                        />
+                      </div>
+
+                      {/* نوع الحساب Segmented Button */}
+                      <div className="space-y-1.5 text-right">
+                        <label className="text-[10px] text-slate-400 font-bold block">نوع الحساب الأساسي:</label>
+                        <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                          <button
+                            type="button"
+                            onClick={() => setRegUserRole("student")}
+                            className={`py-1.5 text-[11px] font-extrabold rounded-lg transition-all cursor-pointer ${
+                              regUserRole === "student"
+                                ? "bg-indigo-650 text-[#ffffff] shadow-sm font-black"
+                                : "text-slate-400 hover:text-slate-205"
+                            }`}
+                          >
+                            🎓 طالب علم
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRegUserRole("teacher")}
+                            className={`py-1.5 text-[11px] font-extrabold rounded-lg transition-all cursor-pointer ${
+                              regUserRole === "teacher"
+                                ? "bg-amber-650 text-[#ffffff] shadow-sm font-black"
+                                : "text-slate-400 hover:text-slate-205"
+                            }`}
+                          >
+                            👨‍🏫 أستاذ / معلم
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Conditional Display: Student Class Dropdown */}
+                      {regUserRole === "student" && (
+                        <div className="space-y-1.5 text-right">
+                          <label className="text-[10px] text-slate-400 font-bold block">الصف والمرحلة الدراسية الخاصة بك:</label>
+                          <select
+                            value={regGradeId}
+                            onChange={(e) => setRegGradeId(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 outline-none focus:border-indigo-600"
+                          >
+                            <option value="">-- اختر صفّك الدراسي --</option>
+                            {curriculumData.flatMap(stage => 
+                              stage.grades.map(grade => (
+                                <option key={grade.id} value={grade.id}>
+                                  {stage.name} - {grade.name}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Conditional Display: Teacher specialties list of checkable badges */}
+                      {regUserRole === "teacher" && (
+                        <>
+                          <div className="space-y-2 text-right">
+                            <label className="text-[10px] text-slate-400 font-bold block">
+                              المواد المتخصص بتدريسها لمناهج السودان (تحديد متعدد):
+                            </label>
+                            <div className="max-h-28 overflow-y-auto border border-slate-850 bg-slate-950 p-2.5 rounded-xl text-right">
+                              {Array.from(new Set(
+                                curriculumData.flatMap(stage => 
+                                  stage.grades.flatMap(grade => 
+                                    grade.subjects.map(subj => subj.name)
+                                  )
+                                )
+                              )).map((subjectName) => {
+                                const isSelected = selectedSpecialties.includes(subjectName);
+                                return (
+                                  <button
+                                    type="button"
+                                    key={subjectName}
+                                    onClick={() => {
+                                      if (isSelected) {
+                                        setSelectedSpecialties(prev => prev.filter(x => x !== subjectName));
+                                      } else {
+                                        setSelectedSpecialties(prev => [...prev, subjectName]);
+                                      }
+                                    }}
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 mt-1 ml-1 text-[9px] font-bold rounded-lg border transition-all cursor-pointer ${
+                                      isSelected
+                                        ? "bg-amber-600/20 text-amber-400 border-amber-600 font-extrabold"
+                                        : "bg-slate-900 text-slate-500 border-slate-800 hover:border-slate-700"
+                                    }`}
+                                  >
+                                    <span>{subjectName}</span>
+                                    {isSelected && <span>✓</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5 text-right">
+                            <label className="text-[10px] text-slate-400 font-bold block">جوال المعلم أو وسيلة تواصل سريعة (إيميل/رقم):</label>
+                            <input
+                              type="text"
+                              required
+                              value={regContactMethod}
+                              onChange={(e) => setRegContactMethod(e.target.value)}
+                              placeholder="مثال: 0123456789 أو whatsapp"
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 outline-none focus:border-amber-600 transition-all font-sans text-right"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
+
+                  <div className="space-y-1.5 text-right">
+                    <label className="text-[10px] text-slate-400 font-bold block">البريد الإلكتروني:</label>
+                    <input
+                      type="email"
+                      required
+                      value={userEmail}
+                      onChange={(e) => setUserEmail(e.target.value)}
+                      placeholder="student@example.com"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 outline-none focus:border-indigo-600 transition-all font-sans text-left"
+                      dir="ltr"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 text-right">
+                    <label className="text-[10px] text-slate-400 font-bold block">كلمة المرور السرية:</label>
+                    <input
+                      type="password"
+                      required
+                      value={userPassword}
+                      onChange={(e) => setUserPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 outline-none focus:border-indigo-600 transition-all font-sans"
+                    />
+                  </div>
+
+                  {userAuthError && (
+                    <div className="text-[10px] text-rose-400 font-bold text-center leading-relaxed bg-rose-955/20 border border-rose-900/30 p-2.5 rounded-xl">
+                      {userAuthError}
+                    </div>
+                  )}
+
+                  {userAuthSuccess && (
+                    <div className="text-[10px] text-emerald-450 font-bold text-center leading-relaxed bg-emerald-955/20 border border-emerald-900/30 p-2.5 rounded-xl">
+                      {userAuthSuccess}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isAuthLoading}
+                    className="w-full py-3 bg-gradient-to-l from-indigo-600 to-indigo-700 hover:from-indigo-550 hover:to-indigo-650 disabled:opacity-50 text-white text-xs font-black rounded-xl transition-all cursor-pointer shadow-md active:scale-95 flex items-center justify-center gap-1.5"
+                  >
+                    {isAuthLoading ? "جاري التحقق والمزامنة..." : userModalTab === "login" ? "تسجيل المزامنة والدخول 🚀" : "إتمام إنشاء الحساب وحفظه فورياً ✨"}
+                  </button>
+                </form>
+
+                {/* Separator line */}
+                <div className="relative py-2 flex items-center justify-center">
+                  <span className="absolute inset-x-0 h-[1px] bg-slate-800/80" />
+                  <span className="relative z-10 px-3 bg-slate-900 text-[10px] text-slate-500 font-bold">أو الدخول الاجتماعي المباشر</span>
+                </div>
+
+                {/* Google Sign-In with styling matching standard OAuth */}
+                <button
+                  onClick={handleGoogleOAuthLogin}
+                  className="w-full py-3 bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 text-slate-100 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-md"
+                >
+                  <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.28-4.74 3.28-8.07z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.75c-.99.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.85z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.85c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                  </svg>
+                  <span>تسجيل الدخول السريع بواسطة Google</span>
+                </button>
+              </div>
+
+              {/* Informative Footer */}
+              <div className="bg-slate-955/80 px-6 py-4 border-t border-slate-800/45 text-center">
+                <p className="text-[10px] text-slate-500 leading-normal font-medium">
+                  بمجرد التسجيل، سيتم ربط حسابك بـ Supabase لمتابعة دراسة المناهج وحفظ الدروس المكتملة في المخدم سحابياً مجاناً ومباشرة.
+                </p>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
