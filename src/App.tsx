@@ -349,7 +349,19 @@ export default function App() {
       if (res.success) {
         setUserAuthSuccess("جاري تحويلك إلى قوقل للمصادقة وتخزين البيانات...");
       } else {
-        setUserAuthError(res.error || "فشل بدء تسجيل الدخول بقوقل.");
+        const errorMsg = res.error || "";
+        if (errorMsg.includes("provider is not enabled") || errorMsg.includes("Unsupported provider")) {
+          setUserAuthError(
+            "⚠️ تسجيل الدخول الاجتماعي بـ (Google) غير مفعّل في لوحة تحكّم Supabase الخاصة بمشروعك بعد!\n\n" +
+            "لتفعيله وحل هذا الخطأ بسهولة:\n" +
+            "١. افتح لوحة تحكم Supabase Dashboard الخاصة بك.\n" +
+            "٢. توجه إلى القائمة الجانبية: Authentication ➔ Providers.\n" +
+            "٣. اضغط على Google وقم بتمكينه (Enable) مع إضافة الـ Client ID والـ Client Secret من حساب مطوري Google.\n\n" +
+            "💡 نصيحة: يمكنك استخدام خيار 'إنشاء حساب جديد' بالبريد الإلكتروني وكلمة المرور بالأعلى مباشرة، فهو جاهز ومفعّل لحفظ بياناتك فورياً في جدول الـ users سحابياً دون أي إعداد إضافي!"
+          );
+        } else {
+          setUserAuthError(`فشل بدء تسجيل الدخول بقوقل: ${errorMsg}`);
+        }
       }
     } catch (err: any) {
       setUserAuthError(`خطأ أثناء تسجيل قوقل: ${err.message || err}`);
@@ -1868,7 +1880,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   </div>
 
                   {userAuthError && (
-                    <div className="text-[10px] text-rose-400 font-bold text-center leading-relaxed bg-rose-955/20 border border-rose-900/30 p-2.5 rounded-xl">
+                    <div className="text-[10px] text-rose-400 font-bold text-right leading-relaxed bg-rose-955/20 border border-rose-900/30 p-3 rounded-xl whitespace-pre-line" dir="rtl">
                       {userAuthError}
                     </div>
                   )}
