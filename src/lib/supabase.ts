@@ -737,3 +737,81 @@ export async function checkAndSyncGoogleSession(): Promise<AppUser | null> {
   return null;
 }
 
+/**
+ * Updates the profile of the current user in both Supabase table 'users' and returns the updated AppUser.
+ */
+export async function updateCurrentUserProfile(
+  userId: string,
+  updatedData: {
+    username?: string;
+    password?: string;
+    grade_id?: string;
+    grade_name?: string;
+    specialties?: string;
+    contact_method?: string;
+  }
+): Promise<{ success: boolean; error?: string; user?: AppUser }> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: false, error: "قاعدة بيانات سوبابيس غير مهيأة بعد." };
+  }
+
+  try {
+    const updateObj: any = {};
+    if (updatedData.username) updateObj.username = updatedData.username;
+    if (updatedData.password) {
+      updateObj.password = updatedData.password;
+      updateObj.password_hash = updatedData.password;
+    }
+    if (updatedData.grade_id !== undefined) {
+      updateObj.grade_id = updatedData.grade_id;
+      updateObj.grade_name = updatedData.grade_name || "";
+    }
+    if (updatedData.specialties !== undefined) updateObj.specialties = updatedData.specialties;
+    if (updatedData.contact_method !== undefined) updateObj.contact_method = updatedData.contact_method;
+
+    const { error } = await client
+      .from("users")
+      .update(updateObj)
+      .eq("id", userId);
+
+    if (error) {
+      return { success: false, error: `فشل تعديل البيانات في جدول المستخدمين: ${error.message}` };
+    }
+
+    // Fetch the updated entry
+    const { data: updatedEntry, error: fetchError } = await client
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .limit(1);
+
+    if (fetchError || !updatedEntry || updatedEntry.length === 0) {
+      return {
+        success: true,
+        error: "تم تعديل البيانات بنجاح، لكن تعذر قراءة النسخة السحابية المحدثة فورياً. يرجى إعادة تحديث الصفحة لتحديث العرض."
+      };
+    }
+
+    const userEntry = updatedEntry[0];
+    return {
+      success: true,
+      user: {
+        id: userEntry.id,
+        username: userEntry.username || userEntry.name || "مستخدم جديد",
+        email: userEntry.email,
+        provider: userEntry.provider || "email",
+        user_role: userEntry.user_role || "student",
+        grade_id: userEntry.grade_id,
+        grade_name: userEntry.grade_name,
+        specialties: userEntry.specialties,
+        contact_method: userEntry.contact_method,
+        status: userEntry.status || "active",
+        is_approved_teacher: !!userEntry.is_approved_teacher
+      }
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || String(err) };
+  }
+}
+

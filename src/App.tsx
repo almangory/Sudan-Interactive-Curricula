@@ -12,7 +12,7 @@ import AddSubjectModal from "./components/AddSubjectModal";
 import DynamicIcon from "./components/DynamicIcon";
 import StudyCamp from "./components/StudyCamp";
 import AdminDashboard from "./components/AdminDashboard";
-import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient } from "./lib/supabase";
+import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile } from "./lib/supabase";
 
 export default function App() {
   // Curriculum data is retrieved directly from the server-side compiled curriculum.ts (stagesData)
@@ -146,13 +146,43 @@ export default function App() {
     return null;
   });
   const [showUserModal, setShowUserModal] = useState(false);
-  const [userModalTab, setUserModalTab] = useState<"login" | "register">("login");
+  const [userModalTab, setUserModalTab] = useState<"login" | "register" | "profile">("login");
   const [userEmail, setUserEmail] = useState("");
   const [userPassword, setUserPassword] = useState("");
   const [userUsername, setUserUsername] = useState("");
   const [userAuthError, setUserAuthError] = useState("");
   const [userAuthSuccess, setUserAuthSuccess] = useState("");
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  const triggerEditProfile = () => {
+    if (!currentUser) return;
+    setUserEmail(currentUser.email);
+    setUserUsername(currentUser.username);
+    setUserPassword(""); // Keep password input blank unless they want to change it
+    setRegUserRole(currentUser.user_role === "teacher" ? "teacher" : "student");
+    setRegGradeId(currentUser.grade_id || "");
+    setRegContactMethod(currentUser.contact_method || "");
+    if (currentUser.specialties) {
+      setSelectedSpecialties(currentUser.specialties.split(", ").map((x: string) => x.trim()));
+    } else {
+      setSelectedSpecialties([]);
+    }
+    setUserAuthError("");
+    setUserAuthSuccess("");
+    setUserModalTab("profile");
+    setShowUserModal(true);
+  };
+
+  // Guard function: Don't allow opening materials/subjects if not logged in
+  const handleOpenSubject = (subject: any) => {
+    if (!currentUser && !isAdminLoggedIn) {
+      setUserAuthError("⚠️ عذراً، يرجى تسجيل الدخول أو إنشاء حساب طالب/أستاذ أولاً لتتمكن من تصفح محتويات المواد والدرس التفاعلي!");
+      setShowUserModal(true);
+      setUserModalTab("login");
+      return;
+    }
+    setActiveSubject(subject);
+  };
 
   // 🎓 Student & Teacher Custom Fields
   const [regUserRole, setRegUserRole] = useState<"student" | "teacher">("student");
@@ -341,6 +371,79 @@ export default function App() {
     }
   };
 
+  const handleUserProfileUpdateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
+
+    setUserAuthError("");
+    setUserAuthSuccess("");
+    setIsAuthLoading(true);
+
+    try {
+      if (!userUsername.trim()) {
+        setUserAuthError("⚠️ اسم المستخدم مطلوب.");
+        setIsAuthLoading(false);
+        return;
+      }
+
+      // Prepare updated details
+      let resolvedGradeId = undefined;
+      let resolvedGradeName = undefined;
+      if (currentUser.user_role === "student") {
+        resolvedGradeId = regGradeId;
+        const matchedGrade = curriculumData.flatMap(stage => stage.grades).find(g => g.id === regGradeId);
+        resolvedGradeName = matchedGrade ? matchedGrade.name : "";
+      }
+
+      let resolvedSpecialties = undefined;
+      let resolvedContactMethod = undefined;
+      if (currentUser.user_role === "teacher") {
+        resolvedSpecialties = selectedSpecialties.join(", ");
+        resolvedContactMethod = regContactMethod.trim();
+      }
+
+      const res = await updateCurrentUserProfile(currentUser.id, {
+        username: userUsername,
+        password: userPassword || undefined,
+        grade_id: resolvedGradeId,
+        grade_name: resolvedGradeName,
+        specialties: resolvedSpecialties,
+        contact_method: resolvedContactMethod
+      });
+
+      if (res.success) {
+        let updatedUser = res.user;
+        if (!updatedUser) {
+          updatedUser = {
+            ...currentUser,
+            username: userUsername,
+            grade_id: resolvedGradeId,
+            grade_name: resolvedGradeName,
+            specialties: resolvedSpecialties,
+            contact_method: resolvedContactMethod
+          };
+        }
+        setCurrentUser(updatedUser);
+        localStorage.setItem("sudan_auth_user", JSON.stringify(updatedUser));
+        
+        setUserAuthSuccess("🎉 تم تحديث بياناتك الشخصية بنجاح سحابياً!");
+        setSaveStatus(`✅ تم تحديث بيانات حسابك بنجاح يا ${userUsername}!`);
+        setTimeout(() => setSaveStatus(null), 5000);
+
+        setTimeout(() => {
+          setShowUserModal(false);
+          setUserAuthSuccess("");
+        }, 1500);
+      } else {
+        setUserAuthError(res.error || "فشل تعديل البيانات.");
+      }
+    } catch (err: any) {
+      setUserAuthError(`خطأ أثناء تعديل البيانات: ${err.message || err}`);
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
   const handleGoogleOAuthLogin = async () => {
     setUserAuthError("");
     setUserAuthSuccess("");
@@ -509,6 +612,29 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
     }
   }, [curriculumData]);
 
+  // 🎓 Auto-select Student's registered grade & stage upon login/session restore
+  useEffect(() => {
+    if (currentUser && currentUser.user_role === "student" && currentUser.grade_id && curriculumData.length > 0) {
+      let foundStage = null;
+      let foundGrade = null;
+      for (const stage of curriculumData) {
+        const matched = stage.grades.find(g => g.id === currentUser.grade_id);
+        if (matched) {
+          foundStage = stage;
+          foundGrade = matched;
+          break;
+        }
+      }
+      if (foundStage && foundGrade) {
+        setSelectedStage(foundStage);
+        setActiveGrade(foundGrade);
+        setShowOnlyFavorites(false);
+        setShowStudyCamp(false);
+        setShowAdminDashboard(false);
+      }
+    }
+  }, [currentUser, curriculumData]);
+
   // Handle active stage changing when curriculumData is updated to keep selectedStage reference in sync
   useEffect(() => {
     if (selectedStage) {
@@ -528,6 +654,12 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         for (const grade of stage.grades) {
           const subject = grade.subjects.find(sub => sub.id === subjectId);
           if (subject) {
+            if (!currentUser && !isAdminLoggedIn) {
+              setUserAuthError("⚠️ يرجى تسجيل الدخول أو إنشاء حساب طالب/أستاذ أولاً لتصفح هذا المنهج الدراسي بالكامل!");
+              setShowUserModal(true);
+              setUserModalTab("login");
+              break;
+            }
             setSelectedStage(stage);
             setActiveGrade(grade);
             setActiveSubject({
@@ -543,7 +675,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         }
       }
     }
-  }, [curriculumData]);
+  }, [curriculumData, currentUser, isAdminLoggedIn]);
 
   // Function to save curriculum data directly on the server filesystem
   const saveCurriculumToServer = async (newData: Stage[], isSilent = false) => {
@@ -777,6 +909,12 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 <span className="text-[10px] text-indigo-400 font-extrabold max-w-[110px] truncate">
                   👤 {currentUser.username}
                 </span>
+                <button
+                  onClick={triggerEditProfile}
+                  className="text-[9px] text-amber-450 hover:text-amber-400 mr-1.5 pr-1.5 border-r border-slate-800 transition-colors cursor-pointer font-bold"
+                >
+                  تعديل الملف ⚙️
+                </button>
                 <button
                   onClick={() => {
                     setCurrentUser(null);
@@ -1215,7 +1353,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     return (
                       <div
                         key={subject.id}
-                        onClick={() => setActiveSubject({ ...subject } as any)}
+                        onClick={() => handleOpenSubject({ ...subject } as any)}
                         className="relative p-5 bg-slate-900 border border-slate-800 rounded-2xl transition-all duration-200 hover:border-emerald-600 hover:translate-y-[-2px] hover:shadow-xl hover:shadow-slate-950/60 cursor-pointer flex flex-col justify-between"
                       >
                         {/* Action buttons (Favorites, studied toggle) */}
@@ -1464,7 +1602,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                     return (
                                       <div
                                         key={subject.id}
-                                        onClick={() => setActiveSubject({ ...subject, gradeName: grade.name, gradeId: grade.id } as any)}
+                                        onClick={() => handleOpenSubject({ ...subject, gradeName: grade.name, gradeId: grade.id } as any)}
                                         className="group relative p-5 bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 hover:border-emerald-650/80 rounded-2xl transition-all duration-300 hover:translate-y-[-3px] hover:shadow-2xl hover:shadow-emerald-950/20 cursor-pointer flex flex-col justify-between overflow-hidden"
                                       >
                                         <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -1537,7 +1675,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                             )}
 
                                             {subject.interactiveUrl ? (
-                                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-purple-950/30 border border-purple-900/30 text-[9px] text-purple-400 font-bold">
+                                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-purple-955/30 border border-purple-900/30 text-[9px] text-purple-400 font-bold">
                                                 <Compass className="w-2.5 h-2.5" />
                                                 تفاعلي
                                               </span>
@@ -1548,7 +1686,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                             )}
 
                                             {subject.videoUrl ? (
-                                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-rose-950/30 border border-rose-900/30 text-[9px] text-rose-400 font-bold">
+                                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-rose-955/30 border border-rose-900/30 text-[9px] text-rose-400 font-bold">
                                                 <Video className="w-2.5 h-2.5" />
                                                 فيديو
                                               </span>
@@ -1577,7 +1715,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
                                   {/* Empty State when filter yields 0 matches */}
                                   {filteredSubjects.length === 0 && (
-                                    <div className="col-span-full py-12 px-6 bg-slate-900/20 border border-slate-800/60 rounded-3xl text-center flex flex-col items-center justify-center space-y-3">
+                                    <div className="col-span-full py-12 px-6 bg-slate-905/20 border border-slate-800/60 rounded-3xl text-center flex flex-col items-center justify-center space-y-3">
                                       <div className="p-3 bg-slate-950 rounded-full text-slate-500">
                                         <Filter className="w-6 h-6" />
                                       </div>
@@ -1606,7 +1744,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                     <div className="space-y-1">
                                       <h6 className="font-bold text-slate-200 text-xs">إضافة مادة مخصصة جديدة</h6>
                                       <p className="text-3xs text-slate-500 leading-relaxed max-w-[200px]">
-                                        انقر هنا لإضافة بطاقة مادة مقررة إضافية لهذا الصف (مطلوب رمز المعلم).
+                                        انقر هنا لإضافة بطاقة مادة مقرر إضافية لهذا الصف (مطلوب رمز المعلم).
                                       </p>
                                     </div>
                                   </div>
@@ -1678,9 +1816,11 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   </div>
                   <div>
                     <h5 className="text-sm font-black text-slate-100">
-                      بوابة الطالب والزائر 🇸🇩
+                      {userModalTab === "profile" ? "تعديل بيانات الحساب ⚙️" : "بوابة الطالب والزائر 🇸🇩"}
                     </h5>
-                    <p className="text-[10px] text-slate-400 mt-0.5">منصة المناهج السودانية التفاعلية لعام ٢٠٢٦</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {userModalTab === "profile" ? "تعديل معلومات حسابك الدراسي لعام ٢٠٢٦" : "منصة المناهج السودانية التفاعلية لعام ٢٠٢٦"}
+                    </p>
                   </div>
                 </div>
                 <button
@@ -1692,47 +1832,143 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               </div>
 
               {/* Tabs list (Sign-in / Register) */}
-              <div className="px-6 pt-4 flex gap-2 relative z-10">
-                <button
-                  onClick={() => {
-                    setUserModalTab("login");
-                    setUserAuthError("");
-                    setUserAuthSuccess("");
-                  }}
-                  className={`flex-1 py-1.5 text-xs font-extrabold rounded-xl border transition-all cursor-pointer ${
-                    userModalTab === "login"
-                      ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-950/40"
-                      : "bg-slate-950/30 border-slate-800 text-slate-400 hover:text-slate-205"
-                  }`}
-                >
-                  تسجيل الدخول للطلاب
-                </button>
-                <button
-                  onClick={() => {
-                    setUserModalTab("register");
-                    setUserAuthError("");
-                    setUserAuthSuccess("");
-                  }}
-                  className={`flex-1 py-1.5 text-xs font-extrabold rounded-xl border transition-all cursor-pointer ${
-                    userModalTab === "register"
-                      ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-950/40"
-                      : "bg-slate-950/30 border-slate-800 text-slate-400 hover:text-slate-205"
-                  }`}
-                >
-                  إنشاء حساب جديد
-                </button>
-              </div>
+              {userModalTab !== "profile" && (
+                <div className="px-6 pt-4 flex gap-2 relative z-10">
+                  <button
+                    onClick={() => {
+                      setUserModalTab("login");
+                      setUserAuthError("");
+                      setUserAuthSuccess("");
+                    }}
+                    className={`flex-1 py-1.5 text-xs font-extrabold rounded-xl border transition-all cursor-pointer ${
+                      userModalTab === "login"
+                        ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-950/40"
+                        : "bg-slate-950/30 border-slate-800 text-slate-400 hover:text-slate-205"
+                    }`}
+                  >
+                    تسجيل الدخول للطلاب
+                  </button>
+                  <button
+                    onClick={() => {
+                      setUserModalTab("register");
+                      setUserAuthError("");
+                      setUserAuthSuccess("");
+                    }}
+                    className={`flex-1 py-1.5 text-xs font-extrabold rounded-xl border transition-all cursor-pointer ${
+                      userModalTab === "register"
+                        ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-950/40"
+                        : "bg-slate-950/30 border-slate-800 text-slate-400 hover:text-slate-205"
+                    }`}
+                  >
+                    إنشاء حساب جديد
+                  </button>
+                </div>
+              )}
 
               {/* Form segment */}
               <div className="p-6 relative z-10 space-y-4">
                 <form
                   onSubmit={
-                    userModalTab === "login"
+                    userModalTab === "profile"
+                      ? handleUserProfileUpdateSubmit
+                      : userModalTab === "login"
                       ? handleUserLoginSubmit
                       : handleUserRegisterSubmit
                   }
                   className="space-y-3.5"
                 >
+                  {userModalTab === "profile" && (
+                    <>
+                      <div className="space-y-1.5 text-right">
+                        <label className="text-[10px] text-slate-400 font-bold block">الاسم بالكامل (أو اسم المستخدم):</label>
+                        <input
+                          type="text"
+                          required
+                          value={userUsername}
+                          onChange={(e) => setUserUsername(e.target.value)}
+                          placeholder="مثال: يوسف أحمد التكينة"
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 outline-none focus:border-indigo-600 transition-all font-sans"
+                        />
+                      </div>
+
+                      {/* Display Class Selector for Students */}
+                      {currentUser?.user_role === "student" && (
+                        <div className="space-y-1.5 text-right">
+                          <label className="text-[10px] text-slate-400 font-bold block">الصف والمرحلة الدراسية الخاصة بك:</label>
+                          <select
+                            value={regGradeId}
+                            onChange={(e) => setRegGradeId(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 outline-none focus:border-indigo-600"
+                          >
+                            <option value="">-- اختر صفّك الدراسي --</option>
+                            {curriculumData.flatMap(stage => 
+                              stage.grades.map(grade => (
+                                <option key={grade.id} value={grade.id}>
+                                  {stage.name} - {grade.name}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Display Specialty selections for Teachers */}
+                      {currentUser?.user_role === "teacher" && (
+                        <>
+                          <div className="space-y-2 text-right">
+                            <label className="text-[10px] text-slate-400 font-bold block">
+                              المواد المتخصص بتدريسها لمناهج السودان (تحديد متعدد):
+                            </label>
+                            <div className="max-h-28 overflow-y-auto border border-slate-850 bg-slate-950 p-2.5 rounded-xl text-right">
+                              {Array.from(new Set(
+                                curriculumData.flatMap(stage => 
+                                  stage.grades.flatMap(grade => 
+                                    grade.subjects.map(subj => subj.name)
+                                  )
+                                )
+                              )).map((subjectName) => {
+                                const isSelected = selectedSpecialties.includes(subjectName);
+                                return (
+                                  <button
+                                    type="button"
+                                    key={subjectName}
+                                    onClick={() => {
+                                      if (isSelected) {
+                                        setSelectedSpecialties(prev => prev.filter(x => x !== subjectName));
+                                      } else {
+                                        setSelectedSpecialties(prev => [...prev, subjectName]);
+                                      }
+                                    }}
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 mt-1 ml-1 text-[9px] font-bold rounded-lg border transition-all cursor-pointer ${
+                                      isSelected
+                                        ? "bg-amber-600/20 text-amber-400 border-amber-600 font-extrabold"
+                                        : "bg-slate-900 text-slate-500 border-slate-800 hover:border-slate-700"
+                                    }`}
+                                  >
+                                    <span>{subjectName}</span>
+                                    {isSelected && <span>✓</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5 text-right">
+                            <label className="text-[10px] text-slate-400 font-bold block">جوال المعلم أو وسيلة تواصل سريعة (إيميل/رقم):</label>
+                            <input
+                              type="text"
+                              required
+                              value={regContactMethod}
+                              onChange={(e) => setRegContactMethod(e.target.value)}
+                              placeholder="مثال: 0123456789 أو whatsapp"
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 outline-none focus:border-amber-600 transition-all font-sans text-right"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
+
                   {userModalTab === "register" && (
                     <>
                       <div className="space-y-1.5 text-right">
@@ -1750,13 +1986,13 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       {/* نوع الحساب Segmented Button */}
                       <div className="space-y-1.5 text-right">
                         <label className="text-[10px] text-slate-400 font-bold block">نوع الحساب الأساسي:</label>
-                        <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                        <div className="grid grid-cols-2 gap-2 bg-slate-100/5 p-1 rounded-xl border border-slate-805">
                           <button
                             type="button"
                             onClick={() => setRegUserRole("student")}
                             className={`py-1.5 text-[11px] font-extrabold rounded-lg transition-all cursor-pointer ${
                               regUserRole === "student"
-                                ? "bg-indigo-650 text-[#ffffff] shadow-sm font-black"
+                                ? "bg-indigo-650 text-white shadow-sm font-black"
                                 : "text-slate-400 hover:text-slate-205"
                             }`}
                           >
@@ -1767,7 +2003,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                             onClick={() => setRegUserRole("teacher")}
                             className={`py-1.5 text-[11px] font-extrabold rounded-lg transition-all cursor-pointer ${
                               regUserRole === "teacher"
-                                ? "bg-amber-650 text-[#ffffff] shadow-sm font-black"
+                                ? "bg-amber-650 text-white shadow-sm font-black"
                                 : "text-slate-400 hover:text-slate-205"
                             }`}
                           >
@@ -1855,26 +2091,31 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   )}
 
                   <div className="space-y-1.5 text-right">
-                    <label className="text-[10px] text-slate-400 font-bold block">البريد الإلكتروني:</label>
+                    <label className="text-[10px] text-slate-400 font-bold block">
+                      {userModalTab === "profile" ? "البريد الإلكتروني (غير قابل للتعديل):" : "البريد الإلكتروني:"}
+                    </label>
                     <input
                       type="email"
                       required
+                      disabled={userModalTab === "profile"}
                       value={userEmail}
                       onChange={(e) => setUserEmail(e.target.value)}
                       placeholder="student@example.com"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 outline-none focus:border-indigo-600 transition-all font-sans text-left"
+                      className={`w-full border border-slate-800 rounded-xl p-3 text-xs outline-none transition-all font-sans text-left ${userModalTab === "profile" ? "bg-slate-950/60 text-slate-400 pointer-events-none" : "bg-slate-950 text-slate-100 focus:border-indigo-600"}`}
                       dir="ltr"
                     />
                   </div>
 
                   <div className="space-y-1.5 text-right">
-                    <label className="text-[10px] text-slate-400 font-bold block">كلمة المرور السرية:</label>
+                    <label className="text-[10px] text-slate-400 font-bold block">
+                      {userModalTab === "profile" ? "تعديل كلمة المرور السرية (اتركها فارغة للإبقاء على الحالية):" : "كلمة المرور السرية:"}
+                    </label>
                     <input
                       type="password"
-                      required
+                      required={userModalTab !== "profile"}
                       value={userPassword}
                       onChange={(e) => setUserPassword(e.target.value)}
-                      placeholder="••••••••"
+                      placeholder={userModalTab === "profile" ? "•••••••• (تغيير كلمة المرور)" : "••••••••"}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 outline-none focus:border-indigo-600 transition-all font-sans"
                     />
                   </div>
@@ -1896,7 +2137,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     disabled={isAuthLoading}
                     className="w-full py-3 bg-gradient-to-l from-indigo-600 to-indigo-700 hover:from-indigo-550 hover:to-indigo-650 disabled:opacity-50 text-white text-xs font-black rounded-xl transition-all cursor-pointer shadow-md active:scale-95 flex items-center justify-center gap-1.5"
                   >
-                    {isAuthLoading ? "جاري التحقق والمزامنة..." : userModalTab === "login" ? "تسجيل المزامنة والدخول 🚀" : "إتمام إنشاء الحساب وحفظه فورياً ✨"}
+                    {isAuthLoading ? "جاري التحقق والمزامنة..." : userModalTab === "profile" ? "حفظ وتعديل البيانات الشخصية 💾" : userModalTab === "login" ? "تسجيل المزامنة والدخول 🚀" : "إتمام إنشاء الحساب وحفظه فورياً ✨"}
                   </button>
                 </form>
               </div>
@@ -1904,7 +2145,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               {/* Informative Footer */}
               <div className="bg-slate-955/80 px-6 py-4 border-t border-slate-800/45 text-center">
                 <p className="text-[10px] text-slate-500 leading-normal font-medium">
-                  بمجرد التسجيل، سيتم ربط حسابك بـ Supabase لمتابعة دراسة المناهج وحفظ الدروس المكتملة في المخدم سحابياً مجاناً ومباشرة.
+                  {userModalTab === "profile" ? "يتم حفظ التعديلات سحابياً فوراً بالربط السحابي مع Supabase لتأمين وتحديث الحساب الدراسي." : "بمجرد التسجيل، سيتم ربط حسابك بـ Supabase لمتابعة دراسة المناهج وحفظ الدروس المكتملة في المخدم سحابياً مجاناً ومباشرة."}
                 </p>
               </div>
             </motion.div>
@@ -1932,7 +2173,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             className="fixed bottom-6 left-6 md:left-auto md:right-6 z-[9999] bg-slate-950 border border-emerald-500/60 text-emerald-400 px-5 py-3.5 rounded-2xl flex items-center gap-2.5 shadow-2xl"
           >
             <CheckCircle className="w-5 h-5 text-emerald-400 animate-pulse" />
-            <span className="text-xs font-extrabold text-slate-200">{saveStatus}</span>
+            <span className="text-xs font-extrabold text-slate-205">{saveStatus}</span>
           </motion.div>
         )}
       </AnimatePresence>
