@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { 
   Sparkles, Award, HelpCircle, CheckCircle, XCircle, Calculator, 
   Calendar, BookOpen, Clock, ChevronRight, Save, Trash2, 
-  Smile, Trophy, Star, RefreshCw, Layers, Clipboard, Check
+  Smile, Trophy, Star, RefreshCw, Layers, Clipboard, Check,
+  Bell, BellOff, ChevronLeft, Plus, AlertCircle, Trash
 } from "lucide-react";
 import { Stage, Grade, Subject } from "../data/curriculum";
 
@@ -101,12 +102,20 @@ const QUIZ_BANK: QuizQuestion[] = [
   }
 ];
 
+interface CalendarEvent {
+  id: string;
+  date: string; // YYYY-MM-DD
+  title: string;
+  type: "exam" | "academic" | "personal";
+  notes?: string;
+}
+
 interface StudyCampProps {
   stages: Stage[];
 }
 
 export default function StudyCamp({ stages }: StudyCampProps) {
-  const [activeTab, setActiveTab] = useState<"quiz" | "calculator" | "schedule">("quiz");
+  const [activeTab, setActiveTab] = useState<"quiz" | "calculator" | "schedule" | "calendar">("quiz");
 
   // --- 1. QUIZ GENERATOR STATES ---
   const [quizStage, setQuizStage] = useState("");
@@ -248,7 +257,15 @@ export default function StudyCamp({ stages }: StudyCampProps) {
   const [userSchedule, setUserSchedule] = useState<ScheduleSlot[]>([]);
   const [isCopiedText, setIsCopiedText] = useState(false);
 
-  // Load schedule if saved
+  // --- 4. BROWSER REMINDER NOTIFICATION STATES & LOGIC ---
+  const [reminderTime, setReminderTime] = useState("17:00");
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<string>(
+    typeof Notification !== "undefined" ? Notification.permission : "default"
+  );
+  const lastTriggeredRef = React.useRef<string | null>(null);
+
+  // Load scheduler configurations on mount
   useEffect(() => {
     const saved = localStorage.getItem("sudan_study_camp_schedule_v2");
     if (saved) {
@@ -258,11 +275,228 @@ export default function StudyCamp({ stages }: StudyCampProps) {
         console.error("Failed to load saved schedule", e);
       }
     }
+
+    const savedTime = localStorage.getItem("sudan_study_reminder_time");
+    const savedEnabled = localStorage.getItem("sudan_study_reminder_enabled");
+    
+    if (savedTime) setReminderTime(savedTime);
+    if (savedEnabled === "true") setReminderEnabled(true);
+    
+    if (typeof Notification !== "undefined") {
+      setNotificationPermission(Notification.permission);
+    }
   }, []);
 
   const saveSchedule = (newSched: ScheduleSlot[]) => {
     setUserSchedule(newSched);
     localStorage.setItem("sudan_study_camp_schedule_v2", JSON.stringify(newSched));
+  };
+
+  const handleToggleReminder = async (enabledState: boolean) => {
+    if (enabledState) {
+      if (typeof Notification === "undefined") {
+        alert("إشعارات المتصفح غير مدعومة على جهازك الحالي.");
+        return;
+      }
+      
+      if (Notification.permission !== "granted") {
+        const permission = await Notification.requestPermission();
+        setNotificationPermission(permission);
+        if (permission !== "granted") {
+          alert("يرجى تفعيل صلاحية الإشعارات من إعدادات المتصفح للتمكن من استقبال التنبيهات.");
+          setReminderEnabled(false);
+          localStorage.setItem("sudan_study_reminder_enabled", "false");
+          return;
+        }
+      }
+      
+      setReminderEnabled(true);
+      localStorage.setItem("sudan_study_reminder_enabled", "true");
+      
+      // Trigger a direct test notification to confirm success
+      new Notification("🇸🇩 منصة المناهج السودانية", {
+        body: `🔔 تم تفعيل تذكير المذاكرة اليومي بنجاح! سنقوم بتذكيرك يومياً عند الساعة ${reminderTime}.`,
+        icon: "/favicon.ico"
+      });
+    } else {
+      setReminderEnabled(false);
+      localStorage.setItem("sudan_study_reminder_enabled", "false");
+    }
+  };
+
+  const handleTimeChange = (newTime: string) => {
+    setReminderTime(newTime);
+    localStorage.setItem("sudan_study_reminder_time", newTime);
+  };
+
+  const handleTestNotification = () => {
+    if (typeof Notification === "undefined") {
+      alert("إشعارات المتصفح غير مدعومة على متصفحك الحالي.");
+      return;
+    }
+
+    if (Notification.permission !== "granted") {
+      alert("الرجاء تفعيل واستقبال صلاحية الإشعارات أولاً.");
+      return;
+    }
+
+    new Notification("🎯 تجربة تذكير المذاكرة", {
+      body: "أحسنت! الإشعارات التفاعلية تعمل الآن بنجاح وسيتم إرسال تذكير المذاكرة يومياً في توقيتك المفضل.",
+      icon: "/favicon.ico"
+    });
+  };
+
+  // Background interval loader to trigger daily reminder precisely on time
+  useEffect(() => {
+    if (!reminderEnabled || typeof Notification === "undefined" || Notification.permission !== "granted") {
+      return;
+    }
+
+    const checkAndTrigger = () => {
+      const now = new Date();
+      const currentHour = String(now.getHours()).padStart(2, '0');
+      const currentMin = String(now.getMinutes()).padStart(2, '0');
+      const timeStr = `${currentHour}:${currentMin}`;
+
+      if (timeStr === reminderTime) {
+        const todayStr = now.toDateString();
+        const triggerKey = `${todayStr}-${timeStr}`;
+
+        if (lastTriggeredRef.current !== triggerKey) {
+          lastTriggeredRef.current = triggerKey;
+          
+          new Notification("📚 حان وقت المذاكرة اليومية 🇸🇩", {
+            body: "أهلاً بك يا بطل! حان موعد جلستك الدراسية اليومية المقررة بجدولك التفاعلي. استعن بالله وابدأ بهمة ونشاط للوصول للصدارة!",
+            icon: "/favicon.ico",
+            badge: "/favicon.ico",
+            requireInteraction: true
+          });
+        }
+      }
+    };
+
+    // Run custom checks every 10 seconds to make sure it alerts accurately
+    const interval = setInterval(checkAndTrigger, 10000);
+    // Core immediate check
+    checkAndTrigger();
+
+    return () => clearInterval(interval);
+  }, [reminderEnabled, reminderTime]);
+
+  // --- 5. INTERACTIVE CALENDAR STATES & LOGIC ---
+  const [currentCalendarDate, setCurrentCalendarDate] = useState<Date>(new Date(2026, 5, 14)); // Initial value matching system time (June 14, 2026)
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState<string | null>("2026-06-14");
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(() => {
+    const saved = localStorage.getItem("sudan_study_camp_calendar_events_v2");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to load saved calendar events", e);
+      }
+    }
+    
+    // Default mock prepopulated academic schedule dates
+    return [
+      {
+        id: "evt-school-start-26",
+        date: "2026-06-15",
+        title: "انطلاق مخيم المراجعة والمذاكرة المكثف",
+        type: "academic",
+        notes: "البداية الرسمية للتحديات والاستعداد للاختبارات الدورية."
+      },
+      {
+        id: "evt-math-exam-26",
+        date: "2026-06-25",
+        title: "الامتحان التجريبي الموحد لشهادة مرحلة الأساس / الثانوي",
+        type: "exam",
+        notes: "امتحان شامل يغطي الفصل الدراسي الأول للتأكد من جاهزية الطلاب."
+      },
+      {
+        id: "evt-mid-exams-26",
+        date: "2026-07-15",
+        title: "بدء امتحانات التقييم السنوي والشهري القومي",
+        type: "exam",
+        notes: "يرجى تحضير المراجعات والملخصات التفاعلية مسبقاً."
+      },
+      {
+        id: "evt-summer-camp",
+        date: "2026-07-28",
+        title: "ندوة مهارات المذاكرة وصناعة التفوق الدراسي",
+        type: "academic",
+        notes: "نصائح وإرشادات من كبار الأساتذة للتفوق في البيئة السودانية."
+      },
+      {
+        id: "evt-sudan-official-26",
+        date: "2026-09-06",
+        title: "الموعد المقترح لبدء العام الدراسي الجديد ٢٠٢٦-٢٠٢٧ 🇸🇩",
+        type: "academic",
+        notes: "بداية التسجيل الرسمي بالمدارس ومطابقة الرغبات والمواد."
+      },
+      {
+        id: "evt-arabic-exam-26",
+        date: "2026-06-20",
+        title: "مراجعة شاملة لمقرر النحو والصرف والإنشاء",
+        type: "personal",
+        notes: "حصة تفاعلية ممتازة للطلبة بهدف تقفيل درجات اللغة العربية."
+      }
+    ];
+  });
+
+  const saveCalendarEvents = (newEvents: CalendarEvent[]) => {
+    setCalendarEvents(newEvents);
+    localStorage.setItem("sudan_study_camp_calendar_events_v2", JSON.stringify(newEvents));
+  };
+
+  const [newEventTitle, setNewEventTitle] = useState("");
+  const [newEventType, setNewEventType] = useState<"exam" | "academic" | "personal">("exam");
+  const [newEventNotes, setNewEventNotes] = useState("");
+
+  const handleAddCalendarEvent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEventTitle.trim() || !selectedCalendarDay) return;
+
+    const newEvt: CalendarEvent = {
+      id: "evt-custom-" + Date.now(),
+      date: selectedCalendarDay,
+      title: newEventTitle.trim(),
+      type: newEventType,
+      notes: newEventNotes.trim() || undefined
+    };
+
+    const updated = [...calendarEvents, newEvt];
+    saveCalendarEvents(updated);
+    
+    setNewEventTitle("");
+    setNewEventNotes("");
+
+    if (typeof Notification !== "undefined" && Notification.permission === "granted" && reminderEnabled) {
+      new Notification("📅 تم حفظ موعد الاختبار بنجاح", {
+        body: `تم إدراج "${newEventTitle}" في تقويمك الدراسي ليوم ${selectedCalendarDay}.`,
+        icon: "/favicon.ico"
+      });
+    }
+  };
+
+  const handleDeleteCalendarEvent = (eventId: string) => {
+    const updated = calendarEvents.filter(evt => evt.id !== eventId);
+    saveCalendarEvents(updated);
+  };
+
+  const handlePrevMonth = () => {
+    setCurrentCalendarDate(prev => {
+      const copy = new Date(prev);
+      copy.setMonth(copy.getMonth() - 1);
+      return copy;
+    });
+  };
+
+  const handleNextMonth = () => {
+    setCurrentCalendarDate(prev => {
+      const copy = new Date(prev);
+      copy.setMonth(copy.getMonth() + 1);
+      return copy;
+    });
   };
 
   const handleGenerateSchedule = () => {
@@ -360,8 +594,20 @@ export default function StudyCamp({ stages }: StudyCampProps) {
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            <Calendar className="w-4 h-4" />
+            <Clock className="w-4 h-4" />
             <span>جدول المذاكرة</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("calendar")}
+            className={`flex-1 md:flex-initial px-4 py-2 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              activeTab === "calendar" 
+                ? "bg-indigo-650 text-white shadow-md shadow-indigo-950/20" 
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+            <span>التقويم التفاعلي</span>
           </button>
         </div>
       </div>
@@ -860,6 +1106,83 @@ export default function StudyCamp({ stages }: StudyCampProps) {
             exit={{ opacity: 0, y: -15 }}
             className="space-y-6"
           >
+            {/* ⏰ BROWSER NOTIFICATION DAILY REMINDERS CARD */}
+            <div className="bg-gradient-to-br from-slate-950 via-slate-950 to-indigo-950/20 p-5 rounded-2xl border border-indigo-900/40 space-y-4 shadow-lg text-right">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2.5 rounded-xl ${reminderEnabled ? "bg-indigo-500/10 text-indigo-400 animate-pulse" : "bg-slate-900 text-slate-500"}`}>
+                    {reminderEnabled ? <Bell className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
+                  </div>
+                  <div className="space-y-0.5 text-right">
+                    <h4 className="text-xs font-black text-slate-200 flex items-center justify-start gap-1.5 flex-row-reverse pb-0.5">
+                      <span>منبه التذكير اليومي الذكي للمذاكرة</span>
+                      {reminderEnabled && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          نشط تلقائياً
+                        </span>
+                      )}
+                    </h4>
+                    <p className="text-[10px] text-slate-450 leading-normal max-w-xl">
+                      اضبط موعداً يومياً لتلقي إشعار متصفح مميز ينبهك لبدء جدول حصصك والمذاكرة بتركيز.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-center">
+                  {/* Test notification button */}
+                  {reminderEnabled && (
+                    <button
+                      onClick={handleTestNotification}
+                      type="button"
+                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-850 text-slate-350 hover:text-slate-200 border border-slate-800 rounded-xl text-3xs font-black transition-all cursor-pointer"
+                    >
+                      تجربة الإشعار 🧪
+                    </button>
+                  )}
+                  
+                  {/* Reminder Toggle state button */}
+                  <button
+                    onClick={() => handleToggleReminder(!reminderEnabled)}
+                    className={`px-4 py-1.5 rounded-xl text-3xs font-black transition-all border cursor-pointer ${
+                      reminderEnabled
+                        ? "bg-red-950/40 border-red-900/50 text-red-100 hover:bg-red-902/20"
+                        : "bg-indigo-600 hover:bg-indigo-550 border-indigo-500 text-white shadow-md shadow-indigo-950/10"
+                    }`}
+                  >
+                    {reminderEnabled ? "إيقاف التنبيهات 🔕" : "تفعيل التنبيهات 🔔"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Configurations Row */}
+              <div className="pt-3 border-t border-slate-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-slate-400 font-bold block shrink-0">توقيت التذكير المفضل:</span>
+                  <input
+                    type="time"
+                    value={reminderTime}
+                    onChange={(e) => handleTimeChange(e.target.value)}
+                    className="bg-slate-900 border border-slate-800 focus:border-indigo-550 rounded-xl px-3 py-1.5 text-xs text-center font-bold text-slate-200 outline-none cursor-pointer"
+                  />
+                </div>
+
+                <div className="text-[10px] text-slate-500 font-medium">
+                  {typeof Notification === "undefined" ? (
+                    <span className="text-red-400 font-bold">⚠️ متصفحك الحالي لا يدعم إشعارات سطح المكتب.</span>
+                  ) : notificationPermission === "granted" ? (
+                    <span className="text-emerald-400 font-bold flex items-center justify-start gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-ping"></span>
+                      <span>صلاحية الإشعارات ممنوحة بنجاح.</span>
+                    </span>
+                  ) : notificationPermission === "denied" ? (
+                    <span className="text-red-400 font-bold">❌ تم حظر الإشعارات. يرجى تفعيلها في إعدادات متصفحك يدوياً.</span>
+                  ) : (
+                    <span>🔔 يرجى منح صلاحية المتصفح للتنبيهات عند تفعيل المنبه.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {userSchedule.length === 0 ? (
               // Generator setup form
               <div className="max-w-xl mx-auto bg-slate-950/40 border border-slate-850 p-6 sm:p-8 rounded-2xl text-center space-y-6">
@@ -1001,6 +1324,400 @@ export default function StudyCamp({ stages }: StudyCampProps) {
             )}
           </motion.div>
         )}
+
+        {/* TAB 4: INTERACTIVE CALENDAR */}
+        {activeTab === "calendar" && (() => {
+          const ARABIC_MONTHS = [
+            "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+            "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
+          ];
+          const ARABIC_DAYS_SHORT = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+
+          const calYear = currentCalendarDate.getFullYear();
+          const calMonth = currentCalendarDate.getMonth();
+
+          // Days in month
+          const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+          // First day offset (0 = Sunday, 1 = Monday ...)
+          const firstDayIndex = new Date(calYear, calMonth, 1).getDay();
+
+          // Create grid cells
+          const calendarCells: (number | null)[] = [];
+          for (let i = 0; i < firstDayIndex; i++) {
+            calendarCells.push(null);
+          }
+          for (let d = 1; d <= daysInMonth; d++) {
+            calendarCells.push(d);
+          }
+
+          // Format Helper
+          const getFormattedDateString = (dayNum: number) => {
+            const mm = String(calMonth + 1).padStart(2, "0");
+            const dd = String(dayNum).padStart(2, "0");
+            return `${calYear}-${mm}-${dd}`;
+          };
+
+          // Get active selected day events
+          const dayEvts = calendarEvents.filter(
+            evt => evt.date === selectedCalendarDay
+          );
+
+          // Group all events for quick lookup inside cells
+          const getEventsForDay = (dayNum: number) => {
+            const dateStr = getFormattedDateString(dayNum);
+            return calendarEvents.filter(evt => evt.date === dateStr);
+          };
+
+          return (
+            <motion.div
+              key="calendar-tab"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              className="space-y-6"
+            >
+              {/* Calendar Info Banner */}
+              <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-850 flex flex-col md:flex-row items-center justify-between gap-5 text-right">
+                <div className="space-y-1">
+                  <h4 className="text-sm font-black text-slate-100 flex items-center justify-start gap-2 flex-row-reverse">
+                    <span>التقويم الدراسي التفاعلي وجدول اختبارات المنهج السوداني 🇸🇩</span>
+                  </h4>
+                  <p className="text-xs text-slate-450 max-w-xl leading-relaxed">
+                    هذا القسم مخصص للجدولة الزمنية وتحديد مواعيد الاختبارات الشهرية، الحصص التجريبية، واختبارات الشهادة السودانية القومية، بالإضافة للسماح لكل طالب بكتابة وتحديد مواعيده الفردية لتنظيم المراجعات بدقة بالغة.
+                  </p>
+                </div>
+                <div className="flex gap-2 flex-wrap justify-end shrink-0 text-3xs font-extrabold pb-1">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-500/10 text-red-400 border border-red-500/15">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block animate-pulse"></span>
+                    <span>اختبارات رسمية</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/15">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
+                    <span>مواعيد أكاديمية عامة</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/15">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400 inline-block"></span>
+                    <span>تنظيم مراجعة شخصية</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Grid Core: Month Grid & Detail list / Add form */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                {/* SIDEBAR: Selected Date Info & Custom Scheduling Form */}
+                <div className="lg:col-span-12 xl:col-span-5 space-y-6 order-2 lg:order-1 text-right">
+                  
+                  {/* 1. EVENTS LIST FOR THE SELECTED DAY */}
+                  <div className="bg-slate-950/40 border border-slate-850 rounded-2xl p-5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <span className="text-[10px] text-indigo-400 font-mono font-black select-none">
+                        {selectedCalendarDay ? selectedCalendarDay : "لم يتم التحديد"}
+                      </span>
+                      <h5 className="text-xs font-black text-slate-100 flex items-center gap-1.5">
+                        <span>الأجندة والمواعيد لليوم المختار</span>
+                        <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                      </h5>
+                    </div>
+
+                    {selectedCalendarDay ? (
+                      (() => {
+                        if (dayEvts.length === 0) {
+                          return (
+                            <div className="py-8 text-center space-y-2.5">
+                              <AlertCircle className="w-7 h-7 text-slate-600 mx-auto" />
+                              <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                                لا توجد امتحانات أو مواعيد مقررة في هذا اليوم بعد. تصفح الأيام الأخرى أو أضف موعدك الدراسي الخاص بك أدناه!
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                            {dayEvts.map(evt => (
+                              <div 
+                                key={evt.id} 
+                                className={`p-3.5 rounded-xl border text-right space-y-1.5 transition-all ${
+                                  evt.type === "exam" 
+                                    ? "bg-red-950/20 border-red-900/40 hover:border-red-900/80" 
+                                    : evt.type === "academic"
+                                    ? "bg-emerald-950/15 border-emerald-900/40 hover:border-emerald-900/80"
+                                    : "bg-purple-950/15 border-purple-900/40 hover:border-purple-900/80"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  {evt.id.startsWith("evt-custom-") ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteCalendarEvent(evt.id)}
+                                      className="p-1 text-slate-500 hover:text-red-405 rounded hover:bg-slate-900/40 cursor-pointer transition-colors"
+                                      title="حذف الموعد"
+                                    >
+                                      <Trash className="w-3.5 h-3.5" />
+                                    </button>
+                                  ) : (
+                                    <span className="text-[9px] px-1.5 py-0.5 bg-slate-900 text-slate-400 rounded-md font-black">موعد عام</span>
+                                  )}
+
+                                  <div className="space-y-0.5">
+                                    <p className="text-xs font-black text-slate-100">{evt.title}</p>
+                                    <span className={`inline-block text-[9px] font-black px-1.5 py-0.5 rounded ${
+                                      evt.type === "exam" 
+                                        ? "bg-red-500/10 text-red-400" 
+                                        : evt.type === "academic"
+                                        ? "bg-emerald-500/10 text-emerald-400"
+                                        : "bg-purple-500/10 text-purple-400"
+                                    }`}>
+                                      {evt.type === "exam" ? "امتحان / اختبار" : evt.type === "academic" ? "تقويم أكاديمي" : "مذاكرة ومراجعة شخصية"}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {evt.notes && (
+                                  <p className="text-2xs text-slate-400 bg-slate-950/50 p-2 rounded-lg leading-normal mt-1 border border-slate-900">
+                                    💡 {evt.notes}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <p className="text-xs text-center text-slate-500 py-6">الرجاء تحديد يوم من تقويم الشهر لعرض تفاصيل مواعيده.</p>
+                    )}
+                  </div>
+
+                  {/* 2. FORM TO ADD NEW IMPORTANT EXAM DATE */}
+                  <form 
+                    onSubmit={handleAddCalendarEvent}
+                    className="bg-slate-950/40 border border-slate-850 rounded-2xl p-5 space-y-4"
+                  >
+                    <div className="border-b border-slate-800 pb-2 flex items-center justify-between">
+                      <span className="text-[10px] text-indigo-400 font-bold">إضافة موعد لليوم المختار</span>
+                      <h5 className="text-xs font-black text-slate-100 flex items-center gap-1.5">
+                        <span>تحديد موعد اختبار جديد</span>
+                        <Plus className="w-3.5 h-3.5 text-indigo-400 text-slate-100" />
+                      </h5>
+                    </div>
+
+                    <div className="space-y-3.5 text-right text-xs">
+                      <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <span className="font-mono text-[10px] font-extrabold text-indigo-400 select-all">
+                          {selectedCalendarDay ? selectedCalendarDay : "اختر يوماً أولاً"}
+                        </span>
+                        <span className="text-slate-400 text-3xs font-black">تاريخ الاختبار المستهدف:</span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-3xs text-slate-400 font-bold block">اسم الموعد أو الاختبار:</label>
+                        <input
+                          type="text"
+                          required
+                          disabled={!selectedCalendarDay}
+                          placeholder={selectedCalendarDay ? "مثال: مراجعة الجبر والتفاضل، امتحان الكيمياء" : "الرجاء تحديد يوم من الجدول أولاً"}
+                          value={newEventTitle}
+                          onChange={(e) => setNewEventTitle(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-800 focus:border-indigo-505 rounded-xl p-2.5 text-xs text-right outline-none text-slate-202 placeholder-slate-600"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-3xs text-slate-400 font-bold block">تصنيف الموعد:</label>
+                        <select
+                          disabled={!selectedCalendarDay}
+                          value={newEventType}
+                          onChange={(e: any) => setNewEventType(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-800 focus:border-indigo-505 rounded-xl p-2.5 text-xs text-right outline-none text-slate-205 cursor-pointer"
+                        >
+                          <option value="exam">امتحان / اختبار شهري</option>
+                          <option value="academic">موعد دراسي عام</option>
+                          <option value="personal">مذاكرة ومراجعة شخصية</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-3xs text-slate-400 font-bold block">ملاحظات أو مواضيع مطلوبة (اختياري):</label>
+                        <textarea
+                          disabled={!selectedCalendarDay}
+                          placeholder="أدخل أي ملاحظات إضافية، مثل الفصول المقررة للنجاح..."
+                          value={newEventNotes}
+                          onChange={(e) => setNewEventNotes(e.target.value)}
+                          rows={2}
+                          className="w-full bg-slate-900 border border-slate-800 focus:border-indigo-505 rounded-xl p-2.5 text-xs text-right outline-none text-slate-202 resize-none placeholder-slate-600"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={!selectedCalendarDay || !newEventTitle.trim()}
+                        className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-550 border border-indigo-505 text-white font-black text-xs rounded-xl shadow-md cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 animate-none"
+                      >
+                        <Plus className="w-4 h-4 text-white" />
+                        <span>حفظ الموعد بالتقويم الدراسي</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* MONTH SELECTOR & MONTH GRID AND UPCOMING LIST */}
+                <div className="lg:col-span-12 xl:col-span-7 space-y-6 order-1 lg:order-2 text-right">
+                  
+                  {/* MONTH HEADER SELECTOR AND CALENDAR GRID */}
+                  <div className="bg-slate-950/40 border border-slate-855 rounded-2xl p-5 sm:p-6 space-y-5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={handlePrevMonth}
+                          type="button"
+                          className="p-2 bg-slate-900 hover:bg-slate-850 hover:text-slate-100 text-slate-400 border border-slate-800 rounded-xl cursor-pointer transition-colors"
+                          title="الشهر السابق"
+                        >
+                          <ChevronRight className="w-4 h-4 text-slate-400" />
+                        </button>
+                        <button
+                          onClick={handleNextMonth}
+                          type="button"
+                          className="p-2 bg-slate-900 hover:bg-slate-850 hover:text-slate-100 text-slate-400 border border-slate-800 rounded-xl cursor-pointer transition-colors"
+                          title="الشهر القادم"
+                        >
+                          <ChevronLeft className="w-4 h-4 text-slate-400" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <h4 className="text-sm font-black text-slate-100 flex items-center gap-2">
+                          <span>{ARABIC_MONTHS[calMonth]} {calYear}</span>
+                          <Calendar className="w-4 h-4 text-indigo-400" />
+                        </h4>
+                        <p className="text-[10px] text-slate-400 font-bold">انتقل بين الشهور لعرض وجدولة الخطة الأكاديمية.</p>
+                      </div>
+                    </div>
+
+                    {/* WEEKDAY LABELS HEADERS */}
+                    <div className="grid grid-cols-7 gap-2 text-center text-[10px] font-black text-slate-450 border-b border-slate-855 pb-2 select-none font-sans">
+                      {ARABIC_DAYS_SHORT.map((dayLabel) => (
+                        <div key={dayLabel} className="p-1 uppercase">
+                          {dayLabel}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* MONTH ACTIVE DAY CELLS GRID */}
+                    <div className="grid grid-cols-7 gap-2 text-center">
+                      {calendarCells.map((dayNum, cellIdx) => {
+                        if (dayNum === null) {
+                          return (
+                            <div 
+                              key={`empty-${cellIdx}`} 
+                              className="aspect-square bg-slate-950/20 border border-slate-900/10 rounded-xl opacity-35"
+                            />
+                          );
+                        }
+
+                        const dateStr = getFormattedDateString(dayNum);
+                        const isSelected = selectedCalendarDay === dateStr;
+                        const hasEvents = getEventsForDay(dayNum);
+                        const isToday = dateStr === "2026-06-14";
+
+                        const hasExams = hasEvents.some(evt => evt.type === "exam");
+                        const hasAcademics = hasEvents.some(evt => evt.type === "academic");
+                        const hasPersonal = hasEvents.some(evt => evt.type === "personal");
+
+                        return (
+                          <button
+                            key={`day-${dayNum}`}
+                            onClick={() => setSelectedCalendarDay(dateStr)}
+                            type="button"
+                            className={`aspect-square w-full rounded-xl border p-1 sm:p-1.5 flex flex-col items-center justify-between text-right cursor-pointer transition-all relative ${
+                              isSelected 
+                                ? "bg-indigo-600 border-indigo-505 text-white font-black scale-102 shadow-md shadow-indigo-950/25 animate-none"
+                                : isToday
+                                ? "bg-slate-900 border-indigo-900/60 text-indigo-400 font-extrabold"
+                                : "bg-slate-950 border-slate-850/60 hover:bg-slate-900 hover:border-slate-800 text-slate-205"
+                            }`}
+                          >
+                            <div className="w-full flex items-center justify-between text-right">
+                              {isToday && !isSelected && (
+                                <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full inline-block animate-ping" title="اليوم" />
+                              )}
+                              <span className="text-3xs font-bold leading-none font-sans self-end select-none">
+                                {dayNum}
+                              </span>
+                            </div>
+
+                            <div className="flex gap-1 items-center justify-center pt-1 flex-wrap flex-row-reverse max-w-full">
+                              {hasExams && (
+                                <span className={`w-1 h-1 rounded-full ${isSelected ? "bg-white" : "bg-red-400"}`} title="اختبار مقرر" />
+                              )}
+                              {hasAcademics && (
+                                <span className={`w-1 h-1 rounded-full ${isSelected ? "bg-white" : "bg-emerald-400"}`} title="أجندة عامة" />
+                              )}
+                              {hasPersonal && (
+                                <span className={`w-1 h-1 rounded-full ${isSelected ? "bg-white" : "bg-purple-400"}`} title="مراجعة شخصية" />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* OVERALL UPCOMING EVENTS LIST */}
+                  <div className="bg-slate-950/40 border border-slate-850 rounded-2xl p-5 space-y-3">
+                    <div className="flex items-center justify-between pb-1">
+                      <span className="text-[10px] text-slate-450 font-bold">المواعيد الشاملة المسجلة</span>
+                      <h5 className="text-xs font-black text-slate-100 flex items-center gap-2">
+                        <span>الجدول الزمني العام ومواعيد الاختبارات القادمة</span>
+                        <AlertCircle className="w-3.5 h-3.5 text-indigo-400" />
+                      </h5>
+                    </div>
+
+                    <div className="space-y-2.5 max-h-[190px] overflow-y-auto pr-1 text-right">
+                      {calendarEvents
+                        .slice()
+                        .sort((a,b) => a.date.localeCompare(b.date))
+                        .map((evt) => {
+                          const isPast = evt.date < "2026-06-14";
+                          return (
+                            <div 
+                              key={evt.id}
+                              onClick={() => setSelectedCalendarDay(evt.date)}
+                              className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-right cursor-pointer transition-all hover:bg-slate-900/40 ${
+                                selectedCalendarDay === evt.date
+                                  ? "bg-slate-900/70 border-indigo-505"
+                                  : "bg-slate-950/60 border-slate-850"
+                              } ${isPast ? "opacity-60" : ""}`}
+                            >
+                              <span className="font-mono text-3xs font-extrabold text-indigo-400 whitespace-nowrap bg-indigo-950/20 px-2 py-1 rounded">
+                                {evt.date}
+                              </span>
+                              
+                              <div className="flex-1 space-y-0.5 truncate text-right">
+                                <p className="text-3xs font-black text-slate-205 truncate">{evt.title}</p>
+                                <span className={`inline-block text-[8px] font-black leading-none px-1.5 py-0.5 rounded ${
+                                  evt.type === "exam" 
+                                    ? "bg-red-500/10 text-red-400" 
+                                    : evt.type === "academic"
+                                    ? "bg-emerald-500/10 text-emerald-400"
+                                    : "bg-purple-500/10 text-purple-400"
+                                }`}>
+                                  {evt.type === "exam" ? "اختبار" : evt.type === "academic" ? "عام" : "شخصي"}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </motion.div>
+          );
+        })()}
 
       </AnimatePresence>
 

@@ -9,6 +9,7 @@ export interface Subject {
   pdfUrl?: string; // Optional download link for the E-Book
   memoPdfUrl?: string; // Optional link to a PDF memorandum
   videoUrl?: string; // Optional YouTube channel or lesson video link
+  hidden?: boolean; // Optional property to hide subject
 }
 
 export interface Grade {

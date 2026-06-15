@@ -33,7 +33,8 @@ export default function AdminDashboard({ stages, onUpdateCurriculum, onClose }: 
   const [pdfUrl, setPdfUrl] = useState("");
   const [memoPdfUrl, setMemoPdfUrl] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
-  const [colorClass, setColorClass] = useState("bg-blue-100 text-blue-800 border-blue-200");
+  const [colorClass, setColorClass] = useState("bg-blue-105 text-blue-900 border-blue-200");
+  const [hidden, setHidden] = useState<boolean>(false);
 
   // Supabase states
   const [sbUrl, setSbUrl] = useState("");
@@ -103,6 +104,7 @@ export default function AdminDashboard({ stages, onUpdateCurriculum, onClose }: 
     setMemoPdfUrl("");
     setVideoUrl("");
     setColorClass("bg-blue-105 text-blue-900 border-blue-200");
+    setHidden(false);
   };
 
   const handleEditSubject = (subj: Subject) => {
@@ -117,6 +119,7 @@ export default function AdminDashboard({ stages, onUpdateCurriculum, onClose }: 
     setMemoPdfUrl(subj.memoPdfUrl || "");
     setVideoUrl(subj.videoUrl || "");
     setColorClass(subj.colorClass || "bg-blue-105 text-blue-900 border-blue-200");
+    setHidden(!!subj.hidden);
     
     // Smooth scroll to form
     const formElement = document.getElementById("subject-form-anchor");
@@ -162,7 +165,8 @@ export default function AdminDashboard({ stages, onUpdateCurriculum, onClose }: 
         curriculumSummary: curriculumSummary.trim(),
         pdfUrl: pdfUrl.trim() || undefined,
         memoPdfUrl: memoPdfUrl.trim() || undefined,
-        videoUrl: videoUrl.trim() || undefined
+        videoUrl: videoUrl.trim() || undefined,
+        hidden: hidden
       };
 
       updatedStages = stages.map(stg => {
@@ -201,7 +205,8 @@ export default function AdminDashboard({ stages, onUpdateCurriculum, onClose }: 
                   curriculumSummary: curriculumSummary.trim(),
                   pdfUrl: pdfUrl.trim() || undefined,
                   memoPdfUrl: memoPdfUrl.trim() || undefined,
-                  videoUrl: videoUrl.trim() || undefined
+                  videoUrl: videoUrl.trim() || undefined,
+                  hidden: hidden
                 };
               })
             };
@@ -644,6 +649,7 @@ NOTIFY pgrst, 'reload schema';`;
                       <div className="space-y-1.5 flex-1 min-w-0">
                         <h4 className="text-xs font-bold text-slate-100 truncate">{subj.name}</h4>
                         <div className="flex flex-wrap items-center gap-2 text-3xs text-slate-400">
+                          {subj.hidden && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-yellow-950/20 border border-yellow-900/35 rounded font-black text-amber-500">👁️‍🗨️ مخفي</span>}
                           {subj.pdfUrl && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-900 border border-slate-800 rounded font-semibold text-emerald-450">📕 كتاب</span>}
                           {subj.memoPdfUrl && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-900 border border-slate-800 rounded font-semibold text-cyan-450">📝 مذكرة</span>}
                           {subj.videoUrl && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-900 border border-slate-800 rounded font-semibold text-rose-455">📺 فيديو</span>}
@@ -833,6 +839,23 @@ NOTIFY pgrst, 'reload schema';`;
                     <option value="bg-amber-100 text-amber-800 border-amber-205">بني عسلي أثري وتاريخي</option>
                     <option value="bg-cyan-100 text-cyan-800 border-cyan-200">سماوي رقمي وتكنولوجي</option>
                   </select>
+                </div>
+
+                {/* Hide / Visibility Toggle */}
+                <div className="md:col-span-2 bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 flex items-center justify-between text-right">
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-extrabold text-amber-400 block">إخفاء هذا المقرر ومحتوياته من الموقع 👁️‍🗨️</span>
+                    <p className="text-[10px] text-slate-400">عند تفعيل هذا الخيار، سيتم حجب بطاقة المادة بالكامل عن الطلاب وأجهزة الزوّار ولن تظهر إلا للمسؤولين فقط لتعديلها لاحقاً.</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={hidden}
+                      onChange={(e) => setHidden(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 peer-checked:after:bg-emerald-400 after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-950/40 border border-slate-700/60 transition-all"></div>
+                  </label>
                 </div>
               </div>
 

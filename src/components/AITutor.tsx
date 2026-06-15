@@ -4,11 +4,13 @@ import {
   Send, Sparkles, MessageSquare, HelpCircle, RefreshCw, 
   CheckCircle, XCircle, Info, Trophy, ChevronRight, UserCheck, BookOpen 
 } from "lucide-react";
+import { Subject } from "../data/curriculum";
 
 interface AITutorProps {
   stageName: string;
   gradeName: string;
   subjectName: string;
+  subject?: Subject;
   onClose: () => void;
 }
 
@@ -25,7 +27,7 @@ interface Quiz {
   explanation: string;
 }
 
-export default function AITutor({ stageName, gradeName, subjectName, onClose }: AITutorProps) {
+export default function AITutor({ stageName, gradeName, subjectName, subject, onClose }: AITutorProps) {
   const [activeTab, setActiveTab] = useState<'chat' | 'quiz'>('chat');
   
   // Chat state
@@ -33,7 +35,7 @@ export default function AITutor({ stageName, gradeName, subjectName, onClose }: 
     {
       id: "welcome",
       role: 'model',
-      text: `مرحباً بك يا بطل! أنا المعلم السوداني الذكي ومساعدك الخاص في مادة (${subjectName}) لـ (${gradeName}). يسعدني جداً أن نراجع وندرس معاً اليوم. سلني عن أي موضوع في المنهج وسأبسطه لك بأجمل طريقة! 💡✨`
+      text: `مرحباً بك يا بطل! أنا المعلم السوداني ومساعدك لـ (${subjectName}). 💡✨\n\nلقد قمت بإيقاف الذكاء الاصطناعي التوليدي، وسأقوم الآن بالبحث المباشر والربط الذكي من الكتب والمذكرات والمواقع التفاعلية المرفقة لدرسك لضمان أعلى مستوى من الدقة والموثوقية! اكتب سؤالك أو مشكلتك وسنقوم بالبحث عنها فوراً.`
     }
   ]);
   const [inputVal, setInputVal] = useState("");
@@ -78,7 +80,8 @@ export default function AITutor({ stageName, gradeName, subjectName, onClose }: 
           history: history,
           grade: gradeName,
           subject: subjectName,
-          stage: stageName
+          stage: stageName,
+          subjectObject: subject
         })
       });
 
@@ -275,7 +278,7 @@ export default function AITutor({ stageName, gradeName, subjectName, onClose }: 
                       <span className="w-1.5 h-1.5 bg-emerald-450 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
                       <span className="w-1.5 h-1.5 bg-emerald-450 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                     </span>
-                    <span>الأستاذ يفكر في الإجابة...</span>
+                    <span>جاري تصفح كتب المادة ومذكراتها والبحث عن إجابة...</span>
                   </div>
                 </div>
               )}

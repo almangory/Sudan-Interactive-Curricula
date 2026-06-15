@@ -42,12 +42,22 @@ export function saveSupabaseConfig(url: string, anonKey: string) {
   }
 }
 
+// Cache-holding singleton variables for Supabase client
+let cachedClient: any = null;
+let cachedActiveUrl = "";
+let cachedActiveKey = "";
+
 /**
  * Initializes and returns a Supabase helper instance, or null if unconfigured/invalid.
  */
 export function getSupabaseClient() {
   const { url, anonKey, isConfigured } = getSupabaseConfig();
-  if (!isConfigured) return null;
+  if (!isConfigured) {
+    cachedClient = null;
+    cachedActiveUrl = "";
+    cachedActiveKey = "";
+    return null;
+  }
   
   // Basic validation to avoid createClient throwing on poorly formatted URL
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
@@ -55,12 +65,21 @@ export function getSupabaseClient() {
     return null;
   }
 
+  // If a client already exists for this exact url/key configuration, return it
+  if (cachedClient && cachedActiveUrl === url && cachedActiveKey === anonKey) {
+    return cachedClient;
+  }
+
   try {
-    return createClient(url, anonKey, {
+    const client = createClient(url, anonKey, {
       auth: {
         persistSession: true, // Allow session persistence for user registration & login sessions
       }
     });
+    cachedClient = client;
+    cachedActiveUrl = url;
+    cachedActiveKey = anonKey;
+    return client;
   } catch (error) {
     console.error("Failed to initialize Supabase client:", error);
     return null;

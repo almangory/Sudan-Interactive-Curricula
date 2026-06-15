@@ -44,6 +44,14 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
 
+  // User feedback state variables
+  const [feedbackName, setFeedbackName] = useState("");
+  const [feedbackEmail, setFeedbackEmail] = useState("");
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [isFeedbackSending, setIsFeedbackSending] = useState(false);
+  const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+
   // Load from Supabase on start if available and subscribe to Webhook SSE events
   useEffect(() => {
     const loadSupabaseData = async () => {
@@ -132,6 +140,27 @@ export default function App() {
   const [adminUsername, setAdminUsername] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [adminLoginError, setAdminLoginError] = useState("");
+  const [showHiddenAdminGate, setShowHiddenAdminGate] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return window.location.search.includes("admin") || window.location.search.includes("management") || localStorage.getItem("sudan_edu_admin") === "true";
+    }
+    return false;
+  });
+  const [trimClickCount, setTrimClickCount] = useState(0);
+
+  const handleTrimClick = () => {
+    const nextCount = trimClickCount + 1;
+    setTrimClickCount(nextCount);
+    if (nextCount >= 5) {
+      setShowHiddenAdminGate(true);
+      setShowAdminLogin(true);
+      setAdminLoginError("");
+      setAdminUsername("");
+      setAdminPassword("");
+      setSaveStatus("🔓 تم تنشيط وإظهار بوابة دخول الإدارة السرية ونموذج تسجيل الدخول بنجاح.");
+      setTimeout(() => setSaveStatus(null), 5000);
+    }
+  };
 
   // 👤 Student & general user registration & login states (for standard 'users' table)
   const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
@@ -203,6 +232,55 @@ export default function App() {
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
   const [regContactMethod, setRegContactMethod] = useState("");
 
+  const handleFeedbackSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackEmail.trim() || !feedbackMessage.trim()) {
+      setFeedbackError("⚠️ يرجى تعبئة بريدك الإلكتروني ومحتوى الملاحظة أولاً.");
+      setFeedbackSuccess(null);
+      return;
+    }
+
+    setIsFeedbackSending(true);
+    setFeedbackError(null);
+    setFeedbackSuccess(null);
+
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: feedbackName,
+          email: feedbackEmail,
+          message: feedbackMessage,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setFeedbackSuccess(data.message);
+        // Clear inputs on success
+        setFeedbackName("");
+        setFeedbackEmail("");
+        setFeedbackMessage("");
+        
+        // Auto-clear success message after 10 seconds
+        setTimeout(() => {
+          setFeedbackSuccess(null);
+        }, 12000);
+      } else {
+        setFeedbackError(data.error || "⚠️ عذراً، فشل إرسال ملاحظاتك حالياً.");
+      }
+    } catch (err: any) {
+      console.error("Feedback submit error:", err);
+      setFeedbackError("⚠️ عذراً، حدث خطأ أثناء الاتصال بالملقم لإرسال الملاحظة.");
+    } finally {
+      setIsFeedbackSending(false);
+    }
+  };
+
   const handleAdminLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanUser = adminUsername.trim();
@@ -216,7 +294,7 @@ export default function App() {
     }
 
     // 2. If DB validation succeeded, or fallback user matched standard offline password
-    const isOfflineFallback = cleanUser.toLowerCase() === "almangory" && adminPassword === "20302060";
+    const isOfflineFallback = (cleanUser.toLowerCase() === "almangory" || cleanUser.toLowerCase() === "admin@sudan.edu") && adminPassword === "20302060";
 
     if (authenticated || isOfflineFallback) {
       setIsAdminLoggedIn(true);
@@ -227,7 +305,7 @@ export default function App() {
       
       const welcomeMsg = authenticated 
         ? `مرحباً بك يا ${cleanUser}! تم التحقق من هويتك سحابياً عبر جدول admin_users بنجاح 🔑`
-        : `مرحباً بك يا أستاذ almangory! تم تفعيل دخول الإدارة عبر الهوية الاحتياطية بنجاح 🔑`;
+        : `مرحباً بك يا أستاذ عثمان المنقوري! تم تفعيل دخول الإدارة والمزامنة بالهوية الاحتياطية بنجاح 🔑`;
         
       setSaveStatus(welcomeMsg);
       setTimeout(() => setSaveStatus(null), 6000);
@@ -239,6 +317,8 @@ export default function App() {
   const handleAdminLogout = () => {
     setIsAdminLoggedIn(false);
     setShowAdminDashboard(false);
+    setShowHiddenAdminGate(false);
+    setTrimClickCount(0);
     localStorage.removeItem("sudan_edu_admin");
     setSaveStatus("تم تسجيل الخروج من لوحة الإدارة بنجاح.");
     setTimeout(() => setSaveStatus(null), 4000);
@@ -347,6 +427,37 @@ export default function App() {
     setIsAuthLoading(true);
 
     try {
+      const cleanEmail = userEmail.trim().toLowerCase();
+      
+      // Admin Login Option inside Student/User modal
+      if (cleanEmail === "admin@sudan.edu" && userPassword === "20302060") {
+        setIsAdminLoggedIn(true);
+        localStorage.setItem("sudan_edu_admin", "true");
+        setShowHiddenAdminGate(true);
+        setShowAdminDashboard(true);
+        
+        const adminUser: AppUser = {
+          id: "admin-master-id-123",
+          username: "عثمان المنقوري 👑",
+          email: "admin@sudan.edu",
+          provider: "database",
+          user_role: "teacher",
+          created_at: new Date().toISOString()
+        };
+        setCurrentUser(adminUser);
+        localStorage.setItem("sudan_auth_user", JSON.stringify(adminUser));
+
+        setUserAuthSuccess("🟢 تم تسجيل دخول المسؤول بنجاح! جاري تفعيل لوحة الإدارة...");
+        setSaveStatus("مرحباً بك يا أستاذ عثمان المنقوري! تم تفعيل لوحة التحكم والمزامنة بالهوية الاحتياطية بنجاح 🔑");
+        setTimeout(() => setSaveStatus(null), 6000);
+
+        setTimeout(() => {
+          setShowUserModal(false);
+          setUserAuthSuccess("");
+        }, 1500);
+        return;
+      }
+
       if (!userEmail.includes("@")) {
         setUserAuthError("⚠️ يرجى إدخال بريد إلكتروني صحيح.");
         setIsAuthLoading(false);
@@ -894,7 +1005,11 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-600 selection:text-white pb-16" dir="rtl">
       {/* Upper Flag Trim (Sudan Flag Colors: Red, White, Black, Green) */}
-      <div className="h-2 w-full flex">
+      <div 
+        onClick={handleTrimClick}
+        className="h-2 w-full flex cursor-pointer hover:opacity-95 active:opacity-80 transition-opacity" 
+        title="المنصة السودانية التعليمية الموحدة"
+      >
         <div className="bg-[#D21034] flex-1"></div>
         <div className="bg-white flex-1"></div>
         <div className="bg-[#000000] flex-1"></div>
@@ -906,7 +1021,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap text-right">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-            <span className="text-3xs md:text-2xs text-slate-400 font-bold">الموقع الرسمي المقارن للمناهج السودانية التفاعلية لعام ٢٠٢٦ م</span>
+            <span className="text-3xs md:text-2xs text-slate-400 font-bold">نقلة للمناهج السودانية التفاعلية لعام 2026 م</span>
           </div>
 
           <div className="flex items-center gap-3 relative">
@@ -979,6 +1094,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   setAdminPassword("");
                 }}
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all hover:border-emerald-700/60 cursor-pointer"
+                title="دخول المسؤول المفوّض لتعديل وإخفاء المناهج التعليمية"
               >
                 🔐 دخول الإدارة
               </button>
@@ -1007,6 +1123,12 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   </div>
 
                   <form onSubmit={handleAdminLoginSubmit} className="space-y-3">
+                    <div className="bg-emerald-955/25 border border-emerald-900/35 rounded-lg p-2.5 text-[9px] text-emerald-400 space-y-1 leading-normal font-semibold">
+                      <p className="font-extrabold text-emerald-300">🔑 دخول المسؤول المفوّض:</p>
+                      <p>اسم المستخدم: <span className="font-mono text-white select-all bg-slate-950 px-1 rounded">admin@sudan.edu</span></p>
+                      <p>رمز المرور السري: <span className="font-mono text-white select-all bg-slate-950 px-1 rounded">20302060</span></p>
+                    </div>
+
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-400 font-bold block">اسم المستخدم:</label>
                       <input
@@ -1129,7 +1251,11 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           </div>
 
           {/* Simple Statistics & Admin Gate widgets */}
-          <div className="w-full md:w-auto grid grid-cols-2 md:grid-cols-3 gap-4 flex-shrink-0">
+          <div className={`w-full md:w-auto grid gap-4 flex-shrink-0 ${
+            isAdminLoggedIn || showHiddenAdminGate 
+              ? "grid-cols-2 md:grid-cols-3" 
+              : "grid-cols-2"
+          }`}>
             <div 
               onClick={() => {
                 setShowOnlyFavorites(prev => !prev);
@@ -1155,35 +1281,37 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               <span className="text-2xs text-slate-400 block font-medium">تمارين مكتملة</span>
             </div>
 
-            <div 
-              onClick={() => {
-                if (isAdminLoggedIn) {
-                  setShowAdminDashboard(prev => !prev);
-                  setSelectedStage(null);
-                  setActiveGrade(null);
-                  setShowStudyCamp(false);
-                  setShowOnlyFavorites(false);
-                } else {
-                  setShowAdminLogin(true);
-                  setAdminLoginError("");
-                  setAdminUsername("");
-                  setAdminPassword("");
-                }
-              }}
-              className={`p-4 border rounded-2xl text-center space-y-1 min-w-[140px] shadow-lg cursor-pointer transition-all duration-200 select-none col-span-2 md:col-span-1 ${
-                isAdminLoggedIn 
-                  ? "bg-emerald-950/20 border-emerald-500/80 ring-2 ring-emerald-500/30 text-emerald-400 hover:bg-emerald-950/40" 
-                  : "bg-slate-900/60 border-slate-800/80 hover:bg-slate-850 hover:border-emerald-500/40"
-              }`}
-            >
-              <Lock className={`w-5 h-5 mx-auto transition-all ${isAdminLoggedIn ? "text-emerald-400" : "text-slate-400"}`} />
-              <span className="text-xs font-bold text-slate-100 block leading-tight pt-1">
-                {isAdminLoggedIn ? "لوحة التحكم" : "بوابة الإدارة"}
-              </span>
-              <span className="text-3xs text-emerald-450 block font-bold mt-1">
-                {isAdminLoggedIn ? "تعديل المناهج ⚙️" : "دخول الإدارة 🔐"}
-              </span>
-            </div>
+            {(isAdminLoggedIn || showHiddenAdminGate) && (
+              <div 
+                onClick={() => {
+                  if (isAdminLoggedIn) {
+                    setShowAdminDashboard(prev => !prev);
+                    setSelectedStage(null);
+                    setActiveGrade(null);
+                    setShowStudyCamp(false);
+                    setShowOnlyFavorites(false);
+                  } else {
+                    setShowAdminLogin(true);
+                    setAdminLoginError("");
+                    setAdminUsername("");
+                    setAdminPassword("");
+                  }
+                }}
+                className={`p-4 border rounded-2xl text-center space-y-1 min-w-[140px] shadow-lg cursor-pointer transition-all duration-200 select-none col-span-2 md:col-span-1 ${
+                  isAdminLoggedIn 
+                    ? "bg-emerald-950/20 border-emerald-500/80 ring-2 ring-emerald-500/30 text-emerald-400 hover:bg-emerald-950/40" 
+                    : "bg-slate-900/60 border-slate-800/80 hover:bg-slate-850 hover:border-emerald-500/40"
+                }`}
+              >
+                <Lock className={`w-5 h-5 mx-auto transition-all ${isAdminLoggedIn ? "text-emerald-400" : "text-slate-400"}`} />
+                <span className="text-xs font-bold text-slate-100 block leading-tight pt-1">
+                  {isAdminLoggedIn ? "لوحة التحكم" : "بوابة الإدارة"}
+                </span>
+                <span className="text-3xs text-emerald-450 block font-bold mt-1">
+                  {isAdminLoggedIn ? "تعديل المناهج ⚙️" : "دخول الإدارة 🔐"}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -1214,42 +1342,337 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               const isSelected = selectedStage?.id === stage.id && !showOnlyFavorites && !showStudyCamp;
               
               return (
-                <button
-                  key={stage.id}
-                  onClick={() => {
-                    setSelectedStage(stage);
-                    setActiveGrade(null);
-                    setShowOnlyFavorites(false);
-                    setShowStudyCamp(false);
-                  }}
-                  className={`relative p-5 rounded-2xl text-right border transition-all text-xs md:text-sm shadow-sm overflow-hidden group cursor-pointer ${
-                    isSelected 
-                      ? "bg-slate-900 border-emerald-600 shadow-md shadow-emerald-950/20" 
-                      : "bg-slate-900/40 border-slate-800/60 hover:bg-slate-900 hover:border-slate-800"
-                  }`}
-                >
-                  {/* Decorative Subtle Accent Tag for selected */}
-                  {isSelected && (
-                    <span className="absolute top-0 right-0 bottom-0 w-1.5 bg-gradient-to-b from-emerald-500 to-emerald-700" />
-                  )}
-
-                  <div className="flex items-start gap-4">
-                    <div className={`p-3 rounded-xl transition-all ${
+                <React.Fragment key={stage.id}>
+                  <button
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedStage(null);
+                        setActiveGrade(null);
+                      } else {
+                        setSelectedStage(stage);
+                        setActiveGrade(null);
+                        setShowOnlyFavorites(false);
+                        setShowStudyCamp(false);
+                      }
+                    }}
+                    className={`relative p-5 rounded-2xl text-right border transition-all text-xs md:text-sm shadow-sm overflow-hidden group cursor-pointer ${
                       isSelected 
-                        ? "bg-emerald-600/20 text-emerald-400" 
-                        : "bg-slate-800 text-slate-400 group-hover:text-slate-300"
-                    }`}>
-                      {getStageIcon(stage.icon)}
+                        ? "bg-slate-900 border-emerald-600 shadow-md shadow-emerald-950/20" 
+                        : "bg-slate-900/40 border-slate-800/60 hover:bg-slate-900 hover:border-slate-800"
+                    }`}
+                  >
+                    {/* Decorative Subtle Accent Tag for selected */}
+                    {isSelected && (
+                      <span className="absolute top-0 right-0 bottom-0 w-1.5 bg-gradient-to-b from-emerald-500 to-emerald-700" />
+                    )}
+
+                    <div className="flex items-start gap-4">
+                      <div className={`p-3 rounded-xl transition-all ${
+                        isSelected 
+                          ? "bg-emerald-600/20 text-emerald-400" 
+                          : "bg-slate-800 text-slate-400 group-hover:text-slate-300"
+                      }`}>
+                        {getStageIcon(stage.icon)}
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="font-bold text-slate-100">{stage.name}</h3>
+                        <p className="text-2xs text-slate-400 line-clamp-1">{stage.description}</p>
+                        <span className="text-3xs text-emerald-500 font-bold block mt-1">
+                          عدد الفصول: {stage.grades.length} {stage.id === "kindergarten" ? "سنوات" : "صفوف دراسية"}
+                        </span>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <h3 className="font-bold text-slate-100">{stage.name}</h3>
-                      <p className="text-2xs text-slate-400 line-clamp-1">{stage.description}</p>
-                      <span className="text-3xs text-emerald-500 font-bold block mt-1">
-                        عدد الفصول: {stage.grades.length} {stage.id === "kindergarten" ? "سنوات" : "صفوف دراسية"}
-                      </span>
-                    </div>
-                  </div>
-                </button>
+                  </button>
+
+                  {/* Inline Expanded Grades & Classes for the Selected Stage */}
+                  {isSelected && (() => {
+                    const renderedGrades = currentUser && currentUser.user_role === "student" && currentUser.grade_id
+                      ? stage.grades.filter(g => g.id === currentUser.grade_id)
+                      : stage.grades;
+
+                    return (
+                      <div className="col-span-1 sm:col-span-2 lg:col-span-5 bg-slate-900/50 border border-slate-800/80 p-5 md:p-6 rounded-2xl space-y-6 mt-1 mb-4 select-text">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-850 pb-4">
+                          <div className="space-y-1 text-center sm:text-right">
+                            <span className="text-3xs text-emerald-400 font-mono font-black uppercase tracking-widest block">صفوف ومستويات المرحلة:</span>
+                            <h4 className="text-sm font-black text-slate-100 flex items-center justify-center sm:justify-start gap-1.5">
+                              {getStageIcon(stage.icon)}
+                              <span>مناهج {stage.name}</span>
+                            </h4>
+                          </div>
+                          
+                          <div className="text-3xs text-slate-400 font-bold flex items-center gap-1.5 bg-slate-950 px-3.5 py-1.5 rounded-xl border border-slate-850 animate-pulse">
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
+                            <span>مجموع الصفوف: {renderedGrades.length} ({renderedGrades.reduce((sum, g) => sum + g.subjects.length, 0)} مادة تفاعلية مضافة)</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4">
+                          {renderedGrades.map((grade) => {
+                            const isGradeExpanded = activeGrade?.id === grade.id;
+                            
+                            // Interactive grade filtering logic
+                            const filteredSubjects = grade.subjects.filter(subj => {
+                              // If subject is hidden, only show to logged-in administrator
+                              if (subj.hidden && !isAdminLoggedIn) return false;
+
+                              const matchesSearch = !searchQuery || 
+                                subj.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                subj.curriculumSummary.toLowerCase().includes(searchQuery.toLowerCase());
+                              
+                              if (!matchesSearch) return false;
+
+                              // Category filter checks
+                              if (categoryFilter === "books") {
+                                return !!subj.pdfUrl || !!subj.memoPdfUrl;
+                              }
+                              if (categoryFilter === "videos") {
+                                return !!subj.videoUrl;
+                              }
+                              if (categoryFilter === "interactive") {
+                                return !!subj.interactiveUrl;
+                              }
+                              
+                              return true;
+                            });
+
+                            if (searchQuery && filteredSubjects.length === 0) return null;
+
+                            return (
+                              <motion.div 
+                                key={grade.id}
+                                layout
+                                className="bg-slate-950/45 border border-slate-850 rounded-xl overflow-hidden shadow-sm"
+                              >
+                                <button
+                                  onClick={() => {
+                                    if (isGradeExpanded) {
+                                      setActiveGrade(null);
+                                    } else {
+                                      setActiveGrade(grade);
+                                    }
+                                  }}
+                                  className="w-full px-5 py-3.5 hover:bg-slate-900/60 flex items-center justify-between text-right cursor-pointer group transition-colors"
+                                >
+                                  <div className="flex items-center gap-3.5">
+                                    <div className="w-8 h-8 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-center text-emerald-400 group-hover:text-emerald-300 font-extrabold text-xs shadow-inner">
+                                      {grade.subjects.length}
+                                    </div>
+                                    <div>
+                                      <h5 className="font-extrabold text-slate-100 text-xs sm:text-sm group-hover:text-emerald-300 transition-colors">{grade.name}</h5>
+                                      <p className="text-3xs text-slate-500 mt-0.5 flex items-center gap-1">
+                                        <Sparkles className="w-2.5 h-2.5 text-emerald-400" />
+                                        <span>اضغط لتصفح الكتب والمقررات والفيديوهات التفاعلية</span>
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="text-slate-400 group-hover:text-slate-200 transition-colors">
+                                    <ChevronDown className={`w-4 h-4 transform transition-transform duration-250 ${isGradeExpanded ? 'rotate-180' : ''}`} />
+                                  </div>
+                                </button>
+
+                                <AnimatePresence initial={false}>
+                                  {isGradeExpanded && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: "auto", opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.25 }}
+                                      className="border-t border-slate-800/80 bg-slate-950/80"
+                                    >
+                                      <div className="p-4 sm:p-5 space-y-4">
+                                        {/* Category Filter Bar */}
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-900/20 p-2 rounded-xl border border-slate-800/80">
+                                          <div className="flex items-center gap-1.5 text-slate-400 text-3xs font-extrabold pb-0.5 sm:pb-0">
+                                            <Filter className="w-3 h-3 text-emerald-400" />
+                                            <span>تصنيف محتوى المواد وعرض المقررات:</span>
+                                          </div>
+                                          <div className="flex flex-wrap items-center gap-1">
+                                            <button
+                                              type="button"
+                                              onClick={() => setCategoryFilter("all")}
+                                              className={`px-2.5 py-1 rounded-lg text-3xs font-extrabold transition-all cursor-pointer ${
+                                                categoryFilter === "all"
+                                                  ? "bg-emerald-600 text-white shadow-sm"
+                                                  : "bg-slate-900 text-slate-400 border border-slate-800/60 hover:text-slate-200"
+                                              }`}
+                                            >
+                                              الكل ({grade.subjects.length})
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => setCategoryFilter("books")}
+                                              className={`px-2.5 py-1 rounded-lg text-3xs font-extrabold transition-all cursor-pointer flex items-center gap-1 ${
+                                                categoryFilter === "books"
+                                                  ? "bg-blue-600 text-white shadow-sm"
+                                                  : "bg-slate-900 text-slate-400 border border-slate-800/60 hover:text-blue-450"
+                                              }`}
+                                            >
+                                              📚 كتب ومذكرات ({grade.subjects.filter(s => !!s.pdfUrl || !!s.memoPdfUrl).length})
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => setCategoryFilter("videos")}
+                                              className={`px-2.5 py-1 rounded-lg text-3xs font-extrabold transition-all cursor-pointer flex items-center gap-1 ${
+                                                categoryFilter === "videos"
+                                                  ? "bg-rose-600 text-white shadow-sm"
+                                                  : "bg-slate-900 text-slate-400 border border-slate-800/60 hover:text-rose-450"
+                                              }`}
+                                            >
+                                              🎥 فيديوهات شروحات ({grade.subjects.filter(s => !!s.videoUrl).length})
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => setCategoryFilter("interactive")}
+                                              className={`px-2.5 py-1 rounded-lg text-3xs font-extrabold transition-all cursor-pointer flex items-center gap-1 ${
+                                                categoryFilter === "interactive"
+                                                  ? "bg-purple-600 text-white shadow-sm"
+                                                  : "bg-slate-900 text-slate-400 border border-slate-800/60 hover:text-purple-450"
+                                              }`}
+                                            >
+                                              🔬 معامل تفاعلية ({grade.subjects.filter(s => !!s.interactiveUrl).length})
+                                            </button>
+                                          </div>
+                                        </div>
+
+                                        {/* Grid of subjects */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                          {filteredSubjects.map((subject) => {
+                                            let isFavorite = favoriteSubjects.includes(subject.id);
+                                            let isLessonComplete = completedLessons.includes(subject.id);
+
+                                            return (
+                                              <div
+                                                key={subject.id}
+                                                onClick={() => handleOpenSubject({ ...subject, gradeName: grade.name, gradeId: grade.id } as any)}
+                                                className="group relative p-4 bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 hover:border-emerald-650/80 rounded-xl transition-all duration-300 hover:translate-y-[-2px] hover:shadow-xl cursor-pointer flex flex-col justify-between overflow-hidden"
+                                              >
+                                                <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                                                <div className="absolute top-3.5 left-3.5 flex gap-1 z-10">
+                                                  <button
+                                                    onClick={(e) => toggleFavorite(subject.id, e)}
+                                                    className={`p-1.5 rounded-md border transition-all cursor-pointer ${
+                                                      isFavorite 
+                                                        ? 'bg-yellow-950/30 text-yellow-400 border-yellow-800/60' 
+                                                        : 'bg-slate-950/60 text-slate-500 hover:text-yellow-400 border-slate-800 hover:border-yellow-950/30'
+                                                    }`}
+                                                    title="المفضلة"
+                                                  >
+                                                    <Star className="w-3 h-3 fill-current" />
+                                                  </button>
+                                                  <button
+                                                    onClick={(e) => toggleLessonComplete(subject.id, e)}
+                                                    className={`p-1.5 rounded-md border transition-all cursor-pointer ${
+                                                      isLessonComplete 
+                                                        ? 'bg-emerald-950/45 text-emerald-400 border-emerald-900/60' 
+                                                        : 'bg-slate-950/60 text-slate-500 hover:text-emerald-400 border-slate-800 hover:border-emerald-950/30'
+                                                    }`}
+                                                    title="تميز بالاكتمال"
+                                                  >
+                                                    <CheckCircle className="w-3 h-3 fill-current" />
+                                                  </button>
+                                                </div>
+
+                                                <div className="space-y-3">
+                                                  <div className="flex items-start gap-3">
+                                                    <div className={`p-2.5 rounded-lg ${subject.colorClass || "bg-emerald-600/10 text-emerald-400"} border flex-shrink-0 group-hover:scale-105 transition-transform duration-300`}>
+                                                      <DynamicIcon name={subject.iconName} className="w-4 h-4" />
+                                                    </div>
+                                                    <div className="space-y-0.5 max-w-[65%]">
+                                                      <h6 className="font-extrabold text-white text-xs group-hover:text-emerald-300 transition-colors truncate">{subject.name}</h6>
+                                                      <span className="text-3xs text-slate-500 truncate block">السودان • مقرر تفاعلي</span>
+                                                    </div>
+                                                  </div>
+
+                                                  <p className="text-3xs text-slate-400 leading-normal line-clamp-2 h-7 overflow-hidden text-ellipsis text-right" dir="rtl">
+                                                    {subject.curriculumSummary}
+                                                  </p>
+
+                                                  {/* Resource badges */}
+                                                  <div className="flex flex-wrap gap-1">
+                                                    {subject.hidden ? (
+                                                      <span className="inline-flex items-center gap-1 px-1 py-0.5 rounded bg-yellow-950/40 border border-yellow-850/40 text-[8px] text-amber-500 font-extrabold animate-pulse">
+                                                        👁️‍قيد الإخفاء
+                                                      </span>
+                                                    ) : null}
+                                                    {subject.pdfUrl ? (
+                                                      <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-blue-955/40 border border-blue-900/20 text-[8px] text-blue-400 font-extrabold">
+                                                        📚 كتاب
+                                                      </span>
+                                                    ) : null}
+                                                    {subject.memoPdfUrl ? (
+                                                      <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-emerald-900/20 border border-emerald-900/10 text-[8px] text-emerald-400 font-extrabold">
+                                                        📝 ملخص
+                                                      </span>
+                                                    ) : null}
+                                                    {subject.interactiveUrl ? (
+                                                      <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-purple-955/30 border border-purple-900/20 text-[8px] text-purple-400 font-extrabold">
+                                                        🔬 تفاعلي
+                                                      </span>
+                                                    ) : null}
+                                                    {subject.videoUrl ? (
+                                                      <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-rose-955/30 border border-rose-900/20 text-[8px] text-rose-400 font-extrabold">
+                                                        🎥 فيديو
+                                                      </span>
+                                                    ) : null}
+                                                  </div>
+                                                </div>
+
+                                                <div className="mt-3.5 pt-2.5 border-t border-slate-850 flex items-center justify-between text-3xs">
+                                                  <span className="text-emerald-400/95 font-black flex items-center gap-0.5">
+                                                    <Sparkles className="w-2.5 h-2.5 text-amber-400 animate-pulse" />
+                                                    التحاق بالدرس التفاعلي
+                                                  </span>
+                                                  <ChevronLeft className="w-2.5 h-2.5 text-slate-500 group-hover:text-slate-355 transform group-hover:translate-x-[-1px] transition-all" />
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+
+                                          {/* Add custom subject button inside the class if teacher mode activated */}
+                                          <div
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setAddSubjectState({
+                                                stageId: stage.id,
+                                                gradeId: grade.id,
+                                                gradeName: grade.name
+                                              });
+                                            }}
+                                            className="relative p-4 bg-slate-900/10 border border-dashed border-slate-800 hover:border-emerald-600/50 rounded-xl transition-all hover:bg-slate-900/30 cursor-pointer flex flex-col justify-center items-center text-center space-y-2 min-h-[140px]"
+                                          >
+                                            <Plus className="w-4 h-4 text-emerald-400 bg-slate-950 p-1 rounded border border-slate-800" />
+                                            <h6 className="font-bold text-slate-200 text-3xs">إضافة مادة جديدة</h6>
+                                            <p className="text-4xs text-slate-500 leading-normal max-w-[150px]">
+                                              إضافة بطاقة مقرر تفاعلي إضافية لهذا الصف.
+                                            </p>
+                                          </div>
+                                        </div>
+
+                                        {filteredSubjects.length === 0 && (
+                                          <div className="text-center py-8 bg-slate-900/10 rounded-xl border border-slate-855 space-y-2">
+                                            <p className="text-3xs text-slate-400">لا توجد مواد تطابق هذا التصنيف حالياً لهذا الصف.</p>
+                                            <button 
+                                              onClick={() => setCategoryFilter("all")}
+                                              className="text-4xs text-emerald-400 underline"
+                                            >
+                                              عرض الكل
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </React.Fragment>
               );
             })}
 
@@ -1437,7 +1860,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             <StudyCamp stages={displayedStages} />
           </motion.div>
         ) : (
-          selectedStage && (() => {
+          false && selectedStage && (() => {
             const renderedGrades = currentUser && currentUser.user_role === "student" && currentUser.grade_id
               ? selectedStage.grades.filter(g => g.id === currentUser.grade_id)
               : selectedStage.grades;
@@ -1482,6 +1905,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     
                     // Interactive grade filtering logic
                     const filteredSubjects = grade.subjects.filter(subj => {
+                      if (subj.hidden && !isAdminLoggedIn) return false;
                       const matchesSearch = !searchQuery || 
                         subj.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                         subj.curriculumSummary.toLowerCase().includes(searchQuery.toLowerCase());
@@ -1665,6 +2089,11 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
                                           {/* Mini resource indicators */}
                                           <div className="flex flex-wrap gap-1.5 pt-1">
+                                            {subject.hidden && (
+                                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-yellow-950/45 border border-yellow-850/45 text-[9px] text-amber-400 font-bold animate-pulse">
+                                                👁️‍قيد الإخفاء
+                                              </span>
+                                            )}
                                             {subject.pdfUrl ? (
                                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-blue-950/40 border border-blue-900/30 text-[9px] text-blue-400 font-bold">
                                                 <BookOpen className="w-2.5 h-2.5" />
@@ -2103,6 +2532,25 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     </>
                   )}
 
+                  {userModalTab === "login" && (
+                    <div className="bg-emerald-955/20 border border-emerald-900/30 rounded-2xl p-3 text-[10px] text-emerald-400 font-semibold space-y-1 text-right mb-3">
+                      <p className="font-extrabold flex items-center gap-1 text-emerald-300">
+                        <span>💡 صلاحيات الإدارة والتعديل ومزامنة سوبابيس:</span>
+                      </p>
+                      <p>للوصول الكامل وتعديل أو حجب أي مادة دراسية سحابياً:</p>
+                      <div className="grid grid-cols-2 gap-1.5 pt-1">
+                        <div className="bg-slate-950 p-1.5 rounded border border-slate-800 text-center font-mono">
+                          <span className="text-slate-400 text-[8px] block">اسم المستخدم / البريد</span>
+                          <span className="text-white select-all text-3xs font-extrabold">admin@sudan.edu</span>
+                        </div>
+                        <div className="bg-slate-950 p-1.5 rounded border border-slate-800 text-center font-mono">
+                          <span className="text-slate-400 text-[8px] block">كلمة المرور</span>
+                          <span className="text-white select-all text-xs font-extrabold">20302060</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-1.5 text-right">
                     <label className="text-[10px] text-slate-400 font-bold block">
                       {userModalTab === "profile" ? "البريد الإلكتروني (غير قابل للتعديل):" : "البريد الإلكتروني:"}
@@ -2168,10 +2616,79 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
       {/* Sticky footer info */}
       <footer className="mt-20 border-t border-slate-800/80 pt-10 text-center max-w-7xl mx-auto px-6">
+        {/* User Feedback & Suggestion Email Form */}
+        <div className="max-w-md mx-auto mb-10 p-6 bg-slate-900/60 border border-slate-800/85 rounded-2xl text-right backdrop-blur shadow-xl">
+          <h3 className="text-xs md:text-sm font-extrabold text-slate-200 flex items-center justify-end gap-1.5 mb-2">
+            <span>📝 أرسل لنا ملاحظاتك مباشرة إلى الإدارة</span>
+          </h3>
+          <p className="text-[10px] text-slate-400 leading-relaxed mb-4">
+            يسعدنا استقبال آرائك واقتراحاتك لتطوير المنصة التعليمية وسنقوم بالرد المباشر عليك. ملاحظاتك تصل مباشرة إلى <span className="font-mono text-emerald-400 select-all font-bold">almangoryo@gmail.com</span>
+          </p>
+
+          <form onSubmit={handleFeedbackSubmit} className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              <div className="space-y-1">
+                <label className="text-[9px] text-slate-400 font-bold block">الاسم (اختياري):</label>
+                <input
+                  type="text"
+                  value={feedbackName}
+                  onChange={(e) => setFeedbackName(e.target.value)}
+                  placeholder="مثال: أحمد عثمان"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-[11px] text-slate-100 outline-none focus:border-emerald-650 transition-all text-right font-sans"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] text-slate-400 font-bold block">البريد الإلكتروني:</label>
+                <input
+                  type="email"
+                  required
+                  value={feedbackEmail}
+                  onChange={(e) => setFeedbackEmail(e.target.value)}
+                  placeholder="example@domain.com"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-[11px] text-slate-100 outline-none focus:border-emerald-655 transition-all text-left font-mono"
+                  dir="ltr"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[9px] text-slate-400 font-bold block">الملاحظات أو الاقتراحات:</label>
+              <textarea
+                required
+                rows={3}
+                value={feedbackMessage}
+                onChange={(e) => setFeedbackMessage(e.target.value)}
+                placeholder="اكتب اقتراحك أو ملاحظاتك هنا بالتفصيل المريح..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-[11px] text-slate-100 outline-none focus:border-emerald-660 transition-all text-right font-sans resize-none"
+              />
+            </div>
+
+            {feedbackError && (
+              <div className="text-[10px] text-rose-400 font-semibold bg-rose-955/15 border border-rose-900/30 p-2 rounded-xl text-center">
+                {feedbackError}
+              </div>
+            )}
+
+            {feedbackSuccess && (
+              <div className="text-[11px] text-emerald-400 font-extrabold bg-emerald-955/20 border border-emerald-900/35 p-3 rounded-xl text-center leading-normal whitespace-pre-line">
+                {feedbackSuccess}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isFeedbackSending}
+              className="w-full py-2.5 bg-gradient-to-l from-emerald-600 to-emerald-700 hover:from-emerald-550 hover:to-emerald-650 disabled:opacity-50 text-white text-xs font-black rounded-xl transition-all cursor-pointer shadow-md hover:shadow-emerald-900/20 active:scale-95 flex items-center justify-center gap-1.5"
+            >
+              {isFeedbackSending ? "جاري الإرسال والمزامنة..." : "إرسال الملاحظات والاقتراحات 🚀"}
+            </button>
+          </form>
+        </div>
+
         <div className="space-y-4 text-xs text-slate-400">
           <p className="font-semibold text-slate-300">🇸🇩 منصة المناهج السودانية التفاعلية لعام 2026</p>
           <p className="max-w-xl mx-auto text-2xs text-slate-500 leading-relaxed">
-            تم تطوير هذه المنصة بكل حب ومسؤولية لمساعدة أفراد المنظومة التعليمية وطلاب السودان الأحباء لتسهيل الحصول على المهارات وألعاب المحاكاة الإلكترونية مجاناً وتحت رعاية المعلم الذكي.
+            تم تطوير هذا المنصة بواسطة عثمان المنقوري لمساعدة المنظومة التعليمية وطلاب السودان الأحباء لتسهيل التعلم .
           </p>
         </div>
       </footer>

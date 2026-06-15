@@ -953,6 +953,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
               stageName={stageName}
               gradeName={gradeName}
               subjectName={subject.name}
+              subject={subject}
               onClose={() => setShowTutor(false)}
             />
             {/* Control to go back to description for smaller views */}
