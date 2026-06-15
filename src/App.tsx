@@ -4,7 +4,7 @@ import {
   GraduationCap, Award, Compass, BookOpen, Clock, Heart, 
   Map, Sparkles, Star, ChevronLeft, ChevronDown, CheckCircle, 
   Search, ShieldAlert, History, Globe, Plus, FileText, Video, Filter,
-  Lock, X
+  Lock, Network, X
 } from "lucide-react";
 import { stagesData, Stage, Grade, Subject } from "./data/curriculum";
 import SubjectModal from "./components/SubjectModal";
@@ -12,6 +12,7 @@ import AddSubjectModal from "./components/AddSubjectModal";
 import DynamicIcon from "./components/DynamicIcon";
 import StudyCamp from "./components/StudyCamp";
 import AdminDashboard from "./components/AdminDashboard";
+import EducationalMindMap from "./components/EducationalMindMap";
 import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile } from "./lib/supabase";
 import { stageAndGradeTranslations, uiTranslations } from "./lib/translations";
 
@@ -41,6 +42,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [showStudyCamp, setShowStudyCamp] = useState(false);
+  const [showEducationalMindMap, setShowEducationalMindMap] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<"all" | "books" | "videos" | "interactive">("all");
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
@@ -706,6 +708,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         setActiveGrade(foundGrade);
         setShowOnlyFavorites(false);
         setShowStudyCamp(false);
+        setShowEducationalMindMap(false);
         setShowAdminDashboard(false);
       }
     } else if (curriculumData.length > 1 && !selectedStage) {
@@ -1237,6 +1240,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               onClick={() => {
                 setShowOnlyFavorites(prev => !prev);
                 setShowStudyCamp(false);
+                setShowEducationalMindMap(false);
                 setShowAdminDashboard(false);
               }}
               className={`p-4 border rounded-2xl text-center space-y-1 min-w-[140px] shadow-lg cursor-pointer transition-all duration-200 select-none ${
@@ -1266,6 +1270,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     setSelectedStage(null);
                     setActiveGrade(null);
                     setShowStudyCamp(false);
+                    setShowEducationalMindMap(false);
                     setShowOnlyFavorites(false);
                   } else {
                     setShowAdminLogin(true);
@@ -1316,7 +1321,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           {/* Grid of Stage Selector Buttons */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-1">
             {displayedStages.map((stage) => {
-              const isSelected = selectedStage?.id === stage.id && !showOnlyFavorites && !showStudyCamp;
+              const isSelected = selectedStage?.id === stage.id && !showOnlyFavorites && !showStudyCamp && !showEducationalMindMap;
               
               return (
                 <React.Fragment key={stage.id}>
@@ -1330,6 +1335,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                         setActiveGrade(null);
                         setShowOnlyFavorites(false);
                         setShowStudyCamp(false);
+                        setShowEducationalMindMap(false);
                       }
                     }}
                     className={`relative p-5 rounded-2xl text-right border transition-all text-xs md:text-sm shadow-sm overflow-hidden group cursor-pointer ${
@@ -1675,6 +1681,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             <button
               onClick={() => {
                 setShowStudyCamp(true);
+                setShowEducationalMindMap(false);
                 setSelectedStage(null);
                 setActiveGrade(null);
                 setShowOnlyFavorites(false);
@@ -1703,6 +1710,48 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   <p className="text-2xs text-slate-400 line-clamp-1">تدريبات تفاعلية وحاسبات ذكية</p>
                   <span className="text-3xs text-indigo-455 font-bold block mt-1 animate-pulse">
                     اختبارات، درجات، وجداول 📅
+                  </span>
+                </div>
+              </div>
+            </button>
+
+            {/* Educational Pathways Mind Map Card Activator */}
+            <button
+              onClick={() => {
+                setShowEducationalMindMap(true);
+                setShowStudyCamp(false);
+                setSelectedStage(null);
+                setActiveGrade(null);
+                setShowOnlyFavorites(false);
+              }}
+              className={`relative p-5 rounded-2xl text-right border transition-all text-xs md:text-sm shadow-sm overflow-hidden group cursor-pointer ${
+                showEducationalMindMap 
+                  ? "bg-slate-900 border-emerald-600 shadow-md shadow-emerald-950/20" 
+                  : "bg-slate-900/40 border-slate-800/60 hover:bg-slate-900 hover:border-emerald-650/40"
+              }`}
+            >
+              {/* Decorative Subtle Accent Tag for selected */}
+              {showEducationalMindMap && (
+                <span className="absolute top-0 right-0 bottom-0 w-1.5 bg-gradient-to-b from-emerald-500 to-emerald-700" />
+              )}
+
+              <div className="flex items-start gap-4">
+                <div className={`p-3 rounded-xl transition-all ${
+                  showEducationalMindMap 
+                    ? "bg-emerald-600/20 text-emerald-400" 
+                    : "bg-slate-800 text-slate-400 group-hover:text-emerald-405"
+                }`}>
+                  <Network className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-bold text-slate-100">
+                    {currentLang === "ar" ? "خرائط المسارات الدراسية 🗺️" : "Learning Pathways Map 🗺️"}
+                  </h3>
+                  <p className="text-2xs text-slate-400 line-clamp-1">
+                    {currentLang === "ar" ? "مخطط ذهني تفاعلي لترابط الفصول والمواد" : "Interactive pathways and progression flows"}
+                  </p>
+                  <span className="text-3xs text-emerald-455 font-bold block mt-1 animate-pulse">
+                    {currentLang === "ar" ? "استكشاف تفاعلي وتوليد خطط 🧭" : "Interactive timeline & weekly plans 🧭"}
                   </span>
                 </div>
               </div>
@@ -1844,6 +1893,20 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   })}
               </div>
             )}
+          </motion.div>
+        ) : showEducationalMindMap ? (
+          <motion.div
+            key="mind-map-view"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <EducationalMindMap 
+              stages={curriculumData}
+              currentLang={currentLang}
+              onSelectSubject={handleOpenSubject}
+              activeStage={selectedStage}
+            />
           </motion.div>
         ) : showStudyCamp ? (
           <motion.div
