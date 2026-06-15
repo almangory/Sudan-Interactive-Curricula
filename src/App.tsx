@@ -2560,24 +2560,6 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     </div>
                   )}
 
-                  {userModalTab === "login" && loginRole === "admin" && (
-                    <div className="bg-emerald-955/20 border border-emerald-900/30 rounded-2xl p-3 text-[10px] text-emerald-400 font-semibold space-y-1 text-right mb-3">
-                      <p className="font-extrabold flex items-center gap-1 text-emerald-300">
-                        <span>💡 صلاحيات الإدارة والتعديل ومزامنة سوبابيس:</span>
-                      </p>
-                      <p>للوصول الكامل وتعديل أو حجب أي مادة دراسية سحابياً:</p>
-                      <div className="grid grid-cols-2 gap-1.5 pt-1">
-                        <div className="bg-slate-950 p-1.5 rounded border border-slate-800 text-center font-mono">
-                          <span className="text-slate-400 text-[8px] block">اسم المستخدم / البريد</span>
-                          <span className="text-white select-all text-3xs font-extrabold">admin@sudan.edu</span>
-                        </div>
-                        <div className="bg-slate-950 p-1.5 rounded border border-slate-800 text-center font-mono">
-                          <span className="text-slate-400 text-[8px] block">كلمة المرور</span>
-                          <span className="text-white select-all text-xs font-extrabold">20302060</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
                   <div className="space-y-1.5 text-right">
                     <label className="text-[10px] text-slate-400 font-bold block">
