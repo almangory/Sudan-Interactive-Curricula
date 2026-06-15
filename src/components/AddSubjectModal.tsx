@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { Subject } from "../data/curriculum";
 import DynamicIcon from "./DynamicIcon";
+import { stageAndGradeTranslations, uiTranslations } from "../lib/translations";
 
 interface AddSubjectModalProps {
   stageId: string;
@@ -14,6 +15,7 @@ interface AddSubjectModalProps {
   onClose: () => void;
   onAddSubject: (stageId: string, gradeId: string, newSubject: Subject) => void;
   isAdminActive?: boolean;
+  currentLang?: "ar" | "en";
 }
 
 const AVAILABLE_ICONS = [
@@ -44,7 +46,17 @@ const AVAILABLE_COLORS = [
   { value: "bg-pink-900/20 text-pink-400 border-pink-855", label: "وردي زاهي" }
 ];
 
-export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, onAddSubject, isAdminActive }: AddSubjectModalProps) {
+export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, onAddSubject, isAdminActive, currentLang = "ar" }: AddSubjectModalProps) {
+  const t = (key: string): string => {
+    if (uiTranslations[currentLang] && (uiTranslations[currentLang] as any)[key]) {
+      return (uiTranslations[currentLang] as any)[key];
+    }
+    if (currentLang === "en" && stageAndGradeTranslations[key]) {
+      return stageAndGradeTranslations[key];
+    }
+    return key;
+  };
+
   // Authentication states
   const [isAuthenticated, setIsAuthenticated] = useState(isAdminActive || false);
   const [passwordInput, setPasswordInput] = useState("");
@@ -56,7 +68,7 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
   const [selectedIcon, setSelectedIcon] = useState("BookOpen");
   const [selectedColor, setSelectedColor] = useState(AVAILABLE_COLORS[0].value);
   const [interactiveUrl, setInteractiveUrl] = useState("");
-  const [interactiveLabel, setInteractiveLabel] = useState("الموقع التفاعلي");
+  const [interactiveLabel, setInteractiveLabel] = useState(currentLang === "ar" ? "الموقع التفاعلي" : "Interactive Portal");
   const [pdfUrl, setPdfUrl] = useState("");
   const [memoPdfUrl, setMemoPdfUrl] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
@@ -67,18 +79,18 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
       setIsAuthenticated(true);
       setPasswordError("");
     } else {
-      setPasswordError("كلمة المرور غير صحيحة، يرجى المحاولة مرة أخرى.");
+      setPasswordError(currentLang === "ar" ? "كلمة المرور غير صحيحة، يرجى المحاولة مرة أخرى." : "Invalid password, please try again.");
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      alert("يرجى إدخال اسم المادة الدراسية.");
+      alert(currentLang === "ar" ? "يرجى إدخال اسم المادة الدراسية." : "Please enter the subject name.");
       return;
     }
     if (!curriculumSummary.trim()) {
-      alert("يرجى كتابة خلاصة للمادة والمقرر.");
+      alert(currentLang === "ar" ? "يرجى كتابة خلاصة للمادة والمقرر." : "Please write a syllabus summary for the subject.");
       return;
     }
 
@@ -89,7 +101,7 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
       iconName: selectedIcon,
       colorClass: selectedColor,
       interactiveUrl: interactiveUrl.trim(),
-      interactiveLabel: interactiveLabel.trim() || "الموقع التفاعلي",
+      interactiveLabel: interactiveLabel.trim() || (currentLang === "ar" ? "الموقع التفاعلي" : "Interactive Portal"),
       curriculumSummary: curriculumSummary.trim(),
       pdfUrl: pdfUrl.trim() || undefined,
       memoPdfUrl: memoPdfUrl.trim() || undefined,
@@ -101,15 +113,15 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm transition-opacity" dir="rtl">
+    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm transition-opacity" dir={currentLang === "ar" ? "rtl" : "ltr"}>
       <motion.div 
         initial={{ scale: 0.93, opacity: 0, y: 15 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.93, opacity: 0, y: 15 }}
-        className="relative bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col h-auto max-h-[90vh] text-right"
+        className={`relative bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col h-auto max-h-[90vh] ${currentLang === "ar" ? "text-right" : "text-left"}`}
       >
         {/* Header */}
-        <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+        <div className={`p-6 border-b border-slate-800 flex items-center justify-between ${currentLang === "ar" ? "flex-row-reverse" : "flex-row"}`}>
           <button 
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
@@ -117,10 +129,10 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
             <X className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-3">
-            <span className="text-3xs text-emerald-400 font-bold bg-emerald-950/50 border border-emerald-900/40 px-2.5 py-1 rounded-full">{gradeName}</span>
+            <span className="text-3xs text-emerald-400 font-bold bg-emerald-950/50 border border-emerald-900/40 px-2.5 py-1 rounded-full">{t(gradeName)}</span>
             <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
               <Plus className="w-4 h-4 text-emerald-400" />
-              <span>إضافة مادة مقررة جديدة</span>
+              <span>{currentLang === "ar" ? "إضافة مادة مقررة جديدة" : "Add New Subject"}</span>
             </h3>
           </div>
         </div>
@@ -131,17 +143,19 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
             <div className="max-w-md mx-auto w-full my-6 space-y-5 bg-slate-950/40 p-6 rounded-2xl border border-slate-800">
               <div className="flex items-center gap-2.5 text-amber-400">
                 <Lock className="w-5 h-5" />
-                <h4 className="text-sm font-bold">إضافة مادة - مطلوب كلمة مرور المعلم</h4>
+                <h4 className="text-sm font-bold">{currentLang === "ar" ? "إضافة مادة - مطلوب كلمة مرور المعلم" : "Add Subject - Teacher Password Required"}</h4>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed">
-                يرجى إدخال كلمة المرور الخاصة بالإدارة لحماية تعديل أسماء المواد، روابط الكتب الإلكترونية التفاعلية، وروابط شروحات الفيديو.
+                {currentLang === "ar" 
+                  ? "يرجى إدخال كلمة المرور الخاصة بالإدارة لحماية تعديل أسماء المواد، روابط الكتب الإلكترونية التفاعلية، وروابط شروحات الفيديو." 
+                  : "Please enter the administrative password to protect official subject names, interactive portals, and video reference links."}
               </p>
               <form onSubmit={handlePasswordSubmit} className="space-y-4">
                 <input
                   type="password"
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder="أدخل كلمة مرور الإدارة"
+                  placeholder={currentLang === "ar" ? "أدخل كلمة مرور الإدارة" : "Enter administrative password"}
                   className="w-full bg-slate-900 border border-slate-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl py-2 px-3 text-xs text-slate-100 outline-none transition-all text-center tracking-widest"
                   autoFocus
                 />
@@ -154,14 +168,14 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
                     onClick={onClose}
                     className="px-4 py-2 text-xs text-slate-400 bg-slate-800 hover:bg-slate-755 hover:text-white rounded-xl transition-all cursor-pointer"
                   >
-                    إلغاء
+                    {currentLang === "ar" ? "إلغاء" : "Cancel"}
                   </button>
                   <button
                     type="submit"
                     className="px-4 py-2 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
                   >
                     <Unlock className="w-3.5 h-3.5" />
-                    <span>تأكيد الصلاحية</span>
+                    <span>{currentLang === "ar" ? "تأكيد الصلاحية" : "Confirm Pin"}</span>
                   </button>
                 </div>
               </form>
@@ -171,26 +185,26 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
               
               {/* Subject Name */}
               <div className="space-y-1">
-                <label className="text-3xs font-bold text-slate-400 uppercase block">اسم المادة الدراسية الجديدة:</label>
+                <label className="text-3xs font-bold text-slate-400 uppercase block">{currentLang === "ar" ? "اسم المادة الدراسية الجديدة:" : "New Subject Name:"}</label>
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="مثال: علم البيئة والأحياء، التربية الإسلامية..."
+                  placeholder={currentLang === "ar" ? "مثال: علم البيئة والأحياء، التربية الإسلامية..." : "e.g. Ecology & Biology, Islamic Education..."}
                   className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 rounded-xl py-2 px-3.5 text-xs text-slate-100 outline-none transition-all"
                 />
               </div>
 
               {/* Curriculum Summary */}
               <div className="space-y-1">
-                <label className="text-3xs font-bold text-slate-400 uppercase block">وصف أو تفاصيل المنهج السوداني المقرر:</label>
+                <label className="text-3xs font-bold text-slate-400 uppercase block">{currentLang === "ar" ? "وصف أو تفاصيل المنهج السوداني المقرر:" : "Sudanese Prescribed Syllabus Details:"}</label>
                 <textarea
                   required
                   value={curriculumSummary}
                   onChange={(e) => setCurriculumSummary(e.target.value)}
                   rows={3}
-                  placeholder="اكتب نبذة عن أبواب المادة التي يدرسها الطالب تماشياً مع معايير وزارة التربية والتعليم السودانية..."
+                  placeholder={currentLang === "ar" ? "اكتب نبذة عن أبواب المادة التي يدرسها الطالب تماشياً مع معايير وزارة التربية والتعليم السودانية..." : "Write a brief description of the syllabus chapters in line with standard Ministry of Education criteria..."}
                   className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 rounded-xl py-2 px-3.5 text-xs text-slate-100 outline-none transition-all resize-none"
                 />
               </div>
@@ -202,7 +216,7 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
                 <div className="space-y-2">
                   <label className="text-3xs font-bold text-slate-400 uppercase block flex items-center gap-1.5">
                     <Palette className="w-3 h-3 text-emerald-400" />
-                    <span>أيقونة المادة المميزة:</span>
+                    <span>{currentLang === "ar" ? "أيقونة المادة المميزة:" : "Selected Graphic Icon:"}</span>
                   </label>
                   <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5 bg-slate-950/50 p-3 rounded-2xl border border-slate-800 max-h-[140px] overflow-y-auto">
                     {AVAILABLE_ICONS.map((icon) => (
@@ -227,24 +241,35 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
                 <div className="space-y-2">
                   <label className="text-3xs font-bold text-slate-400 uppercase block flex items-center gap-1.5">
                     <Palette className="w-3 h-3 text-emerald-400" />
-                    <span>لون وقالب البطاقة:</span>
+                    <span>{currentLang === "ar" ? "لون وقالب البطاقة:" : "Card Color Palette:"}</span>
                   </label>
                   <div className="space-y-1.5 bg-slate-950/50 p-3 rounded-2xl border border-slate-800 max-h-[140px] overflow-y-auto">
-                    {AVAILABLE_COLORS.map((color) => (
-                      <button
-                        key={color.value}
-                        type="button"
-                        onClick={() => setSelectedColor(color.value)}
-                        className={`w-full py-1.5 px-3 rounded-lg border text-3xs font-bold flex items-center justify-between transition-all cursor-pointer ${
-                          selectedColor === color.value 
-                            ? "bg-emerald-600/10 text-emerald-350 border-emerald-500/85" 
-                            : "bg-slate-900 border-slate-800/80 text-slate-400 hover:text-slate-200"
-                        }`}
-                      >
-                        <span>{color.label}</span>
-                        <span className={`w-4 h-4 rounded-full ${color.value} border flex items-center justify-center`} />
-                      </button>
-                    ))}
+                    {AVAILABLE_COLORS.map((color) => {
+                      const colorEngLabels: Record<string, string> = {
+                        "أخضر زمردي": "Emerald Green",
+                        "أزرق سماوي": "Sky Blue",
+                        "أصفر عنبري": "Amber Yellow",
+                        "أحمر وردي": "Rose Red",
+                        "بنفسجي ملكي": "Royal Purple",
+                        "سماوي ناصع": "Vibrant Sky",
+                        "وردي زاهي": "Bright Pink"
+                      };
+                      return (
+                        <button
+                          key={color.value}
+                          type="button"
+                          onClick={() => setSelectedColor(color.value)}
+                          className={`w-full py-1.5 px-3 rounded-lg border text-3xs font-bold flex items-center justify-between transition-all cursor-pointer ${
+                            selectedColor === color.value 
+                              ? "bg-emerald-600/10 text-emerald-350 border-emerald-500/85" 
+                              : "bg-slate-900 border-slate-800/80 text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          <span>{currentLang === "ar" ? color.label : (colorEngLabels[color.label] || color.label)}</span>
+                          <span className={`w-4 h-4 rounded-full ${color.value} border flex items-center justify-center`} />
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -254,12 +279,14 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
               <div className="border-t border-slate-800/50 my-6" />
 
               {/* Extra External Links */}
-              <h4 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block">الروابط التفاعلية وقنوات الشرح (اختياري):</h4>
+              <h4 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block">
+                {currentLang === "ar" ? "الروابط التفاعلية وقنوات الشرح (اختياري):" : "Interactive Portals & Explainers (Optional):"}
+              </h4>
 
               {/* Interactive Url & Label */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-3xs font-bold text-slate-400 block">رابط البوابة التفاعلية للمقرر:</label>
+                  <label className="text-3xs font-bold text-slate-400 block">{currentLang === "ar" ? "رابط البوابة التفاعلية للمقرر:" : "Interactive Course Portal URL:"}</label>
                   <input
                     type="text"
                     value={interactiveUrl}
@@ -269,12 +296,12 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-3xs font-bold text-slate-400 block">اسم البوابة التفاعلية:</label>
+                  <label className="text-3xs font-bold text-slate-400 block">{currentLang === "ar" ? "اسم البوابة التفاعلية:" : "Interactive Portal Label:"}</label>
                   <input
                     type="text"
                     value={interactiveLabel}
                     onChange={(e) => setInteractiveLabel(e.target.value)}
-                    placeholder="مثال: تجربة فيزياء افتراضية PhET"
+                    placeholder={currentLang === "ar" ? "مثال: تجربة فيزياء افتراضية PhET" : "e.g. PhET Interactive Physics Lab"}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 rounded-xl py-1.5 px-3.5 text-xs text-slate-100 outline-none transition-all"
                   />
                 </div>
@@ -283,7 +310,7 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
               {/* PDF Books & Summary Papers URLs */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-3xs font-bold text-slate-450 block">رابط كتاب المنهج الرسمي PDF:</label>
+                  <label className="text-3xs font-bold text-slate-450 block">{currentLang === "ar" ? "رابط كتاب المنهج الرسمي PDF:" : "Official Textbook PDF URL:"}</label>
                   <input
                     type="text"
                     value={pdfUrl}
@@ -293,7 +320,7 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-3xs font-bold text-slate-450 block">رابط ملخص ومذكرة المادة PDF:</label>
+                  <label className="text-3xs font-bold text-slate-450 block">{currentLang === "ar" ? "رابط ملخص ومذكرة المادة PDF:" : "Supporting Notes PDF URL:"}</label>
                   <input
                     type="text"
                     value={memoPdfUrl}
@@ -306,7 +333,7 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
 
               {/* YouTube explains URL */}
               <div className="space-y-1">
-                <label className="text-3xs font-bold text-slate-450 block">رابط شرح المادة بالفيديو (يوتيوب أو قوقل درايف):</label>
+                <label className="text-3xs font-bold text-slate-450 block">{currentLang === "ar" ? "رابط شرح المادة بالفيديو (يوتيوب أو قوقل درايف):" : "Video Lecture Playlist URL (YouTube / Drive):"}</label>
                 <input
                   type="text"
                   value={videoUrl}
@@ -323,14 +350,14 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
                   onClick={onClose}
                   className="px-5 py-2 text-xs text-slate-400 bg-slate-800 hover:bg-slate-755 rounded-xl transition-all cursor-pointer hover:text-white"
                 >
-                  إلغاء التراجع
+                  {currentLang === "ar" ? "إلغاء التراجع" : "Cancel"}
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-550 rounded-xl transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/20 cursor-pointer"
+                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-555 rounded-xl transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/20 cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
-                  <span>حفظ وإضافة المادة</span>
+                  <span>{currentLang === "ar" ? "حفظ وإضافة المادة" : "Save & Publish"}</span>
                 </button>
               </div>
 

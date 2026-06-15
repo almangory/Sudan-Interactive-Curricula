@@ -13,6 +13,7 @@ import DynamicIcon from "./components/DynamicIcon";
 import StudyCamp from "./components/StudyCamp";
 import AdminDashboard from "./components/AdminDashboard";
 import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile } from "./lib/supabase";
+import { stageAndGradeTranslations, uiTranslations } from "./lib/translations";
 
 export default function App() {
   // Curriculum data is retrieved directly from the server-side compiled curriculum.ts (stagesData)
@@ -43,6 +44,20 @@ export default function App() {
   const [categoryFilter, setCategoryFilter] = useState<"all" | "books" | "videos" | "interactive">("all");
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
+
+  const [currentLang, setCurrentLang] = useState<"ar" | "en">(() => {
+    return (localStorage.getItem("sudan_edu_lang") as "ar" | "en") || "ar";
+  });
+
+  const t = (key: string): string => {
+    if (uiTranslations[currentLang] && (uiTranslations[currentLang] as any)[key]) {
+      return (uiTranslations[currentLang] as any)[key];
+    }
+    if (currentLang === "en" && stageAndGradeTranslations[key]) {
+      return stageAndGradeTranslations[key];
+    }
+    return key;
+  };
 
   // Load from Supabase on start if available and subscribe to Webhook SSE events
   useEffect(() => {
@@ -947,7 +962,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
   });
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-600 selection:text-white pb-16" dir="rtl">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-600 selection:text-white pb-16" dir={currentLang === "ar" ? "rtl" : "ltr"}>
       {/* Upper Flag Trim (Sudan Flag Colors: Red, White, Black, Green) */}
       <div 
         onClick={handleTrimClick}
@@ -965,10 +980,24 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap text-right">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-            <span className="text-3xs md:text-2xs text-slate-400 font-bold">نقلة للمناهج السودانية التفاعلية لعام 2026 م</span>
+            <span className="text-3xs md:text-2xs text-slate-400 font-bold">{t("tagline")}</span>
           </div>
 
           <div className="flex items-center gap-3 relative">
+            {/* Language Toggle Button */}
+            <button
+              onClick={() => {
+                const nextLang = currentLang === "ar" ? "en" : "ar";
+                setCurrentLang(nextLang);
+                localStorage.setItem("sudan_edu_lang", nextLang);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-950/60 hover:bg-slate-900 border border-slate-850 hover:border-emerald-500/60 text-slate-200 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all cursor-pointer font-sans"
+              title={currentLang === "ar" ? "Switch to English" : "التحويل للغة العربية"}
+            >
+              <Globe className="w-3.5 h-3.5 text-emerald-400" />
+              <span>{currentLang === "ar" ? "English" : "العربية"}</span>
+            </button>
+
             {/* Student / user login trigger */}
             {currentUser ? (
               <div className="inline-flex items-center gap-2 bg-slate-950 px-3 py-1.5 border border-indigo-950/70 rounded-xl shadow-inner select-none">
@@ -980,7 +1009,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   onClick={triggerEditProfile}
                   className="text-[9px] text-amber-450 hover:text-amber-400 mr-1.5 pr-1.5 border-r border-slate-800 transition-colors cursor-pointer font-bold"
                 >
-                  تعديل الملف ⚙️
+                  {t("editProfile")}
                 </button>
                 <button
                   onClick={() => {
@@ -990,12 +1019,12 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     if (client) {
                       client.auth.signOut();
                     }
-                    setSaveStatus("🚪 تم تسجيل الخروج من حسابك بنجاح.");
+                    setSaveStatus(t("logoutSuccess"));
                     setTimeout(() => setSaveStatus(null), 3000);
                   }}
                   className="text-[9px] text-rose-450 hover:text-rose-400 mr-1.5 pr-1.5 border-r border-slate-800 transition-colors cursor-pointer font-bold"
                 >
-                  خروج
+                  {t("logout")}
                 </button>
               </div>
             ) : (
@@ -1011,7 +1040,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 }}
                 className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-950/40 hover:bg-indigo-900/40 border border-indigo-900/60 text-indigo-400 hover:text-indigo-300 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all cursor-pointer"
               >
-                👤 حساب الطالب
+                👤 {t("studentAccount")}
               </button>
             )}
 
@@ -1019,14 +1048,14 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               <div className="flex items-center gap-2 md:gap-3 flex-wrap">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-950/45 border border-emerald-900/65 text-emerald-400 font-extrabold text-[10px] rounded-xl shadow-inner select-none">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span>🔒 صلاحية تعديل الإدارة مباشرة لـ: </span>
+                  <span>{t("adminLoggedInAs")}</span>
                   <span className="text-white font-mono font-black">almangory</span>
                 </div>
                 <button
                   onClick={handleAdminLogout}
                   className="px-2.5 py-1 bg-rose-955/20 hover:bg-rose-900/20 border border-rose-900/40 text-rose-450 hover:text-rose-350 font-extrabold text-[10px] rounded-xl transition-all cursor-pointer shadow-sm active:scale-95"
                 >
-                  تسجيل الخروج
+                  {t("logout")}
                 </button>
               </div>
             ) : (
@@ -1038,9 +1067,9 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   setAdminPassword("");
                 }}
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all hover:border-emerald-700/60 cursor-pointer"
-                title="دخول المسؤول المفوّض لتعديل وإخفاء المناهج التعليمية"
+                title={currentLang === "ar" ? "دخول المسؤول المفوّض لتعديل وإخفاء المناهج التعليمية" : "Authorized Administrator Portal Login"}
               >
-                🔐 دخول الإدارة
+                🔐 {t("adminPortal")}
               </button>
             )}
 
@@ -1172,13 +1201,17 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           <div className="space-y-4 max-w-2xl text-center md:text-right">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/50 border border-emerald-900/40 text-emerald-400 text-xs font-semibold shadow-inner">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>موقع تفاعلي لطلاب جمهورية السودان 🇸🇩</span>
+              <span>{t("siteForSudan")}</span>
             </div>
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-slate-100 tracking-tight leading-tight md:leading-normal">
-              منصة السودان <span className="text-transparent bg-clip-text bg-gradient-to-l from-emerald-400 via-emerald-500 to-yellow-400">التعليمية التفاعلية</span>
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-slate-100 tracking-tight leading-tight md:leading-normal font-sans">
+              {currentLang === "ar" ? (
+                <>منصة السودان <span className="text-transparent bg-clip-text bg-gradient-to-l from-emerald-400 via-emerald-500 to-yellow-400">التعليمية التفاعلية</span></>
+              ) : (
+                <>Sudanese <span className="text-transparent bg-clip-text bg-gradient-to-l from-emerald-400 via-emerald-500 to-yellow-400">Interactive Platform</span></>
+              )}
             </h1>
             <p className="text-sm md:text-base text-slate-400 leading-relaxed max-w-xl">
-              بوابتك الذكية لاستكشاف مناهج وزارة التربية والتعليم السودانية، من رياض ومرحلة الطفولة المبكرة والابتدائي إلى المتوسط والثانوي. تصفح المواد الدراسية، والتحق بمعاملك التفاعلية وأستاذك الذكي.
+              {t("gatewayDesc")}
             </p>
 
             {/* Quick search input */}
@@ -1188,8 +1221,8 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="ابحث عن مادة تفاعلية مخصصة (مثال: فيزياء، حساب...)"
-                className="w-full bg-slate-900 border border-slate-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 placeholder-slate-500 rounded-xl py-2 px-4 pr-10 text-xs md:text-sm text-slate-200 outline-none transition-all"
+                placeholder={t("searchPlaceholder")}
+                className="w-full bg-slate-900 border border-slate-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 placeholder-slate-500 rounded-xl py-2 px-4 pr-10 text-xs md:text-sm text-slate-200 outline-none transition-all font-sans"
               />
             </div>
           </div>
@@ -1215,14 +1248,14 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               <Star className={`w-5 h-5 mx-auto transition-all ${showOnlyFavorites ? "text-yellow-400 fill-yellow-400 scale-110" : "text-yellow-400"}`} />
               <span className="text-xl font-bold text-slate-100 block">{favoriteSubjects.length}</span>
               <span className="text-2xs text-slate-400 block font-bold">
-                {showOnlyFavorites ? "المناهج الكاملة" : "المواد المفضلة ⭐"}
+                {showOnlyFavorites ? (currentLang === "ar" ? "المناهج الكاملة" : "Full Curricula") : (currentLang === "ar" ? "المواد المفضلة ⭐" : "My Favorites ⭐")}
               </span>
             </div>
 
             <div className="bg-slate-900/60 p-4 border border-slate-800/80 rounded-2xl text-center space-y-1 min-w-[140px] shadow-lg selection:bg-transparent">
               <CheckCircle className="w-5 h-5 text-emerald-450 mx-auto" />
               <span className="text-xl font-bold text-slate-100 block">{completedLessons.length}</span>
-              <span className="text-2xs text-slate-400 block font-medium">تمارين مكتملة</span>
+              <span className="text-2xs text-slate-400 block font-medium">{t("completedExercises")}</span>
             </div>
 
             {(isAdminLoggedIn || showHiddenAdminGate) && (
@@ -1249,10 +1282,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               >
                 <Lock className={`w-5 h-5 mx-auto transition-all ${isAdminLoggedIn ? "text-emerald-400" : "text-slate-400"}`} />
                 <span className="text-xs font-bold text-slate-100 block leading-tight pt-1">
-                  {isAdminLoggedIn ? "لوحة التحكم" : "بوابة الإدارة"}
+                  {isAdminLoggedIn ? (currentLang === "ar" ? "لوحة التحكم" : "Admin Dashboard") : (currentLang === "ar" ? "بوابة الإدارة" : "Admin Gate")}
                 </span>
                 <span className="text-3xs text-emerald-450 block font-bold mt-1">
-                  {isAdminLoggedIn ? "تعديل المناهج ⚙️" : "دخول الإدارة 🔐"}
+                  {isAdminLoggedIn ? (currentLang === "ar" ? "تعديل المناهج ⚙️" : "Manage Curriculums ⚙️") : (currentLang === "ar" ? "دخول الإدارة 🔐" : "Admin Login 🔐")}
                 </span>
               </div>
             )}
@@ -1269,14 +1302,14 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         <section className="space-y-4">
           <div className="flex flex-col md:flex-row items-center justify-between border-b border-slate-800 pb-4 gap-4">
             <div>
-              <h2 className="text-base font-bold text-slate-300">مراحل التعليم الأساسي بدولة السودان:</h2>
-              <p className="text-2xs text-slate-500 mt-1">اختر المرحلة الدراسية الملائمة لتصفح الفصول والمواد الدراسية المقررة.</p>
+              <h2 className="text-base font-bold text-slate-300">{t("stagesTitle")}</h2>
+              <p className="text-2xs text-slate-500 mt-1">{t("stagesSub")}</p>
             </div>
             
             {/* Quick notification of custom structure */}
             <div className="text-2xs text-amber-450 bg-amber-955/10 border border-amber-900/30 rounded-lg py-1.5 px-3 flex items-center gap-1.5">
               <ShieldAlert className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>مطابق لهيكل التعليم في السودان الجديد (3 رياض، 6 ابتدائي، 3 متوسط، 3 ثانوي).</span>
+              <span>{t("structureNote")}</span>
             </div>
           </div>
 
@@ -1319,10 +1352,24 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                         {getStageIcon(stage.icon)}
                       </div>
                       <div className="space-y-1">
-                        <h3 className="font-bold text-slate-100">{stage.name}</h3>
-                        <p className="text-2xs text-slate-400 line-clamp-1">{stage.description}</p>
+                        <h3 className="font-bold text-slate-100">{t(stage.name)}</h3>
+                        <p className="text-2xs text-slate-400 line-clamp-1">
+                          {currentLang === "ar" 
+                            ? stage.description 
+                            : (stage.id === "kindergarten" 
+                               ? "Kindergarten classes and infant development curriculum." 
+                               : stage.id === "elementary" 
+                                 ? "Comprehensive elementary primary school courses." 
+                                 : stage.id === "intermediate" 
+                                   ? "Intermediate general education classes." 
+                                   : stage.id === "secondary" 
+                                     ? "High school secondary general curricula." 
+                                     : stage.description)}
+                        </p>
                         <span className="text-3xs text-emerald-500 font-bold block mt-1">
-                          عدد الفصول: {stage.grades.length} {stage.id === "kindergarten" ? "سنوات" : "صفوف دراسية"}
+                          {currentLang === "ar" 
+                            ? `عدد الفصول: ${stage.grades.length} ${stage.id === "kindergarten" ? "سنوات" : "صفوف دراسية"}` 
+                            : `Classes: ${stage.grades.length} ${stage.id === "kindergarten" ? "Years" : "Grades"}`}
                         </span>
                       </div>
                     </div>
@@ -1338,16 +1385,20 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       <div className="col-span-1 sm:col-span-2 lg:col-span-5 bg-slate-900/50 border border-slate-800/80 p-5 md:p-6 rounded-2xl space-y-6 mt-1 mb-4 select-text">
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-850 pb-4">
                           <div className="space-y-1 text-center sm:text-right">
-                            <span className="text-3xs text-emerald-400 font-mono font-black uppercase tracking-widest block">صفوف ومستويات المرحلة:</span>
+                            <span className="text-3xs text-emerald-400 font-mono font-black uppercase tracking-widest block">{t("gradesLevels")}</span>
                             <h4 className="text-sm font-black text-slate-100 flex items-center justify-center sm:justify-start gap-1.5">
                               {getStageIcon(stage.icon)}
-                              <span>مناهج {stage.name}</span>
+                              <span>{currentLang === "ar" ? `مناهج ${stage.name}` : `${t(stage.name)} Curricula`}</span>
                             </h4>
                           </div>
                           
                           <div className="text-3xs text-slate-400 font-bold flex items-center gap-1.5 bg-slate-950 px-3.5 py-1.5 rounded-xl border border-slate-850 animate-pulse">
                             <CheckCircle className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
-                            <span>مجموع الصفوف: {renderedGrades.length} ({renderedGrades.reduce((sum, g) => sum + g.subjects.length, 0)} مادة تفاعلية مضافة)</span>
+                            {currentLang === "ar" ? (
+                              <span>مجموع الصفوف: {renderedGrades.length} ({renderedGrades.reduce((sum, g) => sum + g.subjects.length, 0)} مادة تفاعلية مضافة)</span>
+                            ) : (
+                              <span>Total Levels: {renderedGrades.length} ({renderedGrades.reduce((sum, g) => sum + g.subjects.length, 0)} interactive subjects)</span>
+                            )}
                           </div>
                         </div>
 
@@ -1403,10 +1454,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                       {grade.subjects.length}
                                     </div>
                                     <div>
-                                      <h5 className="font-extrabold text-slate-100 text-xs sm:text-sm group-hover:text-emerald-300 transition-colors">{grade.name}</h5>
+                                      <h5 className="font-extrabold text-slate-100 text-xs sm:text-sm group-hover:text-emerald-300 transition-colors">{t(grade.name)}</h5>
                                       <p className="text-3xs text-slate-500 mt-0.5 flex items-center gap-1">
                                         <Sparkles className="w-2.5 h-2.5 text-emerald-400" />
-                                        <span>اضغط لتصفح الكتب والمقررات والفيديوهات التفاعلية</span>
+                                        <span>{currentLang === "ar" ? "اضغط لتصفح الكتب والمقررات والفيديوهات التفاعلية" : "Click to view books, handouts and interactive lessons"}</span>
                                       </p>
                                     </div>
                                   </div>
@@ -1429,7 +1480,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-900/20 p-2 rounded-xl border border-slate-800/80">
                                           <div className="flex items-center gap-1.5 text-slate-400 text-3xs font-extrabold pb-0.5 sm:pb-0">
                                             <Filter className="w-3 h-3 text-emerald-400" />
-                                            <span>تصنيف محتوى المواد وعرض المقررات:</span>
+                                            <span>{currentLang === "ar" ? "تصنيف محتوى المواد وعرض المقررات:" : "Content filter & material view:"}</span>
                                           </div>
                                           <div className="flex flex-wrap items-center gap-1">
                                             <button
@@ -1438,10 +1489,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                               className={`px-2.5 py-1 rounded-lg text-3xs font-extrabold transition-all cursor-pointer ${
                                                 categoryFilter === "all"
                                                   ? "bg-emerald-600 text-white shadow-sm"
-                                                  : "bg-slate-900 text-slate-400 border border-slate-800/60 hover:text-slate-200"
+                                                  : "bg-slate-900 text-slate-400 border border-slate-800/60 hover:text-slate-205"
                                               }`}
                                             >
-                                              الكل ({grade.subjects.length})
+                                              {currentLang === "ar" ? "الكل" : "All"} ({grade.subjects.length})
                                             </button>
                                             <button
                                               type="button"
@@ -1449,10 +1500,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                               className={`px-2.5 py-1 rounded-lg text-3xs font-extrabold transition-all cursor-pointer flex items-center gap-1 ${
                                                 categoryFilter === "books"
                                                   ? "bg-blue-600 text-white shadow-sm"
-                                                  : "bg-slate-900 text-slate-400 border border-slate-800/60 hover:text-blue-450"
+                                                  : "bg-slate-900 text-slate-400 border border-slate-800/60 hover:text-blue-405"
                                               }`}
                                             >
-                                              📚 كتب ومذكرات ({grade.subjects.filter(s => !!s.pdfUrl || !!s.memoPdfUrl).length})
+                                              📚 {currentLang === "ar" ? "كتب ومذكرات" : "Books & Handouts"} ({grade.subjects.filter(s => !!s.pdfUrl || !!s.memoPdfUrl).length})
                                             </button>
                                             <button
                                               type="button"
@@ -1460,10 +1511,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                               className={`px-2.5 py-1 rounded-lg text-3xs font-extrabold transition-all cursor-pointer flex items-center gap-1 ${
                                                 categoryFilter === "videos"
                                                   ? "bg-rose-600 text-white shadow-sm"
-                                                  : "bg-slate-900 text-slate-400 border border-slate-800/60 hover:text-rose-450"
+                                                  : "bg-slate-900 text-slate-400 border border-slate-800/60 hover:text-rose-405"
                                               }`}
                                             >
-                                              🎥 فيديوهات شروحات ({grade.subjects.filter(s => !!s.videoUrl).length})
+                                              🎥 {currentLang === "ar" ? "فيديوهات شروحات" : "Video Explanations"} ({grade.subjects.filter(s => !!s.videoUrl).length})
                                             </button>
                                             <button
                                               type="button"
@@ -1471,10 +1522,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                               className={`px-2.5 py-1 rounded-lg text-3xs font-extrabold transition-all cursor-pointer flex items-center gap-1 ${
                                                 categoryFilter === "interactive"
                                                   ? "bg-purple-600 text-white shadow-sm"
-                                                  : "bg-slate-900 text-slate-400 border border-slate-800/60 hover:text-purple-450"
+                                                  : "bg-slate-900 text-slate-400 border border-slate-800/60 hover:text-purple-405"
                                               }`}
                                             >
-                                              🔬 معامل تفاعلية ({grade.subjects.filter(s => !!s.interactiveUrl).length})
+                                              🔬 {currentLang === "ar" ? "معامل تفاعلية" : "Interactive Labs"} ({grade.subjects.filter(s => !!s.interactiveUrl).length})
                                             </button>
                                           </div>
                                         </div>
@@ -1524,40 +1575,40 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                                       <DynamicIcon name={subject.iconName} className="w-4 h-4" />
                                                     </div>
                                                     <div className="space-y-0.5 max-w-[65%]">
-                                                      <h6 className="font-extrabold text-white text-xs group-hover:text-emerald-300 transition-colors truncate">{subject.name}</h6>
-                                                      <span className="text-3xs text-slate-500 truncate block">السودان • مقرر تفاعلي</span>
+                                                      <h6 className="font-extrabold text-white text-xs group-hover:text-emerald-300 transition-colors truncate">{t(subject.name)}</h6>
+                                                      <span className="text-3xs text-slate-500 truncate block">{currentLang === "ar" ? "السودان • مقرر تفاعلي" : "Sudan • Interactive Course"}</span>
                                                     </div>
                                                   </div>
 
-                                                  <p className="text-3xs text-slate-400 leading-normal line-clamp-2 h-7 overflow-hidden text-ellipsis text-right" dir="rtl">
-                                                    {subject.curriculumSummary}
+                                                  <p className={`text-3xs text-slate-400 leading-normal line-clamp-2 h-7 overflow-hidden text-ellipsis ${currentLang === 'ar' ? 'text-right' : 'text-left'}`} dir={currentLang === 'ar' ? 'rtl' : 'ltr'}>
+                                                    {currentLang === "ar" ? subject.curriculumSummary : (stageAndGradeTranslations[subject.curriculumSummary] || subject.curriculumSummary || 'Interactive curriculum summary.')}
                                                   </p>
 
                                                   {/* Resource badges */}
                                                   <div className="flex flex-wrap gap-1">
                                                     {subject.hidden ? (
                                                       <span className="inline-flex items-center gap-1 px-1 py-0.5 rounded bg-yellow-950/40 border border-yellow-850/40 text-[8px] text-amber-500 font-extrabold animate-pulse">
-                                                        👁️‍قيد الإخفاء
+                                                        👁️‍ {currentLang === "ar" ? "قيد الإخفاء" : "Hidden"}
                                                       </span>
                                                     ) : null}
                                                     {subject.pdfUrl ? (
                                                       <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-blue-955/40 border border-blue-900/20 text-[8px] text-blue-400 font-extrabold">
-                                                        📚 كتاب
+                                                        📚 {currentLang === "ar" ? "كتاب" : "Book"}
                                                       </span>
                                                     ) : null}
                                                     {subject.memoPdfUrl ? (
                                                       <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-emerald-900/20 border border-emerald-900/10 text-[8px] text-emerald-400 font-extrabold">
-                                                        📝 ملخص
+                                                        📝 {currentLang === "ar" ? "ملخص" : "Handout"}
                                                       </span>
                                                     ) : null}
                                                     {subject.interactiveUrl ? (
                                                       <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-purple-955/30 border border-purple-900/20 text-[8px] text-purple-400 font-extrabold">
-                                                        🔬 تفاعلي
+                                                        🔬 {currentLang === "ar" ? "تفاعلي" : "Lab"}
                                                       </span>
                                                     ) : null}
                                                     {subject.videoUrl ? (
                                                       <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-rose-955/30 border border-rose-900/20 text-[8px] text-rose-400 font-extrabold">
-                                                        🎥 فيديو
+                                                        🎥 {currentLang === "ar" ? "فيديو" : "Video"}
                                                       </span>
                                                     ) : null}
                                                   </div>
@@ -1566,7 +1617,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                                 <div className="mt-3.5 pt-2.5 border-t border-slate-850 flex items-center justify-between text-3xs">
                                                   <span className="text-emerald-400/95 font-black flex items-center gap-0.5">
                                                     <Sparkles className="w-2.5 h-2.5 text-amber-400 animate-pulse" />
-                                                    التحاق بالدرس التفاعلي
+                                                    {currentLang === "ar" ? "التحاق بالدرس التفاعلي" : "Join Interactive Class"}
                                                   </span>
                                                   <ChevronLeft className="w-2.5 h-2.5 text-slate-500 group-hover:text-slate-355 transform group-hover:translate-x-[-1px] transition-all" />
                                                 </div>
@@ -1587,21 +1638,21 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                             className="relative p-4 bg-slate-900/10 border border-dashed border-slate-800 hover:border-emerald-600/50 rounded-xl transition-all hover:bg-slate-900/30 cursor-pointer flex flex-col justify-center items-center text-center space-y-2 min-h-[140px]"
                                           >
                                             <Plus className="w-4 h-4 text-emerald-400 bg-slate-950 p-1 rounded border border-slate-800" />
-                                            <h6 className="font-bold text-slate-200 text-3xs">إضافة مادة جديدة</h6>
+                                            <h6 className="font-bold text-slate-200 text-3xs">{currentLang === "ar" ? "إضافة مادة جديدة" : "Add New Subject"}</h6>
                                             <p className="text-4xs text-slate-500 leading-normal max-w-[150px]">
-                                              إضافة بطاقة مقرر تفاعلي إضافية لهذا الصف.
+                                              {currentLang === "ar" ? "إضافة بطاقة مقرر تفاعلي إضافية لهذا الصف." : "Add a custom interactive subject card for this level."}
                                             </p>
                                           </div>
                                         </div>
 
                                         {filteredSubjects.length === 0 && (
                                           <div className="text-center py-8 bg-slate-900/10 rounded-xl border border-slate-855 space-y-2">
-                                            <p className="text-3xs text-slate-400">لا توجد مواد تطابق هذا التصنيف حالياً لهذا الصف.</p>
+                                            <p className="text-3xs text-slate-400">{currentLang === "ar" ? "لا توجد مواد تطابق هذا التصنيف حالياً لهذا الصف." : "No subjects match this filter for this level at the moment."}</p>
                                             <button 
                                               onClick={() => setCategoryFilter("all")}
                                               className="text-4xs text-emerald-400 underline"
                                             >
-                                              عرض الكل
+                                              {currentLang === "ar" ? "عرض الكل" : "Show All"}
                                             </button>
                                           </div>
                                         )}
@@ -2161,6 +2212,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             onClose={() => setActiveSubject(null)}
             onUpdateSubject={updateSubject}
             isAdminActive={hasEditPermissions}
+            currentLang={currentLang}
           />
         )}
       </AnimatePresence>
@@ -2175,6 +2227,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             onClose={() => setAddSubjectState(null)}
             onAddSubject={addSubject}
             isAdminActive={hasEditPermissions}
+            currentLang={currentLang}
           />
         )}
       </AnimatePresence>

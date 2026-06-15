@@ -8,6 +8,7 @@ import {
 import { Subject } from "../data/curriculum";
 import DynamicIcon from "./DynamicIcon";
 import AITutor from "./AITutor";
+import { stageAndGradeTranslations, uiTranslations } from "../lib/translations";
 
 function getVideoEmbedUrl(url: string): { url: string; isYouTube: boolean; isDrive: boolean } | null {
   if (!url) return null;
@@ -66,10 +67,22 @@ interface SubjectModalProps {
   onClose: () => void;
   onUpdateSubject?: (stageId: string, gradeId: string, subjectId: string, updatedFields: Partial<Subject>) => void;
   isAdminActive?: boolean;
+  currentLang?: "ar" | "en";
 }
 
-export default function SubjectModal({ stageId, stageName, gradeId, gradeName, subject, onClose, onUpdateSubject, isAdminActive }: SubjectModalProps) {
+export default function SubjectModal({ stageId, stageName, gradeId, gradeName, subject, onClose, onUpdateSubject, isAdminActive, currentLang: passedLang }: SubjectModalProps) {
   const [showTutor, setShowTutor] = useState(false);
+
+  const currentLang = passedLang || (localStorage.getItem("sudan_edu_lang") as "ar" | "en") || "ar";
+  const t = (key: string): string => {
+    if (uiTranslations[currentLang] && (uiTranslations[currentLang] as any)[key]) {
+      return (uiTranslations[currentLang] as any)[key];
+    }
+    if (currentLang === "en" && stageAndGradeTranslations[key]) {
+      return stageAndGradeTranslations[key];
+    }
+    return key;
+  };
 
   // Study Mode state variables
   const [isStudyMode, setIsStudyMode] = useState(false);
@@ -238,7 +251,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
 
   if (isStudyMode) {
     return (
-      <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-2 sm:p-4 bg-slate-950/95 backdrop-blur-md transition-all font-sans" dir="rtl">
+      <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-2 sm:p-4 bg-slate-950/95 backdrop-blur-md transition-all font-sans" dir={currentLang === "ar" ? "rtl" : "ltr"}>
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -251,10 +264,10 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                 <BookOpen className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-3xs text-emerald-400 font-bold block">{gradeName} • {stageName}</span>
+                <span className="text-3xs text-emerald-400 font-bold block">{t(gradeName)} • {t(stageName)}</span>
                 <h3 className="text-sm sm:text-base font-black text-slate-100 flex items-center gap-1">
-                  <span>وضع المذاكرة والتركيز:</span>
-                  <span className="text-indigo-400">{subject.name}</span>
+                  <span>{t("وضع المذاكرة والتركيز:")}</span>
+                  <span className="text-indigo-400">{t(subject.name)}</span>
                 </h3>
               </div>
             </div>
@@ -263,7 +276,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
             <div className="flex items-center gap-3 bg-slate-900/90 py-1.5 px-3 rounded-2xl border border-slate-800 w-full sm:w-auto justify-between sm:justify-start">
               <div className="flex items-center gap-1.5">
                 <Clock className="w-4 h-4 text-indigo-400 animate-spin" style={{ animationDuration: '4s' }} />
-                <span className="text-xs text-slate-400 font-bold">وقت المذاكرة:</span>
+                <span className="text-xs text-slate-400 font-bold">{t("وقت المذاكرة:")}</span>
                 <span className="font-mono text-sm sm:text-base font-black text-white bg-slate-950 px-2.5 py-0.5 rounded-lg border border-indigo-950 text-center select-none tracking-widest min-w-[75px]">
                   {formatStudyTime(studySeconds)}
                 </span>
@@ -275,21 +288,21 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                     onClick={pauseStudyTimer}
                     className="p-1 px-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg text-3xs font-black transition-all cursor-pointer"
                   >
-                    إيقاف مؤقت ⏸️
+                    {t("إيقاف مؤقت ⏸️")}
                   </button>
                 ) : (
                   <button
                     onClick={startStudyTimer}
                     className="p-1 px-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-3xs font-black transition-all cursor-pointer"
                   >
-                    استئناف ▶️
+                    {t("استئناف ▶️")}
                   </button>
                 )}
                 <button
                   onClick={resetStudyTimer}
                   className="p-1 px-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-3xs font-black transition-all cursor-pointer"
                 >
-                  إعادة 🔄
+                  {t("إعادة 🔄")}
                 </button>
               </div>
             </div>
@@ -299,7 +312,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
               onClick={exitStudyMode}
               className="px-4 py-2 bg-red-650 hover:bg-red-600 text-white text-xs font-black rounded-xl transition-all shadow-md cursor-pointer flex items-center gap-1 sm:self-center"
             >
-              <span>إنهاء جلسة المذاكرة 🚪</span>
+              <span>{t("إنهاء جلسة المذاكرة 🚪")}</span>
             </button>
           </div>
 
@@ -310,7 +323,11 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
             <div className="bg-indigo-950/20 border border-indigo-900/30 p-3 rounded-2xl flex items-center gap-2.5 text-right">
               <Sparkles className="w-4 h-4 text-indigo-400 flex-shrink-0 animate-bounce" />
               <p className="text-3xs sm:text-2xs text-indigo-300 font-bold leading-normal">
-                🧠 **نصيحة بومودورو التعليمية**: المذاكرة لمدة ٢٥ دقيقة مركزة تليها ٥ دقائق استراحة هي أفضل طريقة للاحتفاظ بالمعلومات في الذاكرة مستديمة الأجل وحماية نشاط المخ!
+                {currentLang === "ar" ? (
+                  <span>🧠 **نصيحة بومودورو التعليمية**: المذاكرة لمدة ٢٥ دقيقة مركزة تليها ٥ دقائق استراحة هي أفضل طريقة للاحتفاظ بالمعلومات في الذاكرة مستديمة الأجل وحماية نشاط المخ!</span>
+                ) : (
+                  <span>🧠 **Pomodoro Study Practice**: Studying for 25 focused minutes followed by a 5-minute break is the absolute best way to retain information in long-term memory!</span>
+                )}
               </p>
             </div>
 
@@ -323,19 +340,19 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                     <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                       <h4 className="text-xs font-black text-slate-300 flex items-center gap-1.5">
                         <Compass className="w-4 h-4 text-indigo-400" />
-                        <span>مادة العرض النشطة والدروس:</span>
+                        <span>{t("مادة العرض النشطة والدروس:")}</span>
                       </h4>
-                      <span className="text-3xs text-yellow-400 font-black">جاهز للدراسة 📖</span>
+                      <span className="text-3xs text-yellow-400 font-black">{t("جاهز للدراسة 📖")}</span>
                     </div>
 
                     {/* Book or Video Frame */}
                     {subject.videoUrl && embedInfo ? (
                       <div className="space-y-3">
-                        <span className="text-3xs text-rose-400 font-bold flex items-center gap-1">🔴 دروس فيديو الشرح التفاعلية المدمجة بالفيديو:</span>
+                        <span className="text-3xs text-rose-400 font-bold flex items-center gap-1">🔴 {t("دروس الفيديو والشرح")}:</span>
                         <div className="aspect-video w-full rounded-xl overflow-hidden border border-slate-955 bg-black shadow-lg">
                           <iframe
                             src={embedInfo.url}
-                            title={`شرح ${subject.name}`}
+                            title={`شرح ${t(subject.name)}`}
                             className="w-full h-full"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                             allowFullScreen
@@ -344,13 +361,13 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                       </div>
                     ) : subject.pdfUrl ? (
                       <div className="space-y-3">
-                        <span className="text-3xs text-emerald-400 font-bold flex items-center gap-1">🟢 تصفح الكتاب الدراسي الرسمي:</span>
+                        <span className="text-3xs text-emerald-400 font-bold flex items-center gap-1">🟢 {currentLang === "ar" ? "تصفح الكتاب الدراسي الرسمي:" : "Browse Official Textbook:"}</span>
                         <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 text-center space-y-4 shadow-inner">
                           <FileText className="w-12 h-12 text-emerald-500 mx-auto animate-pulse" />
                           <div className="space-y-1">
-                            <h5 className="text-xs font-bold text-slate-200">كتاب مقرر {subject.name} متاح للدراسة</h5>
+                            <h5 className="text-xs font-bold text-slate-200">{currentLang === "ar" ? `كتاب مقرر ${t(subject.name)} متاح للدراسة` : `${t(subject.name)} textbook is ready to study`}</h5>
                             <p className="text-3xs text-slate-400 max-w-md mx-auto leading-relaxed">
-                              افتح الكتاب الرقمي المنهجي بصيغة PDF بجوار الشاشة أو قم بتنزيله لدراسة فصوله وعقد المقارنات البينية بأريحية كاملة.
+                              {currentLang === "ar" ? "افتح الكتاب الرقمي المنهجي بصيغة PDF بجوار الشاشة أو قم بتنزيله لدراسة فصوله وعقد المقارنات البينية بأريحية كاملة." : "Open the official digital PDF textbook on your device or download it to study syllabus chapters seamlessly."}
                             </p>
                           </div>
                           <a
@@ -360,7 +377,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                             className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-555 text-white text-2xs font-bold rounded-xl transition-all shadow-md cursor-pointer"
                           >
                             <Download className="w-3.5 h-3.5" />
-                            <span>فتح / تنزيل كتاب المقرر PDF التفاعلي</span>
+                            <span>{currentLang === "ar" ? "فتح / تنزيل كتاب المقرر PDF التفاعلي" : "Open / Download Interactive Textbook PDF"}</span>
                           </a>
                         </div>
                       </div>
@@ -399,35 +416,35 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3 shadow-xl">
                   <h4 className="text-xs font-black text-slate-300 border-b border-slate-800 pb-2 flex items-center gap-1.5">
                     <Check className="w-4 h-4 text-amber-400" />
-                    <span>خطوات إتقان درس {subject.name}:</span>
+                    <span>{currentLang === "ar" ? `خطوات إتقان درس ${subject.name}:` : `Steps to master ${t(subject.name)}:`}</span>
                   </h4>
                   <ul className="space-y-2 text-3xs text-slate-400 font-medium font-sans">
                     <li className="flex items-start gap-1.5">
-                      <span className="text-indigo-400 font-extrabold font-mono">١.</span>
-                      <span>اقرأ الملخص العام للمادة في السودان لتفهم الهيكل المعرفي.</span>
+                      <span className="text-indigo-400 font-extrabold font-mono">1.</span>
+                      <span>{currentLang === "ar" ? "اقرأ الملخص العام للمادة في السودان لتفهم الهيكل المعرفي." : "Read the general outline of the subject to understand the layout."}</span>
                     </li>
                     <li className="flex items-start gap-1.5">
-                      <span className="text-indigo-400 font-extrabold font-mono">٢.</span>
-                      <span>شاهد دروس الفيديو المعتمدة لتبسيط التعقيدات العلمية.</span>
+                      <span className="text-indigo-400 font-extrabold font-mono">2.</span>
+                      <span>{currentLang === "ar" ? "شاهد دروس الفيديو المعتمدة لتبسيط التعقيدات العلمية." : "Watch the official video playlist to clarify complex topics."}</span>
                     </li>
                     <li className="flex items-start gap-1.5">
-                      <span className="text-indigo-400 font-extrabold font-mono">٣.</span>
-                      <span>قم بحل الأسئلة التدريبية بالتعاون مع معلم الذكاء الاصطناعي.</span>
+                      <span className="text-indigo-400 font-extrabold font-mono">3.</span>
+                      <span>{currentLang === "ar" ? "قم بحل الأسئلة التدريبية بالتعاون مع معلم الذكاء الاصطناعي." : "Solve exercises with the guidance of our custom AI teacher."}</span>
                     </li>
                     <li className="flex items-start gap-1.5">
-                      <span className="text-indigo-400 font-extrabold font-mono">٤.</span>
-                      <span>اختبر مستواك في مخيم المذاكرة للتأكد من جاهزيتك للاختبارات الوزارية.</span>
+                      <span className="text-indigo-400 font-extrabold font-mono">4.</span>
+                      <span>{currentLang === "ar" ? "اختبر مستواك في مخيم المذاكرة للتأكد من جاهزيتك للاختبارات الوزارية." : "Test your level in the Study Camp to prepare for national examinations."}</span>
                     </li>
                   </ul>
-                </div>
-
-                {/* AI Tutor Chat Access */}
+                </div>                 {/* AI Tutor Chat Access */}
                 <div className="bg-gradient-to-br from-indigo-950/20 to-slate-900/40 border border-indigo-900/30 p-4 rounded-2xl text-center space-y-3.5 shadow-xl">
                   <Sparkles className="w-8 h-8 text-amber-300 mx-auto animate-bounce" />
                   <div className="space-y-1">
-                    <h5 className="text-xs font-black text-indigo-300">هل تحتاج لشرح نقطة غير مفهومة؟</h5>
+                    <h5 className="text-xs font-black text-indigo-300">
+                      {currentLang === "ar" ? "هل تحتاج لشرح نقطة غير مفهومة؟" : "Do you need clarification on any topic?"}
+                    </h5>
                     <p className="text-3xs text-slate-400 leading-relaxed">
-                      الأستاذ السوداني متوفر طوال الوقت، اضغط أدناه للتحدث وطرح الأسئلة المباشرة.
+                      {currentLang === "ar" ? "الأستاذ السوداني متوفر طوال الوقت، اضغط أدناه للتحدث وطرح الأسئلة المباشرة." : "The virtual Sudanese tutor is available 24/7 to answer your direct questions immediately."}
                     </p>
                   </div>
                   <button
@@ -437,7 +454,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                     }}
                     className="w-full py-2 bg-indigo-600 hover:bg-indigo-550 text-white text-xs font-black rounded-xl transition-all shadow-md cursor-pointer text-center"
                   >
-                    💬 التحدث مع المعلم الذكي الآن
+                    {currentLang === "ar" ? "💬 التحدث مع المعلم الذكي الآن" : "💬 Chat with Smart Tutor Now"}
                   </button>
                 </div>
 
@@ -449,7 +466,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
 
           {/* Bottom Panel */}
           <div className="p-3 bg-slate-950 border-t border-slate-850 flex items-center justify-between text-3xs text-slate-500 flex-shrink-0">
-            <span>منصة المذاكرة الذكية ودراسة المناهج السودانية 🇸🇩</span>
+            <span>{currentLang === "ar" ? "منصة المذاكرة الذكية ودراسة المناهج السودانية 🇸🇩" : "Smart Study Room & Sudanese Curriculum Directory 🇸🇩"}</span>
             <span className="font-mono">Focused Study Session Tracker v3</span>
           </div>
 
@@ -459,7 +476,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm transition-opacity" dir="rtl">
+    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm transition-opacity" dir={currentLang === "ar" ? "rtl" : "ltr"}>
       <motion.div 
         initial={{ scale: 0.93, opacity: 0, y: 15 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -482,7 +499,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
               
               {/* Render grade marker next to close button on mobile ONLY for compact elegance */}
               <div className={`sm:hidden px-3 py-1 rounded-full text-3xs font-black ${subject.colorClass} border`}>
-                {gradeName}
+                {t(gradeName)}
               </div>
             </div>
 
@@ -492,7 +509,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-950/40 hover:bg-emerald-900/40 border border-emerald-800/60 text-emerald-400 hover:text-emerald-300 rounded-xl text-3xs font-extrabold transition-all cursor-pointer shadow-sm"
               >
                 {isCopied ? <Check className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
-                <span>{isCopied ? "تم النسخ!" : "مشاركة المادة"}</span>
+                <span>{isCopied ? t("تم النسخ!") : t("مشاركة المادة")}</span>
               </button>
               {isAdminActive && (
                 <button 
@@ -500,11 +517,11 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border rounded-xl text-3xs font-bold transition-all cursor-pointer shadow-sm bg-emerald-900/30 hover:bg-emerald-900/40 border-emerald-800/80 text-emerald-450 hover:text-emerald-300"
                 >
                   <Edit className="w-3 h-3" />
-                  <span>{isEditing ? "إلغاء التعديل" : "تعديل الإدارة 🔑"}</span>
+                  <span>{isEditing ? t("إلغاء التعديل") : t("تعديل الإدارة 🔑")}</span>
                 </button>
               )}
               <div className={`hidden sm:block px-3 py-1 rounded-full text-xs font-semibold ${subject.colorClass} border`}>
-                {gradeName}
+                {t(gradeName)}
               </div>
             </div>
           </div>
@@ -514,17 +531,17 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
             <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full my-auto space-y-5 bg-slate-950/40 p-6 rounded-2xl border border-slate-800">
               <div className="flex items-center gap-2.5 text-amber-400">
                 <Lock className="w-5 h-5" />
-                <h4 className="text-sm font-bold">تعديل المنهج - مطلوب كلمة مرور المعلم</h4>
+                <h4 className="text-sm font-bold">{t("تعديل المنهج - مطلوب كلمة مرور المعلم")}</h4>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed">
-                يرجى إدخال كلمة المرور الخاصة بالإدارة لحماية تعديل أسماء المواد، روابط الكتب الإلكترونية التفاعلية، وروابط شروحات الفيديو.
+                {t("يرجى إدخال كلمة المرور الخاصة بالإدارة لحماية تعديل أسماء المواد، روابط الكتب الإلكترونية التفاعلية، وروابط شروحات الفيديو.")}
               </p>
               <form onSubmit={handlePasswordSubmit} className="space-y-3">
                 <input
                   type="password"
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder="أدخل كلمة مرور الإدارة"
+                  placeholder={t("أدخل كلمة مرور الإدارة")}
                   className="w-full bg-slate-900 border border-slate-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl py-2 px-3 text-xs text-slate-100 outline-none transition-all text-center tracking-widest"
                   autoFocus
                 />
@@ -537,14 +554,14 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                     onClick={() => setShowPasswordPrompt(false)}
                     className="px-4 py-2 text-xs text-slate-400 bg-slate-800 hover:bg-slate-750 hover:text-white rounded-xl transition-all cursor-pointer"
                   >
-                    إلغاء
+                    {currentLang === "ar" ? "إلغاء" : "Cancel"}
                   </button>
                   <button
                     type="submit"
                     className="px-4 py-2 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
                   >
                     <Unlock className="w-3.5 h-3.5" />
-                    <span>تأكيد الدخول</span>
+                    <span>{t("تأكيد الدخول")}</span>
                   </button>
                 </div>
               </form>
@@ -552,13 +569,13 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
           ) : isEditing ? (
             <div className="space-y-4 flex-1 overflow-y-auto">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <h3 className="text-xs font-bold text-slate-200">تحرير المادة: {subject.name}</h3>
-                <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-900/40">المعلم نشط 🔐</span>
+                <h3 className="text-xs font-bold text-slate-200">{t("تحرير المادة:")} {t(subject.name)}</h3>
+                <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-900/40">{t("المعلم نشط 🔐")}</span>
               </div>
 
               {/* Subject Name */}
               <div className="space-y-1">
-                <label className="text-3xs font-bold text-slate-400 uppercase block">اسم المادة الدراسية:</label>
+                <label className="text-3xs font-bold text-slate-400 uppercase block">{t("اسم المادة الدراسية: ")}</label>
                 <input
                   type="text"
                   value={editName}
@@ -569,7 +586,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
 
               {/* Curriculum Summary */}
               <div className="space-y-1">
-                <label className="text-3xs font-bold text-slate-400 uppercase block">تفاصيل المنهج السوداني المقرر:</label>
+                <label className="text-3xs font-bold text-slate-400 uppercase block">{t("تفاصيل المنهج السوداني المقرر:")}</label>
                 <textarea
                   value={editCurriculumSummary}
                   onChange={(e) => setEditCurriculumSummary(e.target.value)}
@@ -581,7 +598,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
               {/* Interactive Url & Label */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-3xs font-bold text-slate-400 uppercase block">رابط البوابة التفاعلية للمقرر:</label>
+                  <label className="text-3xs font-bold text-slate-400 uppercase block">{t("رابط البوابة التفاعلية للمقرر:")}</label>
                   <input
                     type="text"
                     value={editInteractiveUrl}
@@ -591,7 +608,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-3xs font-bold text-slate-400 uppercase block">تسمية البوابة التفاعلية:</label>
+                  <label className="text-3xs font-bold text-slate-400 uppercase block">{t("تسمية البوابة التفاعلية:")}</label>
                   <input
                     type="text"
                     value={editInteractiveLabel}
@@ -604,7 +621,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
 
               {/* PDF Url */}
               <div className="space-y-1">
-                <label className="text-3xs font-bold text-slate-400 uppercase block">رابط تنزيل كتاب المقرر PDF:</label>
+                <label className="text-3xs font-bold text-slate-400 uppercase block">{t("رابط تنزيل كتاب المقرر PDF:")}</label>
                 <input
                   type="text"
                   value={editPdfUrl}
@@ -616,7 +633,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
 
               {/* Memo PDF Url */}
               <div className="space-y-1">
-                <label className="text-3xs font-bold text-slate-400 uppercase block">رابط ملخص أو مذكرة المادة PDF:</label>
+                <label className="text-3xs font-bold text-slate-400 uppercase block">{t("رابط ملخص أو مذكرة المادة PDF:")}</label>
                 <input
                   type="text"
                   value={editMemoPdfUrl}
@@ -628,7 +645,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
 
               {/* Video Url */}
               <div className="space-y-1">
-                <label className="text-3xs font-bold text-slate-400 uppercase block">رابط شرح المادة بالفيديو (يوتيوب):</label>
+                <label className="text-3xs font-bold text-slate-400 uppercase block">{t("رابط شرح المادة بالفيديو (يوتيوب):")}</label>
                 <input
                   type="text"
                   value={editVideoUrl}
@@ -644,7 +661,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   onClick={() => setIsEditing(false)}
                   className="px-4 py-1.5 text-xs text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all cursor-pointer"
                 >
-                  إلغاء
+                  {currentLang === "ar" ? "إلغاء" : "Cancel"}
                 </button>
                 <button
                   type="button"
@@ -652,7 +669,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-650 hover:bg-emerald-600 rounded-xl transition-all flex items-center gap-1 shadow-md cursor-pointer"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  <span>حفظ التغييرات</span>
+                  <span>{t("حفظ التغييرات")}</span>
                 </button>
               </div>
             </div>
@@ -664,17 +681,17 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   <DynamicIcon name={subject.iconName} className="w-8 h-8" />
                 </div>
                 <div className="space-y-1">
-                  <span className="text-xs text-emerald-400 font-mono font-semibold">{stageName}</span>
-                  <h2 className="text-xl md:text-2xl font-black text-slate-100">{subject.name}</h2>
+                  <span className="text-xs text-emerald-400 font-mono font-semibold">{t(stageName)}</span>
+                  <h2 className="text-xl md:text-2xl font-black text-slate-100">{t(subject.name)}</h2>
                 </div>
               </div>
 
               {/* Study Mode Quick Start Banner */}
               <div className="bg-gradient-to-r from-indigo-950/45 via-purple-950/20 to-slate-900 border border-indigo-500/30 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
                 <div className="space-y-1 text-center sm:text-right">
-                  <span className="text-3xs text-indigo-400 font-black tracking-wide block uppercase">⚡ وضع المذاكرة التفاعلي والتركيز</span>
-                  <h4 className="text-xs font-black text-slate-205">ادرس في بيئة هادئة ومكبرة خالية من المشتتات</h4>
-                  <p className="text-[10px] text-slate-400">شاشة مخصصة لعرض الكتاب بمساحة أكبر مع مؤقت ذكي يتابع تقدمك.</p>
+                  <span className="text-3xs text-indigo-400 font-black tracking-wide block uppercase">⚡ {currentLang === "ar" ? "وضع المذاكرة التفاعلي والتركيز" : "Interactive Study & Focus Mode"}</span>
+                  <h4 className="text-xs font-black text-slate-205">{currentLang === "ar" ? "ادرس في بيئة هادئة ومكبرة خالية من المشتتات" : "Study in a quiet and magnified environment free from distractions"}</h4>
+                  <p className="text-[10px] text-slate-400">{currentLang === "ar" ? "شاشة مخصصة لعرض الكتاب بمساحة أكبر مع مؤقت ذكي يتابع تقدمك." : "A dedicated wider screen displaying textbooks side-by-side with a focus timer."}</p>
                 </div>
                 <button
                   type="button"
@@ -682,7 +699,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-l from-indigo-650 to-indigo-600 hover:from-indigo-600 hover:to-indigo-550 border border-indigo-500/40 text-white rounded-xl text-xs font-black shadow-md cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1.5 shrink-0"
                 >
                   <Clock className="w-4 h-4 text-indigo-300 animate-pulse" />
-                  <span>دخول وضع المذاكرة والتركيز ⏱️</span>
+                  <span>{t("دخول وضع المذاكرة والتركيز ⏱️")}</span>
                 </button>
               </div>
 
@@ -703,7 +720,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
               <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80 space-y-3">
                 <h4 className="text-sm font-bold text-slate-200 flex items-center gap-2">
                   <BookOpen className="w-4 h-4 text-emerald-400" />
-                  <span>المنهج السوداني المقرر للمادة:</span>
+                  <span>{t("المنهج السوداني المقرر للمادة:")}</span>
                 </h4>
                 <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
                   {subject.curriculumSummary}
@@ -713,15 +730,15 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
               {/* Interactive Website (Al-Manhaf) */}
               <div className="bg-gradient-to-br from-emerald-950/30 via-slate-900 to-slate-950/55 p-5 rounded-2xl border border-emerald-900/35 space-y-4">
                 <div className="space-y-1.5">
-                  <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block">بوابة المعامل والألعاب التفاعلية المقترحة</span>
+                  <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block">{t("بوابة المعامل والألعاب التفاعلية المقترحة")}</span>
                   <h4 className="text-sm font-bold text-slate-205 flex items-center gap-2">
                     <Compass className="w-4 h-4 text-emerald-400" />
-                    <span>محاكاة ومواقع عالمية تفاعلية:</span>
+                    <span>{t("محاكاة ومواقع عالمية تفاعلية:")}</span>
                   </h4>
                   <p className="text-xs text-slate-400 leading-relaxed">
                     {hasInteractiveLink
-                      ? "هذا الرابط المعتمد ينقلك مباشرة لمنصة تفاعلية مخصصة لتجربة المفاهيم عملياً بالرسوم والتحريك التفاعلي."
-                      : "البوابة التفاعلية غير نشطة حالياً لهذا المقرر (لم يتم تزويد الرابط بعد من قبل المعلم)."}
+                      ? (currentLang === "ar" ? "هذا الرابط المعتمد ينقلك مباشرة لمنصة تفاعلية مخصصة لتجربة المفاهيم عملياً بالرسوم والتحريك التفاعلي." : "This certified link directs you to an interactive platform to experience concepts hands-on with digital animations.")
+                      : (currentLang === "ar" ? "البوابة التفاعلية غير نشطة حالياً لهذا المقرر (لم يتم تزويد الرابط بعد من قبل المعلم)." : "The interactive portal is currently offline for this subject (no link has been added by your teacher yet).")}
                   </p>
                 </div>
 
@@ -731,10 +748,10 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                       href={subject.interactiveUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-550 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer hover:shadow-emerald-900/20"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-555 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer hover:shadow-emerald-900/20"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
-                      <span>دخول الموقع التفاعلي: {subject.interactiveLabel}</span>
+                      <span>{currentLang === "ar" ? `دخول الموقع التفاعلي: ${subject.interactiveLabel}` : `Open Interactive Portal: ${subject.interactiveLabel}`}</span>
                     </a>
                   ) : (
                     <button 
@@ -742,7 +759,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                       className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-slate-500 rounded-xl text-xs font-bold transition-all border border-slate-700/60 cursor-not-allowed opacity-60"
                     >
                       <X className="w-3.5 h-3.5 text-slate-500" />
-                      <span>البوابة غير نشطة (الرابط غير متوفر حالياً)</span>
+                      <span>{t("البوابة غير نشطة (الرابط غير متوفر حالياً)")}</span>
                     </button>
                   )}
                 </div>
@@ -755,12 +772,12 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-slate-200">
                       <FileText className="w-4 h-4 text-emerald-400" />
-                      <h5 className="text-xs font-bold">الكتاب الإلكتروني للمقرر</h5>
+                      <h5 className="text-xs font-bold">{t("الكتاب الإلكتروني للمقرر")}</h5>
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
                       {subject.pdfUrl 
-                        ? "اضغط أدناه لتحميل النسخة الرسمية للمقرر بصيغة PDF مباشرة للدراسة والاستخدام الرقمي."
-                        : "رابط تنزيل كتاب المنهج السوداني الرسمي بصيغة PDF للهواتف والأجهزة اللوحية."}
+                        ? (currentLang === "ar" ? "اضغط أدناه لتحميل النسخة الرسمية للمقرر بصيغة PDF مباشرة للدراسة والاستخدام الرقمي." : "Click below to read and download the official curriculum textbook in PDF format.")
+                        : (currentLang === "ar" ? "رابط تنزيل كتاب المنهج السوداني الرسمي بصيغة PDF للهواتف والأجهزة اللوحية." : "Download link for the official Sudanese curriculum textbook PDF for phones and tablets.")}
                     </p>
                   </div>
                   <div>
@@ -772,12 +789,12 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                         className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-650 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
                       >
                         <Download className="w-3.5 h-3.5" />
-                        <span>تنزيل كتاب المقرر PDF</span>
+                        <span>{t("تنزيل كتاب المقرر PDF")}</span>
                       </a>
                     ) : (
                       <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 cursor-not-allowed opacity-60">
                         <Download className="w-3.5 h-3.5 text-slate-500/80" />
-                        <span>رابط الكتاب (سيتوفر قريباً)</span>
+                        <span>{t("رابط الكتاب (سيتوفر قريباً)")}</span>
                       </div>
                     )}
                   </div>
@@ -788,12 +805,12 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-slate-200">
                       <FileText className="w-4 h-4 text-amber-400" />
-                      <h5 className="text-xs font-bold font-sans">ملخص ومذكرة المادة PDF</h5>
+                      <h5 className="text-xs font-bold font-sans">{t("ملخص ومذكرة المادة PDF")}</h5>
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
                       {subject.memoPdfUrl 
-                        ? "اضغط أدناه لتنزيل ملخص ومذكرة الشرح الشاملة من قبل معلم المادة مباشرة."
-                        : "رابط تنزيل مذكرة الشرح والملخصات لتبسيط المذاكرة للطلاب وأولياء الأمور."}
+                        ? (currentLang === "ar" ? "اضغط أدناه لتنزيل ملخص ومذكرة الشرح الشاملة من قبل معلم المادة مباشرة." : "Click below to download the comprehensive course study guide compiled by your teacher.")
+                        : (currentLang === "ar" ? "رابط تنزيل مذكرة الشرح والملخصات لتبسيط المذاكرة للطلاب وأولياء الأمور." : "Download link for reference notes and summaries to simplify revision for students.")}
                     </p>
                   </div>
                   <div>
@@ -805,12 +822,12 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                         className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-550 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
                       >
                         <Download className="w-3.5 h-3.5 animate-pulse" />
-                        <span>تنزيل مذكرة المادة PDF</span>
+                        <span>{currentLang === "ar" ? "تنزيل مذكرة المادة PDF" : "Download Study Notes PDF"}</span>
                       </a>
                     ) : (
                       <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 cursor-not-allowed opacity-60">
                         <Download className="w-3.5 h-3.5 text-slate-500/80" />
-                        <span>رابط المذكرة (سيتوفر قريباً)</span>
+                        <span>{t("رابط المذكرة (سيتوفر قريباً)")}</span>
                       </div>
                     )}
                   </div>
@@ -828,13 +845,15 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                         <Youtube className="w-4 h-4 text-rose-500" />
                       )}
                       <h5 className="text-xs font-bold">
-                        {embedInfo?.isDrive ? "شرح المادة بالفيديو (رابط قوقل درايف)" : "شرح المادة بالفيديو التفاعلي"}
+                        {embedInfo?.isDrive 
+                          ? (currentLang === "ar" ? "شرح المادة بالفيديو (رابط قوقل درايف)" : "Course Video Lecture (Google Drive)")
+                          : (currentLang === "ar" ? "شرح المادة بالفيديو التفاعلي" : "Course Video Lecture Series")}
                       </h5>
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
                       {subject.videoUrl
-                        ? "دُمجت الدروس بنجاح! شاهد الشرح التعليمي بالفيديو مباشرة وبصورة تلقائية أدناه."
-                        : "فيديوهات شرح دروس المادة من القناة التعليمية لتيسير الفهم للطلاب وأولياء الأمور."}
+                        ? (currentLang === "ar" ? "دُمجت الدروس بنجاح! شاهد الشرح التعليمي بالفيديو مباشرة وبصورة تلقائية أدناه." : "Lessons integrated successfully! Watch the video explanations directly below.")
+                        : (currentLang === "ar" ? "فيديوهات شرح دروس المادة من القناة التعليمية لتيسير الفهم للطلاب وأولياء الأمور." : "Video lectures for course lessons to simplify comprehension.")}
                     </p>
                   </div>
                   <div>
@@ -845,7 +864,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                             <div className="aspect-video w-full rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl bg-black mt-2">
                               <iframe
                                 src={embedInfo.url}
-                                title={`شرح ${subject.name}`}
+                                title={currentLang === "ar" ? `شرح ${subject.name}` : `Explanation of ${t(subject.name)}`}
                                 className="w-full h-full animate-fadeIn"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                                 allowFullScreen
@@ -858,10 +877,10 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                               href={subject.videoUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-550 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer shadow-rose-950/20"
+                              className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-555 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer shadow-rose-950/20"
                             >
                               <Video className="w-3.5 h-3.5" />
-                              <span>مشاهدة شرح المادة (رابط خارجي)</span>
+                              <span>{currentLang === "ar" ? "مشاهدة شرح المادة (رابط خارجي)" : "Watch Video Lecture (External Link)"}</span>
                             </a>
                           );
                         }
@@ -869,7 +888,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                     ) : (
                       <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 cursor-not-allowed opacity-60">
                         <Video className="w-3.5 h-3.5 text-slate-500/80" />
-                        <span>شرح الفيديو (سيتوفر قريباً)</span>
+                        <span>{currentLang === "ar" ? "شرح الفيديو (سيتوفر قريباً)" : "Video lecture will be linked soon"}</span>
                       </div>
                     )}
                   </div>
@@ -885,11 +904,15 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
               {/* Premium Direct Social Share Board */}
               <div className="bg-slate-950/45 p-4 rounded-2xl border border-slate-800/60 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-inner">
                 <div className="space-y-0.5 text-center sm:text-right">
-                  <h5 className="text-xs font-black text-slate-200 bg-gradient-to-l from-emerald-400 to-slate-200 bg-clip-text text-transparent">شارك هذا المنهج الدراسي مع أصحابك 📢</h5>
-                  <p className="text-[10px] text-slate-400">انشر الرابط لزملائك الطلاب أو مجموعات المدرسة في المحادثات</p>
+                  <h5 className="text-xs font-black text-slate-200 bg-gradient-to-l from-emerald-400 to-slate-200 bg-clip-text text-transparent">
+                    {currentLang === "ar" ? "شارك هذا المنهج الدراسي مع أصحابك 📢" : "Share this curriculum with your friends 📢"}
+                  </h5>
+                  <p className="text-[10px] text-slate-400">
+                    {currentLang === "ar" ? "انشر الرابط لزملائك الطلاب أو مجموعات المدرسة في المحادثات" : "Post the link for your classmates or school chat groups"}
+                  </p>
                 </div>
                 
-                <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                <div className="flex items-center gap-1.5 flex-wrap justify-center font-sans">
                   {/* WhatsApp */}
                   <a
                     href={getShareLinks().whatsapp}
@@ -898,7 +921,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] border border-[#25D366]/30 rounded-xl text-3xs font-extrabold transition-all cursor-pointer shadow-sm hover:scale-105"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-[#25D366] animate-pulse"></span>
-                    <span>الواتساب</span>
+                    <span>{currentLang === "ar" ? "الواتساب" : "WhatsApp"}</span>
                   </a>
 
                   {/* Telegram */}
@@ -909,7 +932,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0088cc]/10 hover:bg-[#0088cc]/20 text-[#0088cc] border border-[#0088cc]/30 rounded-xl text-3xs font-extrabold transition-all cursor-pointer shadow-sm hover:scale-105"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-[#0088cc] animate-pulse"></span>
-                    <span>تلغرام</span>
+                    <span>{currentLang === "ar" ? "تلغرام" : "Telegram"}</span>
                   </a>
 
                   {/* Facebook */}
@@ -919,7 +942,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#1877F2]/10 hover:bg-[#1877F2]/20 text-[#1877F2] border border-[#1877F2]/30 rounded-xl text-3xs font-extrabold transition-all cursor-pointer shadow-sm hover:scale-105"
                   >
-                    <span>فيسبوك</span>
+                    <span>{currentLang === "ar" ? "فيسبوك" : "Facebook"}</span>
                   </a>
 
                   {/* Copy Link Button */}
@@ -928,20 +951,18 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl text-3xs font-extrabold transition-all cursor-pointer shadow-sm active:scale-95"
                   >
                     {isCopied ? <Check className="w-3 h-3 text-emerald-450" /> : <Share2 className="w-3 h-3 text-emerald-450" />}
-                    <span>{isCopied ? "تم النسخ!" : "نسخ الرابط"}</span>
+                    <span>{isCopied ? t("تم النسخ!") : (currentLang === "ar" ? "نسخ الرابط" : "Copy Link")}</span>
                   </button>
                 </div>
               </div>
 
-              {/* Tutor Action Button */}
-              <button
-                onClick={() => setShowTutor(true)}
-                className="w-full py-3 px-5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-950/30 hover:shadow-emerald-950/10 transition-all flex items-center justify-center gap-2 cursor-pointer group"
-              >
-                <Sparkles className="w-4 h-4 text-amber-300 group-hover:scale-110 transition-transform animate-bounce" />
-                <span>دخول غرفت المعلم السوداني الذكي التفاعلي 🇸🇩</span>
-                <ChevronRight className="w-4 h-4 transform rotate-180" />
-              </button>
+              {/* Tutor Action Replacement Text */}
+              <div className="w-full py-4 px-5 bg-slate-950/50 border border-slate-800/80 rounded-xl text-center flex flex-col items-center justify-center gap-2">
+                <Sparkles className="w-4 h-4 text-emerald-450" />
+                <span className="text-xs font-black text-emerald-400">
+                  {t("للدخول وسؤال الأستاذ ادخل على رابط الموقع التفاعلي")}
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -962,7 +983,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                 onClick={() => setShowTutor(false)}
                 className="text-xs text-emerald-400 font-bold tracking-wide py-1 px-4 rounded-lg bg-emerald-950/20 active:bg-emerald-950/40 border border-emerald-900/30 w-full"
               >
-                ← العودة إلى خلاصة منهج المادة
+                {currentLang === "ar" ? "← العودة إلى خلاصة منهج المادة" : "← Go back to subject overview"}
               </button>
             </div>
           </div>
