@@ -44,14 +44,6 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
 
-  // User feedback state variables
-  const [feedbackName, setFeedbackName] = useState("");
-  const [feedbackEmail, setFeedbackEmail] = useState("");
-  const [feedbackMessage, setFeedbackMessage] = useState("");
-  const [isFeedbackSending, setIsFeedbackSending] = useState(false);
-  const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null);
-  const [feedbackError, setFeedbackError] = useState<string | null>(null);
-
   // Load from Supabase on start if available and subscribe to Webhook SSE events
   useEffect(() => {
     const loadSupabaseData = async () => {
@@ -232,63 +224,6 @@ export default function App() {
   const [regGradeId, setRegGradeId] = useState("");
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
   const [regContactMethod, setRegContactMethod] = useState("");
-
-  const handleFeedbackSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!feedbackEmail.trim() || !feedbackMessage.trim()) {
-      setFeedbackError("⚠️ يرجى تعبئة بريدك الإلكتروني ومحتوى الملاحظة أولاً.");
-      setFeedbackSuccess(null);
-      return;
-    }
-
-    setIsFeedbackSending(true);
-    setFeedbackError(null);
-    setFeedbackSuccess(null);
-
-    try {
-      const response = await fetch("/api/feedback", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: feedbackName,
-          email: feedbackEmail,
-          message: feedbackMessage,
-        }),
-      });
-
-      let data: any = {};
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
-        const textResponse = await response.text();
-        throw new Error(textResponse || `رموز الاتصال: ${response.status}`);
-      }
-
-      if (response.ok && data.success) {
-        setFeedbackSuccess(data.message);
-        // Clear inputs on success
-        setFeedbackName("");
-        setFeedbackEmail("");
-        setFeedbackMessage("");
-        
-        // Auto-clear success message after 15 seconds
-        setTimeout(() => {
-          setFeedbackSuccess(null);
-        }, 15000);
-      } else {
-        setFeedbackError(data.error || "⚠️ عذراً، فشل إرسال ملاحظاتك حالياً.");
-      }
-    } catch (err: any) {
-      console.error("Feedback submit error detail:", err);
-      const errorMessage = err?.message || err?.toString() || "فشل الاتصال بالخادم";
-      setFeedbackError(`⚠️ عذراً، فشل إرسال اقتراحك بسبب خطأ فني: (${errorMessage})`);
-    } finally {
-      setIsFeedbackSending(false);
-    }
-  };
 
   const handleAdminLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2634,73 +2569,17 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
       {/* Sticky footer info */}
       <footer className="mt-20 border-t border-slate-800/80 pt-10 text-center max-w-7xl mx-auto px-6">
-        {/* User Feedback & Suggestion Email Form */}
-        <div className="max-w-md mx-auto mb-10 p-6 bg-slate-900/60 border border-slate-800/85 rounded-2xl text-right backdrop-blur shadow-xl">
-          <h3 className="text-xs md:text-sm font-extrabold text-slate-200 flex items-center justify-end gap-1.5 mb-2">
-            <span>📝 أرسل لنا ملاحظاتك مباشرة إلى الإدارة</span>
-          </h3>
-          <p className="text-[10px] text-slate-400 leading-relaxed mb-4">
-            يسعدنا استقبال آرائك واقتراحاتك لتطوير المنصة التعليمية وسنقوم بالرد المباشر عليك. ملاحظاتك تصل مباشرة إلى <span className="font-mono text-emerald-400 select-all font-bold">almangoryo@gmail.com</span>
+        {/* Simple email contact info requested by the user */}
+        <div className="max-w-md mx-auto mb-10 p-5 bg-slate-900/40 border border-slate-800/60 rounded-2xl text-center backdrop-blur shadow-lg">
+          <p className="text-xs text-slate-300 leading-relaxed font-sans mb-2">
+            📬 للتواصل والاستفسارات والاقتراحات يرجى مراسلتنا مباشرة عبر البريد الإلكتروني:
           </p>
-
-          <form onSubmit={handleFeedbackSubmit} className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-              <div className="space-y-1">
-                <label className="text-[9px] text-slate-400 font-bold block">الاسم (اختياري):</label>
-                <input
-                  type="text"
-                  value={feedbackName}
-                  onChange={(e) => setFeedbackName(e.target.value)}
-                  placeholder="مثال: أحمد عثمان"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-[11px] text-slate-100 outline-none focus:border-emerald-650 transition-all text-right font-sans"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[9px] text-slate-400 font-bold block">البريد الإلكتروني:</label>
-                <input
-                  type="email"
-                  required
-                  value={feedbackEmail}
-                  onChange={(e) => setFeedbackEmail(e.target.value)}
-                  placeholder="example@domain.com"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-[11px] text-slate-100 outline-none focus:border-emerald-655 transition-all text-left font-mono"
-                  dir="ltr"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[9px] text-slate-400 font-bold block">الملاحظات أو الاقتراحات:</label>
-              <textarea
-                required
-                rows={3}
-                value={feedbackMessage}
-                onChange={(e) => setFeedbackMessage(e.target.value)}
-                placeholder="اكتب اقتراحك أو ملاحظاتك هنا بالتفصيل المريح..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-[11px] text-slate-100 outline-none focus:border-emerald-660 transition-all text-right font-sans resize-none"
-              />
-            </div>
-
-            {feedbackError && (
-              <div className="text-[10px] text-rose-400 font-semibold bg-rose-955/15 border border-rose-900/30 p-2 rounded-xl text-center">
-                {feedbackError}
-              </div>
-            )}
-
-            {feedbackSuccess && (
-              <div className="text-[11px] text-emerald-400 font-extrabold bg-emerald-955/20 border border-emerald-900/35 p-3 rounded-xl text-center leading-normal whitespace-pre-line">
-                {feedbackSuccess}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isFeedbackSending}
-              className="w-full py-2.5 bg-gradient-to-l from-emerald-600 to-emerald-700 hover:from-emerald-550 hover:to-emerald-650 disabled:opacity-50 text-white text-xs font-black rounded-xl transition-all cursor-pointer shadow-md hover:shadow-emerald-900/20 active:scale-95 flex items-center justify-center gap-1.5"
-            >
-              {isFeedbackSending ? "جاري الإرسال والمزامنة..." : "إرسال الملاحظات والاقتراحات 🚀"}
-            </button>
-          </form>
+          <a 
+            href="mailto:almangoryo@gmail.com" 
+            className="text-emerald-450 font-mono font-bold text-sm tracking-wide hover:text-emerald-350 select-all transition-all hover:underline"
+          >
+            almangoryo@gmail.com
+          </a>
         </div>
 
         <div className="space-y-4 text-xs text-slate-400">
