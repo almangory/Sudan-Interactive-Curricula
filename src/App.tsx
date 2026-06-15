@@ -258,7 +258,14 @@ export default function App() {
         }),
       });
 
-      const data = await response.json();
+      let data: any = {};
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const textResponse = await response.text();
+        throw new Error(textResponse || `رموز الاتصال: ${response.status}`);
+      }
 
       if (response.ok && data.success) {
         setFeedbackSuccess(data.message);
@@ -267,16 +274,17 @@ export default function App() {
         setFeedbackEmail("");
         setFeedbackMessage("");
         
-        // Auto-clear success message after 10 seconds
+        // Auto-clear success message after 15 seconds
         setTimeout(() => {
           setFeedbackSuccess(null);
-        }, 12000);
+        }, 15000);
       } else {
         setFeedbackError(data.error || "⚠️ عذراً، فشل إرسال ملاحظاتك حالياً.");
       }
     } catch (err: any) {
-      console.error("Feedback submit error:", err);
-      setFeedbackError("⚠️ عذراً، حدث خطأ أثناء الاتصال بالملقم لإرسال الملاحظة.");
+      console.error("Feedback submit error detail:", err);
+      const errorMessage = err?.message || err?.toString() || "فشل الاتصال بالخادم";
+      setFeedbackError(`⚠️ عذراً، فشل إرسال اقتراحك بسبب خطأ فني: (${errorMessage})`);
     } finally {
       setIsFeedbackSending(false);
     }

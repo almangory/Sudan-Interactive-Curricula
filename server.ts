@@ -636,18 +636,23 @@ app.post("/api/feedback", async (req, res) => {
     console.log(`Message: "${feedbackItem.message}"`);
     console.log("=========================================");
 
-    // Persist the feedback locally in a feedbacks.json file
-    const filePath = path.join(process.cwd(), "feedbacks.json");
-    let currentFeedbacks = [];
+    // Persist the feedback locally in a feedbacks.json file with fail-safe support
     try {
-      const fileData = await fs.readFile(filePath, "utf8");
-      currentFeedbacks = JSON.parse(fileData);
-    } catch (e) {
-      // file doesn't exist, start fresh
-    }
+      const filePath = path.join(process.cwd(), "feedbacks.json");
+      let currentFeedbacks = [];
+      try {
+        const fileData = await fs.readFile(filePath, "utf8");
+        currentFeedbacks = JSON.parse(fileData);
+      } catch (e) {
+        // file doesn't exist, start fresh
+      }
 
-    currentFeedbacks.push(feedbackItem);
-    await fs.writeFile(filePath, JSON.stringify(currentFeedbacks, null, 2), "utf8");
+      currentFeedbacks.push(feedbackItem);
+      await fs.writeFile(filePath, JSON.stringify(currentFeedbacks, null, 2), "utf8");
+    } catch (fsErr: any) {
+      console.warn("Warning: Could not save feedback to file (read-only filesystem or container lock):", fsErr.message);
+      // We do not fail the request, the logs are printed in the persistent console/GCP logs which is safe!
+    }
 
     // Success response requested by the user
     res.json({
