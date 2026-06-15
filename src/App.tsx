@@ -176,6 +176,7 @@ export default function App() {
   });
   const [showUserModal, setShowUserModal] = useState(false);
   const [userModalTab, setUserModalTab] = useState<"login" | "register" | "profile">("login");
+  const [loginRole, setLoginRole] = useState<"student" | "admin">("student");
   const [userEmail, setUserEmail] = useState("");
   const [userPassword, setUserPassword] = useState("");
   const [userUsername, setUserUsername] = useState("");
@@ -2533,6 +2534,33 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   )}
 
                   {userModalTab === "login" && (
+                    <div className="grid grid-cols-2 gap-2 bg-slate-100/5 p-1 rounded-xl border border-slate-800/60 mb-4">
+                      <button
+                        type="button"
+                        onClick={() => setLoginRole("student")}
+                        className={`py-1.5 text-[11px] font-extrabold rounded-lg transition-all cursor-pointer ${
+                          loginRole === "student"
+                            ? "bg-indigo-650 text-white shadow-sm font-black"
+                            : "text-slate-400 hover:text-slate-205"
+                        }`}
+                      >
+                        🎓 دخول الطلاب
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLoginRole("admin")}
+                        className={`py-1.5 text-[11px] font-extrabold rounded-lg transition-all cursor-pointer ${
+                          loginRole === "admin"
+                            ? "bg-indigo-650 text-white shadow-sm font-black"
+                            : "text-slate-400 hover:text-slate-205"
+                        }`}
+                      >
+                        🔑 دخول الإدارة والأساتذة
+                      </button>
+                    </div>
+                  )}
+
+                  {userModalTab === "login" && loginRole === "admin" && (
                     <div className="bg-emerald-955/20 border border-emerald-900/30 rounded-2xl p-3 text-[10px] text-emerald-400 font-semibold space-y-1 text-right mb-3">
                       <p className="font-extrabold flex items-center gap-1 text-emerald-300">
                         <span>💡 صلاحيات الإدارة والتعديل ومزامنة سوبابيس:</span>
@@ -2561,7 +2589,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       disabled={userModalTab === "profile"}
                       value={userEmail}
                       onChange={(e) => setUserEmail(e.target.value)}
-                      placeholder="student@example.com"
+                      placeholder={loginRole === "admin" && userModalTab === "login" ? "admin@sudan.edu" : "student@example.com"}
                       className={`w-full border border-slate-800 rounded-xl p-3 text-xs outline-none transition-all font-sans text-left ${userModalTab === "profile" ? "bg-slate-950/60 text-slate-400 pointer-events-none" : "bg-slate-950 text-slate-100 focus:border-indigo-600"}`}
                       dir="ltr"
                     />
