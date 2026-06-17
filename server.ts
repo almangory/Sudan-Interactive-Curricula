@@ -783,7 +783,36 @@ app.post("/api/chat/send", async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+// ==========================================
+// ⚙️ الروابط الناقصة المسببة لخطأ 404 (تمت إضافتها)
+// ==========================================
 
+// 1. رابط إرسال إعدادات سوبابيس للـ UI (حل خطأ /api/config/supabase)
+app.get("/api/config/supabase", (req, res) => {
+  res.json({
+    supabaseUrl: process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co",
+    supabaseKey: process.env.SUPABASE_ANON_KEY || ""
+  });
+});
+
+// 2. رابط فتح البث المباشر الفوري SSE (حل خطأ /api/events)
+app.get("/api/events", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  const clientId = Date.now();
+  const newClient = { id: clientId, res };
+  sseClients.push(newClient);
+
+  // إرسال ترحيب أولي لتثبيت الاتصال
+  res.write(`data: ${JSON.stringify({ type: "connected", clientId })}\n\n`);
+
+  req.on("close", () => {
+    sseClients = sseClients.filter((client) => client.id !== clientId);
+  });
+});
+// ==========================================
 // POST delete chat message (restricted to admin privileges)
 app.post("/api/chat/delete", async (req, res) => {
   try {
