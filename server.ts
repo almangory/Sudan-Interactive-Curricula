@@ -665,6 +665,157 @@ app.post("/api/feedback", async (req, res) => {
   }
 });
 
+interface ChatMessage {
+  id: string;
+  userId: string;
+  username: string;
+  userRole: string;
+  gradeName: string | null;
+  text: string;
+  timestamp: string;
+}
+
+let serverChatMessages: ChatMessage[] = [];
+const chatMessagesFilePath = path.join(process.cwd(), "chat_messages.json");
+
+// Helper to load chat messages from chat_messages.json
+async function loadChatMessages() {
+  try {
+    const fileData = await fs.readFile(chatMessagesFilePath, "utf8");
+    serverChatMessages = JSON.parse(fileData);
+  } catch (err) {
+    // If file doesn't exist or is invalid, initialize empty
+    serverChatMessages = [];
+  }
+}
+
+// Helper to save chat messages to chat_messages.json
+async function saveChatMessages() {
+  try {
+    await fs.writeFile(chatMessagesFilePath, JSON.stringify(serverChatMessages, null, 2), "utf8");
+  } catch (err) {
+    console.warn("Failed to write chat messages to disk:", err);
+  }
+}
+
+// Lazy load chat messages once when first accessed
+loadChatMessages();
+
+function censorBadWords(text: string): string {
+  let censored = text;
+  const profaneList = [
+    "يا كلب", "ياكلب", "ابن الكلب", "بنت الكلب", "يا حمار", "ياحمار", "كلب", "حمار", "غبي", "حيوان", "خرة", "زق", "قذر", "قذرة",
+    "سافل", "سافلة", "وسخ", "وسخة", "متخلف", "منحط", "يا جزمة", "ياجزمة", "سرسر", "شرير", "حقير", "حقيرة", "تفه",
+    "كس", "طيز", "شرموط", "ديوث", "عرص", "عاهر", "قحبة", "منيوك", "نكاح", "شرموطة", "قحبة", "عاهرة", "منيوكة", "لوطي"
+  ];
+  const profaneEnglish = [
+    "fuck", "shit", "bitch", "asshole", "bastard", "cunt", "dick", "pussy", "slut", "whore"
+  ];
+
+  for (const word of profaneList) {
+    const regex = new RegExp(word, 'gi');
+    censored = censored.replace(regex, (match) => "*".repeat(match.length));
+  }
+
+  for (const word of profaneEnglish) {
+    const regex = new RegExp(`\\b${word}\\b`, 'gi');
+    censored = censored.replace(regex, (match) => "*".repeat(match.length));
+  }
+
+  return censored;
+}
+
+// GET chat messages history
+app.get("/api/chat/messages", async (req, res) => {
+  try {
+    res.json({ success: true, messages: serverChatMessages.slice(-100) });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST send new chat message
+app.post("/api/chat/send", async (req, res) => {
+  try {
+    const { userId, username, userRole, gradeName, text } = req.body;
+    
+    if (!userId || !username || !text) {
+      return res.status(400).json({ success: false, error: "بيانات الرسالة غير مكتملة." });
+    }
+
+    const filteredText = censorBadWords(text.slice(0, 250));
+
+    const newMessage: ChatMessage = {
+      id: "MSG-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
+      userId,
+      username,
+      userRole: userRole || "student",
+      gradeName: gradeName || null,
+      text: filteredText,
+      timestamp: new Date().toISOString()
+    };
+
+    serverChatMessages.push(newMessage);
+    
+    // Keep internal memory buffer safe and clean
+    if (serverChatMessages.length > 200) {
+      serverChatMessages = serverChatMessages.slice(-200);
+    }
+
+    await saveChatMessages();
+
+    // Broadcast messages to all active eventstream channels live!
+    sseClients.forEach((client) => {
+      try {
+        client.res.write(`data: ${JSON.stringify({
+          type: "new_chat_message",
+          message: newMessage,
+          timestamp: new Date().toISOString()
+        })}\n\n`);
+      } catch (broadcastErr) {
+        console.warn("Failed sending SSE chat broadcast message to client:", client.id);
+      }
+    });
+
+    res.json({ success: true, message: newMessage });
+  } catch (error: any) {
+    console.error("Chat send error:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST delete chat message (restricted to admin privileges)
+app.post("/api/chat/delete", async (req, res) => {
+  try {
+    const { messageId, adminPassword } = req.body;
+
+    if (adminPassword !== "20302060") {
+      return res.status(403).json({ success: false, error: "صلاحية الإدارة غير صالحة." });
+    }
+
+    serverChatMessages = serverChatMessages.filter(m => m.id !== messageId);
+    await saveChatMessages();
+
+    // Broadcast message deletion to all eventstreams!
+    sseClients.forEach((client) => {
+      try {
+        client.res.write(`data: ${JSON.stringify({
+          type: "delete_chat_message",
+          id: messageId,
+          timestamp: new Date().toISOString()
+        })}\n\n`);
+      } catch (broadcastErr) {
+        // Safe skip stale connections
+      }
+    });
+
+    res.json({ success: true, messageId });
+  } catch (error: any) {
+    console.error("Chat delete error:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Global JSON error handling middleware to safely catch body-parser/payload and unexpected server errors
 app.use((err: any, req: any, res: any, next: any) => {
   console.error("Express App Error:", err);

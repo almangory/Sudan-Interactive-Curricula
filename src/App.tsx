@@ -4,7 +4,7 @@ import {
   GraduationCap, Award, Compass, BookOpen, Clock, Heart, 
   Map, Sparkles, Star, ChevronLeft, ChevronDown, CheckCircle, 
   Search, ShieldAlert, History, Globe, Plus, FileText, Video, Filter,
-  Lock, Network, X
+  Lock, Network, MessageSquare, X
 } from "lucide-react";
 import { stagesData, Stage, Grade, Subject } from "./data/curriculum";
 import SubjectModal from "./components/SubjectModal";
@@ -13,6 +13,7 @@ import DynamicIcon from "./components/DynamicIcon";
 import StudyCamp from "./components/StudyCamp";
 import AdminDashboard from "./components/AdminDashboard";
 import EducationalMindMap from "./components/EducationalMindMap";
+import StudentChatRoom from "./components/StudentChatRoom";
 import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile } from "./lib/supabase";
 import { stageAndGradeTranslations, uiTranslations } from "./lib/translations";
 
@@ -43,6 +44,7 @@ export default function App() {
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [showStudyCamp, setShowStudyCamp] = useState(false);
   const [showEducationalMindMap, setShowEducationalMindMap] = useState(false);
+  const [showStudentChat, setShowStudentChat] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<"all" | "books" | "videos" | "interactive">("all");
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
@@ -709,6 +711,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         setShowOnlyFavorites(false);
         setShowStudyCamp(false);
         setShowEducationalMindMap(false);
+        setShowStudentChat(false);
         setShowAdminDashboard(false);
       }
     } else if (curriculumData.length > 1 && !selectedStage) {
@@ -1270,6 +1273,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 setShowOnlyFavorites(prev => !prev);
                 setShowStudyCamp(false);
                 setShowEducationalMindMap(false);
+                setShowStudentChat(false);
                 setShowAdminDashboard(false);
               }}
               className={`p-4 border rounded-2xl text-center space-y-1 min-w-[140px] shadow-lg cursor-pointer transition-all duration-200 select-none ${
@@ -1300,6 +1304,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     setActiveGrade(null);
                     setShowStudyCamp(false);
                     setShowEducationalMindMap(false);
+                    setShowStudentChat(false);
                     setShowOnlyFavorites(false);
                   } else {
                     setShowAdminLogin(true);
@@ -1350,7 +1355,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           {/* Grid of Stage Selector Buttons */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-1">
             {displayedStages.map((stage) => {
-              const isSelected = selectedStage?.id === stage.id && !showOnlyFavorites && !showStudyCamp && !showEducationalMindMap;
+              const isSelected = selectedStage?.id === stage.id && !showOnlyFavorites && !showStudyCamp && !showEducationalMindMap && !showStudentChat;
               
               return (
                 <React.Fragment key={stage.id}>
@@ -1365,6 +1370,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                         setShowOnlyFavorites(false);
                         setShowStudyCamp(false);
                         setShowEducationalMindMap(false);
+                        setShowStudentChat(false);
                       }
                     }}
                     className={`relative p-5 rounded-2xl text-right border transition-all text-xs md:text-sm shadow-sm overflow-hidden group cursor-pointer ${
@@ -1711,6 +1717,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               onClick={() => {
                 setShowStudyCamp(true);
                 setShowEducationalMindMap(false);
+                setShowStudentChat(false);
                 setSelectedStage(null);
                 setActiveGrade(null);
                 setShowOnlyFavorites(false);
@@ -1749,6 +1756,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               onClick={() => {
                 setShowEducationalMindMap(true);
                 setShowStudyCamp(false);
+                setShowStudentChat(false);
                 setSelectedStage(null);
                 setActiveGrade(null);
                 setShowOnlyFavorites(false);
@@ -1781,6 +1789,50 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   </p>
                   <span className="text-3xs text-emerald-455 font-bold block mt-1 animate-pulse">
                     {currentLang === "ar" ? "استكشاف تفاعلي وتوليد خطط 🧭" : "Interactive timeline & weekly plans 🧭"}
+                  </span>
+                </div>
+              </div>
+            </button>
+
+            {/* Interactive Student Chat Room Card Activator */}
+            <button
+              id="student-chat-activator"
+              onClick={() => {
+                setShowStudentChat(true);
+                setShowEducationalMindMap(false);
+                setShowStudyCamp(false);
+                setSelectedStage(null);
+                setActiveGrade(null);
+                setShowOnlyFavorites(false);
+              }}
+              className={`relative p-5 rounded-2xl text-right border transition-all text-xs md:text-sm shadow-sm overflow-hidden group cursor-pointer ${
+                showStudentChat 
+                  ? "bg-slate-900 border-indigo-600 shadow-md shadow-indigo-950/20" 
+                  : "bg-slate-900/40 border-slate-800/60 hover:bg-slate-900 hover:border-indigo-650/40"
+              }`}
+            >
+              {/* Decorative Subtle Accent Tag for selected */}
+              {showStudentChat && (
+                <span className="absolute top-0 right-0 bottom-0 w-1.5 bg-gradient-to-b from-indigo-500 to-indigo-700" />
+              )}
+
+              <div className="flex items-start gap-4">
+                <div className={`p-3 rounded-xl transition-all ${
+                  showStudentChat 
+                    ? "bg-indigo-600/20 text-indigo-400" 
+                    : "bg-slate-800 text-slate-400 group-hover:text-indigo-405"
+                }`}>
+                  <MessageSquare className="w-5 h-5 text-indigo-400" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-bold text-slate-100">
+                    {currentLang === "ar" ? "غرفة الدردشة الطلابية 💬" : "Student Chat Room 💬"}
+                  </h3>
+                  <p className="text-2xs text-slate-400 line-clamp-1">
+                    {currentLang === "ar" ? "تواصل وتناقش مع بقية زملائك بالمنصة" : "Discuss and chat with peers on the platform"}
+                  </p>
+                  <span className="text-3xs text-indigo-455 font-bold block mt-1 animate-pulse">
+                    {currentLang === "ar" ? "دردشة آمنة وفورية 🔒" : "Secure Live Chat 🔒"}
                   </span>
                 </div>
               </div>
@@ -1945,6 +1997,23 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             className="space-y-6"
           >
             <StudyCamp stages={displayedStages} />
+          </motion.div>
+        ) : showStudentChat ? (
+          <motion.div
+            key="student-chat-view"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <StudentChatRoom 
+              currentUser={currentUser}
+              currentLang={currentLang}
+              isAdminLoggedIn={isAdminLoggedIn}
+              onTriggerAuth={() => {
+                setShowUserModal(true);
+                setUserModalTab("login");
+              }}
+            />
           </motion.div>
         ) : (
           false && selectedStage && (() => {
