@@ -3,7 +3,7 @@ import {
   MessageSquare, SendHorizontal, Users, ShieldAlert, Trash2, 
   Lock, ArrowDown, Send, User, Sparkles, Smile, HelpCircle 
 } from "lucide-react";
-import { AppUser } from "../lib/supabase";
+import { AppUser, getSupabaseClient } from "../lib/supabase";
 
 interface ChatMessage {
   id: string;
@@ -35,6 +35,7 @@ export default function StudentChatRoom({
   const [censorshipWarning, setCensorshipWarning] = useState(false);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isUsingSupabaseDirectly, setIsUsingSupabaseDirectly] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -59,64 +60,140 @@ export default function StudentChatRoom({
     characterLimit: currentLang === "ar" ? "الحد الأقصى للرسالة هو 250 حرفاً" : "Max message length is 250 characters"
   };
 
-  // Fetch initial messages list
-  const fetchMessages = async () => {
+  // Client-side bad words filter
+  function censorBadWords(text: string): string {
+    let censored = text;
+    const profaneList = [
+      "يا كلب", "ياكلب", "ابن الكلب", "بنت الكلب", "يا حمار", "ياحمار", "كلب", "حمار", "غبي", "حيوان", "خرة", "زق", "قذر", "قذرة",
+      "سافل", "سافلة", "وسخ", "وسخة", "متخلف", "منحط", "يا جزمة", "ياجزمة", "سرسر", "شرير", "حقير", "حقيرة", "تفه",
+      "كس", "طيز", "شرموط", "ديوث", "عرص", "عاهر", "قحبة", "منيوك", "نكاح", "شرموطة", "قحبة", "عاهرة", "منيوكة", "لوطي"
+    ];
+    const profaneEnglish = [
+      "fuck", "shit", "bitch", "asshole", "bastard", "cunt", "dick", "pussy", "slut", "whore"
+    ];
+
+    for (const word of profaneList) {
+      const regex = new RegExp(word, 'gi');
+      censored = censored.replace(regex, (match) => "*".repeat(match.length));
+    }
+
+    for (const word of profaneEnglish) {
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      censored = censored.replace(regex, (match) => "*".repeat(match.length));
+    }
+
+    return censored;
+  }
+
+  // Fetch messages list with automated Vercel/Supabase direct-read fallback
+  const fetchMessages = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
+
+      // Force direct Supabase mode if server address indicates we are on Vercel deployment, as Vercel static has no Express state
+      const isVercelHost = window.location.hostname.includes("vercel.app") || window.location.hostname.includes("github.dev");
+      
+      if (isVercelHost || isUsingSupabaseDirectly) {
+        await fetchMessagesFromSupabaseDirectly();
+        return;
+      }
+
       const res = await fetch("/api/chat/messages");
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.messages)) {
           setMessages(data.messages);
         }
+      } else {
+        // Fallback for unexpected status codes (e.g., 404 or 502)
+        await fetchMessagesFromSupabaseDirectly();
       }
     } catch (err) {
-      console.error("Error fetching chat messages:", err);
+      console.warn("Backend API Chat inactive, utilizing Supabase direct-read fallback:", err);
+      await fetchMessagesFromSupabaseDirectly();
     } finally {
-      setIsLoading(false);
-      setTimeout(() => {
-        scrollToBottom("smooth");
-      }, 300);
+      if (!silent) {
+        setIsLoading(false);
+        setTimeout(() => {
+          scrollToBottom("smooth");
+        }, 300);
+      }
+    }
+  };
+
+  const fetchMessagesFromSupabaseDirectly = async () => {
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    try {
+      setIsUsingSupabaseDirectly(true);
+      const { data, error } = await client
+        .from("chat_messages")
+        .select("*")
+        .order("timestamp", { ascending: false })
+        .limit(100);
+
+      if (error) {
+        console.warn("Could not query chat_messages. It might not be created in Supabase yet. Error:", error);
+        return;
+      }
+
+      if (data) {
+        const formatted: ChatMessage[] = [...data].reverse().map((m: any) => ({
+          id: m.id,
+          userId: m.user_id,
+          username: m.username,
+          userRole: m.user_role || "student",
+          gradeName: m.grade_name || null,
+          text: m.text,
+          timestamp: m.timestamp
+        }));
+        setMessages(formatted);
+      }
+    } catch (e) {
+      console.error("Direct Supabase fetch err:", e);
     }
   };
 
   useEffect(() => {
     fetchMessages();
 
-    // ⚡ Socket/SSE live update events listener using standard EventSource already hook-configured in App.tsx
-    const eventSource = new EventSource("/api/events");
-    
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "new_chat_message" && data.message) {
-          setMessages(prev => {
-            // Guard duplicate message entries
-            if (prev.some(m => m.id === data.message.id)) return prev;
-            return [...prev, data.message];
-          });
-          
-          // Auto scroll if user is already near bottom
-          if (chatContainerRef.current) {
-            const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
-            // If they are within 150px of the bottom, keep scrolling them down
-            if (scrollHeight - scrollTop - clientHeight < 150) {
-              setTimeout(() => scrollToBottom("smooth"), 100);
-            } else {
-              setShowScrollBtn(true);
+    // ⚡ Socket/SSE live update events listener with safety wrapper
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource("/api/events");
+      
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "new_chat_message" && data.message) {
+            setMessages(prev => {
+              if (prev.some(m => m.id === data.message.id)) return prev;
+              return [...prev, data.message];
+            });
+            
+            if (chatContainerRef.current) {
+              const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+              if (scrollHeight - scrollTop - clientHeight < 150) {
+                setTimeout(() => scrollToBottom("smooth"), 100);
+              } else {
+                setShowScrollBtn(true);
+              }
             }
+          } else if (data.type === "delete_chat_message" && data.id) {
+            setMessages(prev => prev.filter(m => m.id !== data.id));
           }
-        } else if (data.type === "delete_chat_message" && data.id) {
-          setMessages(prev => prev.filter(m => m.id !== data.id));
+        } catch (err) {
+          console.warn("SSE sync message parse error:", err);
         }
-      } catch (err) {
-        console.error("SSE Chat sync error:", err);
-      }
-    };
+      };
+    } catch (e) {
+      console.warn("Live EventSource SSE subscription failed. Relying on polling.");
+    }
 
-    // Simulate active user counts slightly fluctuating to give community vibes
+    // Dynamic presence indicator fluctuation
     setActiveUsersCount(12 + Math.floor(Math.random() * 8));
-    const interval = setInterval(() => {
+    const presenceInterval = setInterval(() => {
       setActiveUsersCount(prev => {
         const delta = Math.random() > 0.5 ? 1 : -1;
         const next = prev + delta;
@@ -125,10 +202,21 @@ export default function StudentChatRoom({
     }, 15000);
 
     return () => {
-      eventSource.close();
-      clearInterval(interval);
+      if (eventSource) eventSource.close();
+      clearInterval(presenceInterval);
     };
-  }, []);
+  }, [isUsingSupabaseDirectly]);
+
+  // Robust client-side polling interval fallback for serverless hosting like Vercel (updates every 3.5 seconds)
+  useEffect(() => {
+    if (!isUsingSupabaseDirectly) return;
+
+    const pollInterval = setInterval(() => {
+      fetchMessages(true);
+    }, 3500);
+
+    return () => clearInterval(pollInterval);
+  }, [isUsingSupabaseDirectly]);
 
   const scrollToBottom = (behavior: "smooth" | "auto" = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior });
@@ -158,6 +246,60 @@ export default function StudentChatRoom({
       setIsSending(true);
       setCensorshipWarning(false);
 
+      const originalText = inputText.trim();
+
+      if (isUsingSupabaseDirectly) {
+        const client = getSupabaseClient();
+        if (client) {
+          const filteredText = censorBadWords(originalText);
+          const newId = "MSG-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4);
+          
+          const payload = {
+            id: newId,
+            user_id: currentUser.id,
+            username: currentUser.username,
+            user_role: currentUser.user_role || "student",
+            grade_name: currentUser.grade_name || null,
+            text: filteredText,
+            timestamp: new Date().toISOString()
+          };
+
+          const { error } = await client.from("chat_messages").insert([payload]);
+          if (error) {
+            console.error("Direct Supabase message insertion error:", error);
+            alert(currentLang === "ar" 
+              ? "⚠️ لم يتم تفعيل جدول chat_messages بعد في قواعد أمان سوبابيس (RLS). تفضل بربط الجدول أو اطلب من الإدارة تفعيل الكود بنجاح." 
+              : "⚠️ Table chat_messages is not configured/configured with RLS in Supabase. Please ask Admin to apply SQL script."
+            );
+            return;
+          }
+
+          if (filteredText.includes("***") || (filteredText !== originalText && filteredText.includes("*"))) {
+            setCensorshipWarning(true);
+            setTimeout(() => setCensorshipWarning(false), 9000);
+          }
+
+          const formattedMessage: ChatMessage = {
+            id: newId,
+            userId: currentUser.id,
+            username: currentUser.username,
+            userRole: currentUser.user_role || "student",
+            gradeName: currentUser.grade_name || null,
+            text: filteredText,
+            timestamp: payload.timestamp
+          };
+
+          setMessages(prev => {
+            if (prev.some(m => m.id === newId)) return prev;
+            return [...prev, formattedMessage];
+          });
+
+          setInputText("");
+          setTimeout(() => scrollToBottom("smooth"), 100);
+        }
+        return;
+      }
+
       const payload = {
         userId: currentUser.id,
         username: currentUser.username,
@@ -165,8 +307,6 @@ export default function StudentChatRoom({
         gradeName: currentUser.grade_name || null,
         text: inputText.trim()
       };
-
-      const originalText = inputText.trim();
 
       const res = await fetch("/api/chat/send", {
         method: "POST",
@@ -177,7 +317,6 @@ export default function StudentChatRoom({
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.message) {
-          // Check if server-side censored anything (e.g. contains asterisk where original text did not)
           if (data.message.text.includes("***") || (data.message.text !== originalText && data.message.text.includes("*"))) {
             setCensorshipWarning(true);
             setTimeout(() => setCensorshipWarning(false), 9000);
@@ -205,13 +344,29 @@ export default function StudentChatRoom({
     if (!isConfirmed) return;
 
     try {
+      if (isUsingSupabaseDirectly) {
+        const client = getSupabaseClient();
+        if (client) {
+          const { error } = await client
+            .from("chat_messages")
+            .delete()
+            .eq("id", messageId);
+
+          if (error) {
+            console.error("Direct Supabase deletion error:", error);
+            return;
+          }
+          setMessages(prev => prev.filter(m => m.id !== messageId));
+        }
+        return;
+      }
+
       const res = await fetch("/api/chat/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Simple admin authorization password parameter verified on server side
         body: JSON.stringify({ 
           messageId,
-          adminPassword: "20302060" // Matches standard client configuration password
+          adminPassword: "20302060" 
         })
       });
 

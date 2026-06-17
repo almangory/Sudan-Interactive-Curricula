@@ -482,7 +482,23 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow select for everyone on users" ON users FOR SELECT USING (true);
 CREATE POLICY "Allow insert update for all on users" ON users FOR ALL USING (true) WITH CHECK (true);
 
--- 4. تنشيط ذاكرة الكاش المؤقتة لـ PostgREST لتسريع قراءة وحفظ الأعمدة الجديدة:
+-- 4. إنشاء جدول الرسائل الفورية للدردشة الطلابية (chat_messages)
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  username TEXT NOT NULL,
+  user_role TEXT DEFAULT 'student',
+  grade_name TEXT DEFAULT NULL,
+  text TEXT NOT NULL,
+  timestamp TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow select for everyone on chat_messages" ON chat_messages FOR SELECT USING (true);
+CREATE POLICY "Allow insert for everyone on chat_messages" ON chat_messages FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow delete for everyone on chat_messages" ON chat_messages FOR DELETE USING (true);
+
+-- 5. تنشيط ذاكرة الكاش المؤقتة لـ PostgREST لتسريع قراءة وحفظ الأعمدة الجديدة:
 NOTIFY pgrst, 'reload schema';`;
 
   const handleCreateDatabaseTable = async () => {
