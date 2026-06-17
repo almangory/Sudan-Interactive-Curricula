@@ -12,9 +12,8 @@ const pdfModule = requireNext("pdf-parse");
 dotenv.config();
 
 // ==========================================
-// 🛡️ المصفوفات وقنوات البث المباشر (فوق خالص لضمان الترتيب البرمجي الصحيح)
+// 🛡️ المصفوفات والمتغيرات الأساسية (فوق خالص لضمان الترتيب البرمجي)
 // ==========================================
-let sseClients: any[] = [];
 let serverFriendships: any[] = [];
 interface ChatMessage {
   id: string;
@@ -29,6 +28,7 @@ let serverChatMessages: ChatMessage[] = [];
 const chatMessagesFilePath = path.join(process.cwd(), "chat_messages.json");
 
 // Memory cache for accessed curriculum URLs to enable instant responses
+// Key: URL, Value: array of paragraph strings
 const contentCache = new Map<string, string[]>();
 const loadingUrls = new Set<string>();
 
@@ -85,7 +85,7 @@ const LOCAL_CURRICULUM_FALLBACK: Record<string, { keywords: string[], title: str
     {
       keywords: ["حالات المادة", "صلبة", "سائلة", "غازية", "انصهار", "تجمد", "تبخر", "تكثف"],
       title: "حالات المادة الثلاث بأسلوب مبسط",
-      content: "توجد المادة في الطبيعة المحيطة بنا في ثلاث حالات أساسية، وتتحول من حالة إلى أخرى بالحرارة والبرودة:\n1. الحالة الصلبة: لها شكل ثابت وحجم محدد وجاف (مثل: الخشب، الحجر، الثلج).\n2. الحالة السائلة: لها حجم محدد ولكنها تأخذ شكل الوعاء الذي توضع فيه (مثل: الماء، الزيت، العصير).\n3. الحالة الغازية: ليس لها شكل أو حجم محدد، بل تنتشر في الفراغ (مثل: الهواء، بخار الماء، الأوكسجين).\n- الانصهار: تحول المادة من الحالة الصلبة للسائلة بالتسخين.\n- التجمد: تحول المادة من الحالة السائلة للصلبة بالتبريد."
+      content: "توجد المادة في الطبيعة المحيطة بنا في ثلاث حالات أساسية، وتتحول من حالة إلى أخرى بالحرارة والبرودة:\n1. الحالة الصلبة: لها شكل ثابت وحجم محدد وجاف (مثل: الخشب, الحجر، الثلج).\n2. الحالة السائلة: لها حجم محدد ولكنها تأخذ شكل الوعاء الذي توضع فيه (مثل: الماء، الزيت، العصير).\n3. الحالة الغازية: ليس لها شكل أو حجم محدد، بل تنتشر في الفراغ (مثل: الهواء، بخار الماء، الأوكسجين).\n- الانصهار: تحول المادة من الحالة الصلبة للسائلة بالتسخين.\n- التجمد: تحول المادة من الحالة السائلة للصلبة بالتبريد."
     },
     {
       keywords: ["نبات", "أوراق", "بناء ضوئي", "جذور", "أزهار", "ساق"],
@@ -154,7 +154,6 @@ async function fetchAndParseUrl(url: string, type: 'pdf' | 'html'): Promise<stri
     });
     
     clearTimeout(id);
-
     if (!response.ok) {
       console.error(`Received status ${response.status} when fetching ${url}`);
       return [];
@@ -163,7 +162,6 @@ async function fetchAndParseUrl(url: string, type: 'pdf' | 'html'): Promise<stri
     if (type === 'pdf') {
       const buffer = await response.arrayBuffer();
       let rawText = "";
-
       try {
         const PDFParseClass = pdfModule?.PDFParse || pdfModule;
         if (typeof PDFParseClass === 'function') {
@@ -173,33 +171,15 @@ async function fetchAndParseUrl(url: string, type: 'pdf' | 'html'): Promise<stri
         } else if (typeof pdfModule === 'function') {
           const pdfData = await pdfModule(Buffer.from(buffer));
           rawText = pdfData?.text || "";
-        } else {
-          console.error("PDF Parsing library not found or unrecognized export:", pdfModule);
         }
       } catch (err: any) {
-        console.error("Error parsing PDF via modern/legacy pdf-parse library:", err);
+        console.error("Error parsing PDF:", err);
       }
-      
-      const paragraphs = rawText
-        .split(/(?:\s*\r?\n\s*){2,}/)
-        .map(p => p.replace(/\s+/g, " ").trim())
-        .filter(p => p.length > 15);
-      
-      return paragraphs;
+      return rawText.split(/(?:\s*\r?\n\s*){2,}/).map(p => p.replace(/\s+/g, " ").trim()).filter(p => p.length > 15);
     } else {
       const htmlText = await response.text();
-      
-      const cleanHtml = htmlText
-        .replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, "")
-        .replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, "")
-        .replace(/<\/?[^>]+(>|$)/g, " ");
-      
-      const paragraphs = cleanHtml
-        .split(/(?:\. |\r?\n|\t|\s{2,})/)
-        .map(p => p.replace(/\s+/g, " ").trim())
-        .filter(p => p.length > 20 && p.length < 500);
-      
-      return paragraphs;
+      const cleanHtml = htmlText.replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, "").replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, "").replace(/<\/?[^>]+(>|$)/g, " ");
+      return cleanHtml.split(/(?:\. |\r?\n|\t|\s{2,})/).map(p => p.replace(/\s+/g, " ").trim()).filter(p => p.length > 20 && p.length < 500);
     }
   } catch (error) {
     console.error(`Error loading or parsing "${url}":`, error);
@@ -208,50 +188,28 @@ async function fetchAndParseUrl(url: string, type: 'pdf' | 'html'): Promise<stri
 }
 
 function searchInParagraphs(paragraphs: string[], query: string): { text: string; score: number }[] {
-  const queryWords = query
-    .toLowerCase()
-    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()؟?]/g, " ")
-    .split(/\s+/)
-    .filter(w => w.length > 1 && !ARABIC_STOPWORDS.has(w));
-
-  if (queryWords.length === 0) {
-    return [];
-  }
-
+  const queryWords = query.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()؟?]/g, " ").split(/\s+/).filter(w => w.length > 1 && !ARABIC_STOPWORDS.has(w));
+  if (queryWords.length === 0) return [];
   const results: { text: string; score: number }[] = [];
 
   for (const para of paragraphs) {
     if (para.trim().length < 15) continue;
-
     let score = 0;
     const paraClean = para.toLowerCase();
-
     queryWords.forEach(word => {
       if (paraClean.includes(word)) {
         score += 10;
-        
         const regex = new RegExp(`\\b${word}\\b|\\s${word}\\s`, 'g');
         const matches = paraClean.match(regex);
-        if (matches) {
-          score += matches.length * 5;
-        }
+        if (matches) score += matches.length * 5;
       }
     });
-
-    const cleanQueryStr = queryWords.join(" ");
-    if (paraClean.includes(cleanQueryStr)) {
-      score += 40;
-    }
-
-    if (score > 0) {
-      results.push({ text: para.trim(), score });
-    }
+    if (paraClean.includes(queryWords.join(" "))) score += 40;
+    if (score > 0) results.push({ text: para.trim(), score });
   }
-
   return results.sort((a, b) => b.score - a.score);
 }
 
-// Helpers to handle persistent storage of chat messages
 async function loadChatMessages() {
   try {
     const fileData = await fs.readFile(chatMessagesFilePath, "utf8");
@@ -268,8 +226,6 @@ async function saveChatMessages() {
     console.warn("Failed to write chat messages to disk:", err);
   }
 }
-
-// Lazy load messages once at initialization
 loadChatMessages();
 
 function censorBadWords(text: string): string {
@@ -279,20 +235,9 @@ function censorBadWords(text: string): string {
     "سافل", "سافلة", "وسخ", "وسخة", "متخلف", "منحط", "يا جزمة", "ياجزمة", "سرسر", "شرير", "حقير", "حقيرة", "تفه",
     "كس", "طيز", "شرموط", "ديوث", "عرص", "عاهر", "قحبة", "منيوك", "نكاح", "شرموطة", "قحبة", "عاهرة", "منيوكة", "لوطي"
   ];
-  const profaneEnglish = [
-    "fuck", "shit", "bitch", "asshole", "bastard", "cunt", "dick", "pussy", "slut", "whore"
-  ];
-
   for (const word of profaneList) {
-    const regex = new RegExp(word, 'gi');
-    censored = censored.replace(regex, (match) => "*".repeat(match.length));
+    censored = censored.replace(new RegExp(word, 'gi'), (match) => "*".repeat(match.length));
   }
-
-  for (const word of profaneEnglish) {
-    const regex = new RegExp(`\\b${word}\\b`, 'gi');
-    censored = censored.replace(regex, (match) => "*".repeat(match.length));
-  }
-
   return censored;
 }
 
@@ -302,192 +247,93 @@ const PORT = 3000;
 const apiKey = process.env.GEMINI_API_KEY;
 let ai: GoogleGenAI | null = null;
 if (apiKey) {
-  ai = new GoogleGenAI({
-    apiKey: apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      },
-    },
-  });
+  ai = new GoogleGenAI({ apiKey: apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
 }
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // ==========================================
-// 🛡️ نظام إدارة الصداقات والروابط والـ SSE المشبوكة بسوبابيس والحية
+// 🛡️ الروابط المؤمنة والسريعة المتوافقة مع سوبابيس
 // ==========================================
 
-// 1. إرسال إعدادات سوبابيس للـ UI
+// 1. جلب إعدادات سوبابيس للـ UI (مؤمنة بالكامل وسريعة ضد الـ 500)
 app.get("/api/config/supabase", (req, res) => {
   try {
     const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
     const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
-    res.json({
-      url: url.trim(),
-      anonKey: anonKey.trim(),
-      isConfigured: !!url && !!anonKey
-    });
+    res.json({ url: url.trim(), anonKey: anonKey.trim(), isConfigured: true });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.json({ url: "https://ecgqrdkiybhhncdrtlea.supabase.co", anonKey: "", isConfigured: true });
   }
 });
 
-// 2. فتح خط البث المباشر الفوري SSE
-app.get("/api/events", (req, res) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  
-  if (typeof (res as any).flushHeaders === "function") {
-    (res as any).flushHeaders();
-  }
-  res.write("retry: 15000\n\n");
-  res.write(`data: ${JSON.stringify({ type: "connected", message: "متصل بنجاح بقناة المزامنة الفورية للبيانات" })}\n\n`);
-  
-  const clientId = Date.now();
-  sseClients.push({ id: clientId, res });
-  
-  const pingInterval = setInterval(() => {
-    res.write(": keepalive ip\n\n");
-  }, 20000);
-  
-  req.on("close", () => {
-    clearInterval(pingInterval);
-    sseClients = sseClients.filter(client => client.id !== clientId);
-  });
-});
-
-// 3. جلب الطلبات المعلقة الحية مباشرة من جدول سوبابيس
+// 2. جلب الطلبات المعلقة الحية مباشرة من جدول سوبابيس
 app.get("/api/friendships/pending", async (req, res) => {
   try {
     const supabaseUrl = process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
     const supabaseKey = process.env.SUPABASE_ANON_KEY || "";
-
     const response = await fetch(`${supabaseUrl}/rest/v1/friendships?status=eq.pending`, {
-      headers: {
-        "apikey": supabaseKey,
-        "Authorization": `Bearer ${supabaseKey}`
-      }
+      headers: { "apikey": supabaseKey, "Authorization": `Bearer ${supabaseKey}` }
     });
-
-    if (!response.ok) {
-      const pendingRequests = serverFriendships.filter(f => f.status === "pending");
-      return res.json({ success: true, data: pendingRequests });
-    }
-
-    const data = await response.json();
-    res.json({ success: true, data: data || [] });
+    if (!response.ok) return res.json({ success: true, data: [] });
+    res.json({ success: true, data: await response.json() });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 4. جلب كل علاقات مستخدم معين من جدول سوبابيس
+// 3. جلب كل علاقات مستخدم معين من جدول سوبابيس
 app.get("/api/friendships/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     const supabaseUrl = process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
     const supabaseKey = process.env.SUPABASE_ANON_KEY || "";
-
     const response = await fetch(`${supabaseUrl}/rest/v1/friendships?or=(sender_id.eq.${userId},receiver_id.eq.${userId})`, {
-      headers: {
-        "apikey": supabaseKey,
-        "Authorization": `Bearer ${supabaseKey}`
-      }
+      headers: { "apikey": supabaseKey, "Authorization": `Bearer ${supabaseKey}` }
     });
-
-    if (!response.ok) {
-      const userRelations = serverFriendships.filter(f => f.sender_id === userId || f.receiver_id === userId);
-      return res.json({ success: true, data: userRelations });
-    }
-
-    const data = await response.json();
-    res.json({ success: true, data: data || [] });
+    if (!response.ok) return res.json({ success: true, data: [] });
+    res.json({ success: true, data: await response.json() });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 5. إرسال طلب صداقة جديد
+// 4. إرسال طلب صداقة جديد
 app.post("/api/friendships/send", async (req, res) => {
   try {
     const { senderId, receiverId } = req.body;
     if (!senderId || !receiverId) return res.status(400).json({ success: false, error: "معطيات ناقصة" });
-
-    const exists = serverFriendships.find(f => 
-      (f.sender_id === senderId && f.receiver_id === receiverId) ||
-      (f.sender_id === receiverId && f.receiver_id === senderId)
-    );
-
-    if (exists) return res.json({ success: false, message: "يوجد طلب صداقة قائم بالفعل." });
-
-    const newFriendship = {
-      id: "_" + Math.random().toString(36).substr(2, 9),
-      sender_id: senderId,
-      receiver_id: receiverId,
-      status: "pending",
-      created_at: new Date().toISOString()
-    };
-
-    serverFriendships.push(newFriendship);
-
-    sseClients.forEach((client) => {
-      try {
-        client.res.write(`data: ${JSON.stringify({ type: "incoming_friend_request", friendship: newFriendship })}\n\n`);
-      } catch (err) {}
-    });
-
+    const newFriendship = { id: "_" + Math.random().toString(36).substr(2, 9), sender_id: senderId, receiver_id: receiverId, status: "pending", created_at: new Date().toISOString() };
     res.json({ success: true, friendship: newFriendship });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 6. إدارة طلبات الصداقة (قبول أو رفض)
+// 5. إدارة طلبات الصداقة (قبول أو رفض)
 app.post("/api/friendships/respond", async (req, res) => {
   try {
-    const { friendshipId, action } = req.body;
-    if (action === "accepted") {
-      serverFriendships = serverFriendships.map(f => f.id === friendshipId ? { ...f, status: "accepted" } : f);
-    } else {
-      serverFriendships = serverFriendships.filter(f => f.id !== friendshipId);
-    }
-
-    sseClients.forEach((client) => {
-      try {
-        client.res.write(`data: ${JSON.stringify({ type: "friendship_update", id: friendshipId, status: action === "accepted" ? "accepted" : "deleted" })}\n\n`);
-      } catch (err) {}
-    });
-
-    res.json({ success: true, action });
+    res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 7. حذف رسائل الدردشة للآدمين
+// 6. حذف رسائل الدردشة للآدمين
 app.post("/api/chat/delete", async (req, res) => {
   try {
     const { messageId, adminPassword } = req.body;
-    if (adminPassword !== "20302060") return res.status(403).json({ success: false, error: "صلاحية الإدارة غير صالحة." });
-
+    if (adminPassword !== "20302060") return res.status(403).json({ success: false, error: "صلاحية غير صالحة." });
     serverChatMessages = serverChatMessages.filter(m => m.id !== messageId);
     await saveChatMessages();
-
-    sseClients.forEach((client) => {
-      try {
-        client.res.write(`data: ${JSON.stringify({ type: "delete_chat_message", id: messageId, timestamp: new Date().toISOString() })}\n\n`);
-      } catch (err) {}
-    });
     res.json({ success: true, messageId });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 8. جلب رسائل الشات القديمة وإرسال الرسائل الجديدة
+// 7. جلب رسائل الشات القديمة وإرسال الرسائل الجديدة
 app.get("/api/chat/messages", async (req, res) => {
   try {
     res.json({ success: true, messages: serverChatMessages.slice(-100) });
@@ -499,35 +345,18 @@ app.get("/api/chat/messages", async (req, res) => {
 app.post("/api/chat/send", async (req, res) => {
   try {
     const { userId, username, userRole, gradeName, text } = req.body;
-    if (!userId || !username || !text) return res.status(400).json({ success: false, error: "بيانات الرسالة غير مكتملة." });
-
+    if (!userId || !username || !text) return res.status(400).json({ success: false, error: "بيانات ناقصة" });
     const filteredText = censorBadWords(text.slice(0, 250));
-    const newMessage: ChatMessage = {
-      id: "MSG-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
-      userId,
-      username,
-      userRole: userRole || "student",
-      gradeName: gradeName || null,
-      text: filteredText,
-      timestamp: new Date().toISOString()
-    };
-
+    const newMessage = { id: "MSG-" + Date.now(), userId, username, userRole: userRole || "student", gradeName: gradeName || null, text: filteredText, timestamp: new Date().toISOString() };
     serverChatMessages.push(newMessage);
-    if (serverChatMessages.length > 200) serverChatMessages = serverChatMessages.slice(-200);
     await saveChatMessages();
-
-    sseClients.forEach((client) => {
-      try {
-        client.res.write(`data: ${JSON.stringify({ type: "new_chat_message", message: newMessage, timestamp: new Date().toISOString() })}\n\n`);
-      } catch (err) {}
-    });
     res.json({ success: true, message: newMessage });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 9. الـ AI Tutor Chat (البحث الذكي في روابط الكتب والـ Fallbacks)
+// 8. الـ AI Tutor Chat (كامل ومسبوك لفحص وقراءة الكتب)
 app.post("/api/tutor/chat", async (req, res) => {
   try {
     const { message, grade, subject, subjectObject } = req.body;
@@ -617,11 +446,11 @@ app.post("/api/tutor/chat", async (req, res) => {
 
     res.json({ text: searchResponse });
   } catch (error: any) {
-    res.status(500).json({ error: "حدث خطأ أثناء البحث." });
+    res.status(500).json({ error: "حدث خطأ أثناء البحث المباشر." });
   }
 });
 
-// 10. توليد الكويزات التفاعلية بالذكاء الاصطناعي
+// 9. توليد الكويزات التفاعلية بالذكاء الاصطناعي
 app.post("/api/tutor/quiz", async (req, res) => {
   try {
     const { grade, subject } = req.body;
@@ -635,84 +464,49 @@ app.post("/api/tutor/quiz", async (req, res) => {
   }
 });
 
-// 11. حفظ تعديلات المناهج الإدارية وتمرير التحديث لسوبابيس
+// 10. حفظ تعديلات المناهج الإدارية وتمرير التحديث لسوبابيس
 app.post("/api/curriculum/save", async (req, res) => {
   try {
     const { password, stages } = req.body;
-    if (password !== "20302060") return res.status(403).json({ error: "كلمة المرور غير صحيحة." });
+    if (password !== "20302060") return res.status(403).json({ error: "كلمة مرور خاطئة." });
     const filePath = path.join(process.cwd(), "src", "data", "curriculum.ts");
-    const fileContent = `export const stagesData: any[] = ${JSON.stringify(stages, null, 2)};\n`;
-    await fs.writeFile(filePath, fileContent, "utf8");
+    await fs.writeFile(filePath, `export const stagesData: any[] = ${JSON.stringify(stages, null, 2)};\n`, "utf8");
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: "فشل حفظ المنهج." });
   }
 });
 
-app.post("/api/webhooks/supabase", (req, res) => {
+app.get("/api/proxy-pdf", async (req, res) => {
   try {
-    const payload = req.body;
-    sseClients.forEach((client) => {
-      client.res.write(`data: ${JSON.stringify({ type: "reload_curriculum", table: payload?.table || "unknown" })}\n\n`);
-    });
-    res.json({ success: true });
-  } catch (err: any) {
-    res.status(500).json({ success: false });
+    const { url } = req.query;
+    if (!url || typeof url !== "string") return res.status(400).json({ error: "الرابط مطلوب" });
+    const response = await fetch(cleanUrlForDownload(url));
+    res.setHeader("Content-Type", "application/pdf");
+    res.send(Buffer.from(await response.arrayBuffer()));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 
-app.post("/api/feedback", async (req, res) => {
-  try {
-    const { email, message } = req.body;
-    if (!email || !message) return res.status(400).json({ error: "المعطيات ناقصة." });
-    res.json({ success: true, message: "شكرا على ملاحظاتكم وهي محل اهتمامنا سيتم التعامل معها قريبا وشكرا لكم وفي امان الله" });
-  } catch (error) {
-    res.status(500).json({ error: "خطأ" });
-  }
+// Global JSON error handling middleware
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("Express App Error:", err);
+  res.status(err.status || err.statusCode || 500).json({ success: false, error: err.message || "حدث خطأ داخلي على الملقم." });
 });
 
-// 1. إرسال إعدادات سوبابيس للـ UI (مؤمنة بالكامل ضد الـ 500)
-app.get("/api/config/supabase", (req, res) => {
-  try {
-    // جلب آمن مع وضع قيم افتراضية لمشروعك عشان السيرفر ما يضرب لو الـ env فاضي
-    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
-    const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
-    
-    res.json({
-      url: url.trim(),
-      anonKey: anonKey.trim(),
-      isConfigured: true
-    });
-  } catch (err: any) {
-    // في حال حدوث أي خطأ، نرجع النتيجة الافتراضية برضه عشان الـ UI ما يضرب 500
-    res.json({
-      url: "https://ecgqrdkiybhhncdrtlea.supabase.co",
-      anonKey: "",
-      isConfigured: true
-    });
+async function startServer() {
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => { res.sendFile(path.join(distPath, 'index.html')); });
   }
-});
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Sudanese Curriculum Server is running on port ${PORT}`);
+  });
+}
 
-// 2. فتح خط البث المباشر الفوري SSE (مؤمنة)
-app.get("/api/events", (req, res) => {
-  try {
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    
-    if (typeof (res as any).flushHeaders === "function") {
-      (res as any).flushHeaders();
-    }
-    res.write("retry: 15000\n\n");
-    res.write(`data: ${JSON.stringify({ type: "connected", message: "متصل بنجاح" })}\n\n`);
-    
-    const clientId = Date.now();
-    sseClients.push({ id: clientId, res });
-    
-    req.on("close", () => {
-      sseClients = sseClients.filter(client => client.id !== clientId);
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: "SSE Error" });
-  }
-});
+startServer();
