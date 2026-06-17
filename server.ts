@@ -816,6 +816,97 @@ app.post("/api/chat/delete", async (req, res) => {
   }
 });
 
+// ==========================================
+// 🛡️ نظام إدارة الصداقات الجديد (فوري وعبر الـ SSE)
+// ==========================================
+
+// مصفوفة محلية لحفظ الصداقات داخل السيرفر مؤقتاً ومزامنتها
+let serverFriendships: any[] = [];
+
+// 1. إرسال طلب صداقة جديد
+app.post("/api/friendships/send", async (req, res) => {
+  try {
+    const { senderId, receiverId } = req.body;
+
+    if (!senderId || !receiverId) {
+      return res.status(400).json({ success: false, error: "معطيات ناقصة" });
+    }
+
+    // التحقق من عدم وجود طلب سابق
+    const exists = serverFriendships.find(f => 
+      (f.sender_id === senderId && f.receiver_id === receiverId) ||
+      (f.sender_id === receiverId && f.receiver_id === senderId)
+    );
+
+    if (exists) {
+      return res.json({ success: false, message: "يوجد طلب صداقة قائم بالفعل." });
+    }
+
+    const newFriendship = {
+      id: "_" + Math.random().toString(36).substr(2, 9),
+      sender_id: senderId,
+      receiver_id: receiverId,
+      status: "pending",
+      created_at: new Date().toISOString()
+    };
+
+    serverFriendships.push(newFriendship);
+
+    // بث الإشعار فوراً للمستخدم المستهدف عبر الـ SSE
+    sseClients.forEach((client) => {
+      try {
+        client.res.write(`data: ${JSON.stringify({
+          type: "incoming_friend_request",
+          friendship: newFriendship
+        })}\n\n`);
+      } catch (err) {}
+    });
+
+    res.json({ success: true, friendship: newFriendship });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 2. إدارة طلبات الصداقة (قبول أو رفض)
+app.post("/api/friendships/respond", async (req, res) => {
+  try {
+    const { friendshipId, action } = req.body; // action: 'accepted' أو 'rejected'
+
+    if (action === "accepted") {
+      serverFriendships = serverFriendships.map(f => 
+        f.id === friendshipId ? { ...f, status: "accepted" } : f
+      );
+    } else {
+      serverFriendships = serverFriendships.filter(f => f.id !== friendshipId);
+    }
+
+    // بث التحديث الفوري للطرفين
+    sseClients.forEach((client) => {
+      try {
+        client.res.write(`data: ${JSON.stringify({
+          type: "friendship_update",
+          id: friendshipId,
+          status: action === "accepted" ? "accepted" : "deleted"
+        })}\n\n`);
+      } catch (err) {}
+    });
+
+    res.json({ success: true, action });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 3. جلب قائمة الأصدقاء والطلبات المعلقة لمستخدم معين
+app.get("/api/friendships/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const userRelations = serverFriendships.filter(f => f.sender_id === userId || f.receiver_id === userId);
+  res.json({ success: true, data: userRelations });
+});
+
+// ==========================================
+
 // Global JSON error handling middleware to safely catch body-parser/payload and unexpected server errors
 app.use((err: any, req: any, res: any, next: any) => {
   console.error("Express App Error:", err);
@@ -844,7 +935,7 @@ async function startServer() {
   // Listen to port 3000 (Mandatory as per environmental constraints)
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Sudanese Curriculum Server is running on port ${PORT}`);
-  });
+    });
 }
 
 startServer();
