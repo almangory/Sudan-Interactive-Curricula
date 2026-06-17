@@ -801,11 +801,32 @@ app.get("/api/friendships/pending", async (req, res) => {
   }
 });
 
-// 2. جلب كل علاقات مستخدم معين (احتياطية لو طلبها بالـ ID)
+// 2. جلب كل علاقات مستخدم معين (مباشرة من جدول سوبابيس بالـ ID لضمان التزامن)
 app.get("/api/friendships/:userId", async (req, res) => {
-  const { userId } = req.params;
-  const userRelations = serverFriendships.filter(f => f.sender_id === userId || f.receiver_id === userId);
-  res.json({ success: true, data: userRelations });
+  try {
+    const { userId } = req.params;
+    const supabaseUrl = process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
+    const supabaseKey = process.env.SUPABASE_ANON_KEY || "";
+
+    // جلب طلبات الصداقة الخاصة باليوزر ده (سواء هو المرسل أو المستقبل) مباشرة من سوبابيس
+    const response = await fetch(`${supabaseUrl}/rest/v1/friendships?or=(sender_id.eq.${userId},receiver_id.eq.${userId})`, {
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": `Bearer ${supabaseKey}`
+      }
+    });
+
+    if (!response.ok) {
+      // Fallback للمصفوفة المحلية في حال حدوث خطأ في الاتصال
+      const userRelations = serverFriendships.filter(f => f.sender_id === userId || f.receiver_id === userId);
+      return res.json({ success: true, data: userRelations });
+    }
+
+    const data = await response.json();
+    res.json({ success: true, data: data || [] });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // 3. إرسال طلب صداقة جديد
@@ -817,7 +838,7 @@ app.post("/api/friendships/send", async (req, res) => {
       return res.status(400).json({ success: false, error: "معطيات ناقصة" });
     }
 
-    // التحقق من عدم وجود طلب سابق
+    // التحقق من عدم وجود طلب سابق في المصفوفة الاحتياطية
     const exists = serverFriendships.find(f => 
       (f.sender_id === senderId && f.receiver_id === receiverId) ||
       (f.sender_id === receiverId && f.receiver_id === senderId)
