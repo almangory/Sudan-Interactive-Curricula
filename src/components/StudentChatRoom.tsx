@@ -234,19 +234,96 @@ export default function StudentChatRoom({
     }
   }, [currentUser]);
 
-  // Robust polling for instant real-time sync when on Vercel state
+  // Robust real-time subscription & safe polling sync fallback
   useEffect(() => {
     if (!currentUser) return;
+    const client = getSupabaseClient();
+    if (!client) return;
 
+    // 1. Supabase Secure Realtime Channel Subscription
+    const channel = client
+      .channel("chat-room-sync")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "chat_messages" },
+        async (payload) => {
+          const newMsg = payload.new;
+          if (!newMsg) return;
+
+          try {
+            // Retrieve latest friendships on-the-fly to filter realtime inserts
+            const { data: relations } = await client
+              .from("friendships")
+              .select("*")
+              .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`);
+
+            const approvedFriendIds = new Set<string>();
+            approvedFriendIds.add(currentUser.id);
+
+            if (relations) {
+              relations.forEach((rel: any) => {
+                if (rel.status === "accepted") {
+                  approvedFriendIds.add(rel.sender_id === currentUser.id ? rel.receiver_id : rel.sender_id);
+                }
+              });
+            }
+
+            // Strictly filter realtime message inserts
+            if (approvedFriendIds.has(newMsg.user_id) || newMsg.user_role === "admin") {
+              const formatted: ChatMessage = {
+                id: newMsg.id,
+                userId: newMsg.user_id,
+                username: newMsg.username,
+                userRole: newMsg.user_role || "student",
+                gradeName: newMsg.grade_name || null,
+                text: newMsg.text,
+                timestamp: newMsg.timestamp
+              };
+
+              setMessages(prev => {
+                if (prev.some(m => m.id === formatted.id)) return prev;
+                return [...prev, formatted];
+              });
+
+              // Smoothly scroll down
+              setTimeout(() => {
+                if (chatContainerRef.current) {
+                  const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+                  if (scrollHeight - scrollTop - clientHeight < 150) {
+                    scrollToBottom("smooth");
+                  }
+                }
+              }, 120);
+            }
+          } catch (err) {
+            console.warn("Realtime insert processing fallback error:", err);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "chat_messages" },
+        (payload) => {
+          const oldMsg = payload.old;
+          if (oldMsg && oldMsg.id) {
+            setMessages(prev => prev.filter(m => m.id !== oldMsg.id));
+          }
+        }
+      )
+      .subscribe();
+
+    // 2. High-reliability Polling Fallback (syncs everything perfectly)
     const syncInterval = setInterval(() => {
       fetchMessagesDirect(true);
-      // Fetch friendships sparingly to conserve DB quota
       if (Math.random() > 0.75) {
         fetchFriendshipsAndPeers();
       }
     }, 3800);
 
-    return () => clearInterval(syncInterval);
+    return () => {
+      client.removeChannel(channel);
+      clearInterval(syncInterval);
+    };
   }, [currentUser]);
 
   const scrollToBottom = (behavior: "smooth" | "auto" = "smooth") => {
@@ -628,32 +705,74 @@ export default function StudentChatRoom({
         {activeCategoryTab === "chat" && (
           <div className="grid grid-cols-1 md:grid-cols-4 min-h-[420px]">
             {/* Left sidebar listing of current friends inside chat tab */}
-            <div className="hidden md:block col-span-1 border-l border-slate-900 bg-slate-900/20 p-4 space-y-4">
-              <h4 className="text-3xs font-black text-indigo-400 uppercase tracking-wider">
-                {currentLang === "ar" ? "أصدقاؤك المقبولين 🟢" : "My Friends 🟢"}
-              </h4>
-              <div className="space-y-2 max-h-[350px] overflow-y-auto">
-                {allUsers.filter(u => activeFriendIds.has(u.id)).length === 0 ? (
-                  <p className="text-5xs text-slate-500 italic">
-                    {currentLang === "ar" ? "لا يوجد أصدقاء بعد. تصفح دليل الطلاب وأرسل لهم طلبات صداقة!" : "No friends added. Use Finder to add peers!"}
-                  </p>
-                ) : (
-                  allUsers.filter(u => activeFriendIds.has(u.id)).map(friend => (
-                    <div 
-                      key={friend.id}
-                      className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center gap-2.5 text-3xs font-bold text-slate-305"
-                    >
-                      <div className="w-6 h-6 rounded-lg bg-indigo-950/40 text-indigo-400 flex items-center justify-center font-black">
-                        {friend.username.charAt(0).toUpperCase()}
+            <div className="hidden md:block col-span-1 border-l border-slate-900 bg-slate-900/20 p-4 space-y-5">
+              <div className="space-y-3">
+                <h4 className="text-3xs font-black text-indigo-400 uppercase tracking-wider">
+                  {currentLang === "ar" ? "أصدقاؤك المقبولين 🟢" : "My Friends 🟢"}
+                </h4>
+                <div className="space-y-2 max-h-[190px] overflow-y-auto">
+                  {allUsers.filter(u => activeFriendIds.has(u.id)).length === 0 ? (
+                    <p className="text-5xs text-slate-500 italic leading-relaxed">
+                      {currentLang === "ar" ? "لا يوجد أصدقاء بعد. تصفح دليل الطلاب وأرسل لهم طلبات صداقة!" : "No friends added. Use Finder to add peers!"}
+                    </p>
+                  ) : (
+                    allUsers.filter(u => activeFriendIds.has(u.id)).map(friend => (
+                      <div 
+                        key={friend.id}
+                        className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center gap-2.5 text-3xs font-bold text-slate-305"
+                      >
+                        <div className="w-6 h-6 rounded-lg bg-indigo-950/40 text-indigo-400 flex items-center justify-center font-black">
+                          {friend.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="block text-slate-205 truncate text-4xs">{friend.username}</span>
+                          <span className="block text-5xs text-slate-500 font-medium">{friend.grade_name || "عام"}</span>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <span className="block text-slate-205 truncate">{friend.username}</span>
-                        <span className="block text-5xs text-slate-500 font-medium">{friend.grade_name || "عام"}</span>
-                      </div>
-                    </div>
-                  ))
-                )}
+                    ))
+                  )}
+                </div>
               </div>
+
+              {/* Incoming Friend Requests Side Panel with direct Accept/Decline Actions */}
+              {pendingIncoming.length > 0 && (
+                <div className="space-y-3 pt-3 border-t border-slate-900/60">
+                  <h4 className="text-3xs font-black text-amber-500 uppercase tracking-wider flex items-center gap-1.5 select-none">
+                    <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
+                    <span>{currentLang === "ar" ? "طلبات معلقة 🔔" : "Pending Requests 🔔"}</span>
+                  </h4>
+                  <div className="space-y-2 max-h-[160px] overflow-y-auto">
+                    {pendingIncoming.map(req => {
+                      const sender = allUsers.find(u => u.id === req.sender_id);
+                      if (!sender) return null;
+                      return (
+                        <div key={req.id} className="p-2 rounded-xl bg-slate-950/85 border border-slate-850/80 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 rounded-md bg-indigo-950/50 text-indigo-405 flex items-center justify-center font-black text-4xs">
+                              {sender.username.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="text-4xs font-bold text-slate-200 truncate block max-w-[100px]">{sender.username}</span>
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleAcceptFriend(req.id, sender)}
+                              className="flex-1 py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-100 rounded text-5xs font-black cursor-pointer text-center select-none active:scale-95 transition-all outline-none"
+                            >
+                              {t.acceptBtn}
+                            </button>
+                            <button
+                              onClick={() => handleDeclineFriend(req.id)}
+                              className="flex-1 py-1 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-900/20 text-rose-405 rounded text-5xs font-black cursor-pointer text-center select-none active:scale-95 transition-all outline-none"
+                            >
+                              {t.declineBtn}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Middle chat thread messages screen */}
