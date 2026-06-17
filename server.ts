@@ -10,7 +10,7 @@ const requireNext = createRequire(path.resolve(process.cwd(), "server.ts"));
 const pdfModule = requireNext("pdf-parse");
 
 dotenv.config();
-
+let sseClients: any[] = [];
 // Memory cache for accessed curriculum URLs to enable instant responses
 // Key: URL, Value: array of paragraph strings
 const contentCache = new Map<string, string[]>();
