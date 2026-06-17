@@ -784,75 +784,31 @@ app.post("/api/chat/send", async (req, res) => {
   }
 });
 // ==========================================
-// ⚙️ الروابط الناقصة المسببة لخطأ 404 (تمت إضافتها)
+// 🛡️ نظام إدارة الصداقات الجديد (فوري وعبر الـ SSE)
 // ==========================================
 
-// 1. رابط إرسال إعدادات سوبابيس للـ UI (حل خطأ /api/config/supabase)
-app.get("/api/config/supabase", (req, res) => {
-  res.json({
-    supabaseUrl: process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co",
-    supabaseKey: process.env.SUPABASE_ANON_KEY || ""
-  });
-});
+// رفعنا تعريف المصفوفة فوق هنا أولاً عشان الدوال التحت تقراها بدون أخطاء
+let serverFriendships: any[] = [];
 
-// 2. رابط فتح البث المباشر الفوري SSE (حل خطأ /api/events)
-app.get("/api/events", (req, res) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-
-  const clientId = Date.now();
-  const newClient = { id: clientId, res };
-  sseClients.push(newClient);
-
-  // إرسال ترحيب أولي لتثبيت الاتصال
-  res.write(`data: ${JSON.stringify({ type: "connected", clientId })}\n\n`);
-
-  req.on("close", () => {
-    sseClients = sseClients.filter((client) => client.id !== clientId);
-  });
-});
-// ==========================================
-// POST delete chat message (restricted to admin privileges)
-app.post("/api/chat/delete", async (req, res) => {
+// 1. جلب الطلبات المعلقة (حل خطأ /api/friendships/pending 404)
+app.get("/api/friendships/pending", async (req, res) => {
   try {
-    const { messageId, adminPassword } = req.body;
-
-    if (adminPassword !== "20302060") {
-      return res.status(403).json({ success: false, error: "صلاحية الإدارة غير صالحة." });
-    }
-
-    serverChatMessages = serverChatMessages.filter(m => m.id !== messageId);
-    await saveChatMessages();
-
-    // Broadcast message deletion to all eventstreams!
-    sseClients.forEach((client) => {
-      try {
-        client.res.write(`data: ${JSON.stringify({
-          type: "delete_chat_message",
-          id: messageId,
-          timestamp: new Date().toISOString()
-        })}\n\n`);
-      } catch (broadcastErr) {
-        // Safe skip stale connections
-      }
-    });
-
-    res.json({ success: true, messageId });
+    // جلب كل الطلبات القائمة المعلقة في السيرفر ومزامنتها
+    const pendingRequests = serverFriendships.filter(f => f.status === "pending");
+    res.json({ success: true, data: pendingRequests });
   } catch (error: any) {
-    console.error("Chat delete error:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// ==========================================
-// 🛡️ نظام إدارة الصداقات الجديد (فوري وعبر الـ SSE)
-// ==========================================
+// 2. جلب كل علاقات مستخدم معين (احتياطية لو طلبها بالـ ID)
+app.get("/api/friendships/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const userRelations = serverFriendships.filter(f => f.sender_id === userId || f.receiver_id === userId);
+  res.json({ success: true, data: userRelations });
+});
 
-// مصفوفة محلية لحفظ الصداقات داخل السيرفر مؤقتاً ومزامنتها
-let serverFriendships: any[] = [];
-
-// 1. إرسال طلب صداقة جديد
+// 3. إرسال طلب صداقة جديد
 app.post("/api/friendships/send", async (req, res) => {
   try {
     const { senderId, receiverId } = req.body;
@@ -897,7 +853,7 @@ app.post("/api/friendships/send", async (req, res) => {
   }
 });
 
-// 2. إدارة طلبات الصداقة (قبول أو رفض)
+// 4. إدارة طلبات الصداقة (قبول أو رفض)
 app.post("/api/friendships/respond", async (req, res) => {
   try {
     const { friendshipId, action } = req.body; // action: 'accepted' أو 'rejected'
@@ -927,14 +883,37 @@ app.post("/api/friendships/respond", async (req, res) => {
   }
 });
 
-// 3. جلب قائمة الأصدقاء والطلبات المعلقة لمستخدم معين
-app.get("/api/friendships/:userId", async (req, res) => {
-  const { userId } = req.params;
-  const userRelations = serverFriendships.filter(f => f.sender_id === userId || f.receiver_id === userId);
-  res.json({ success: true, data: userRelations });
-});
+// POST delete chat message (restricted to admin privileges)
+app.post("/api/chat/delete", async (req, res) => {
+  try {
+    const { messageId, adminPassword } = req.body;
 
-// ==========================================
+    if (adminPassword !== "20302060") {
+      return res.status(403).json({ success: false, error: "صلاحية الإدارة غير صالحة." });
+    }
+
+    serverChatMessages = serverChatMessages.filter(m => m.id !== messageId);
+    await saveChatMessages();
+
+    // Broadcast message deletion to all eventstreams!
+    sseClients.forEach((client) => {
+      try {
+        client.res.write(`data: ${JSON.stringify({
+          type: "delete_chat_message",
+          id: messageId,
+          timestamp: new Date().toISOString()
+        })}\n\n`);
+      } catch (broadcastErr) {
+        // Safe skip stale connections
+      }
+    });
+
+    res.json({ success: true, messageId });
+  } catch (error: any) {
+    console.error("Chat delete error:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // Global JSON error handling middleware to safely catch body-parser/payload and unexpected server errors
 app.use((err: any, req: any, res: any, next: any) => {
@@ -964,7 +943,7 @@ async function startServer() {
   // Listen to port 3000 (Mandatory as per environmental constraints)
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Sudanese Curriculum Server is running on port ${PORT}`);
-    });
+  });
 }
 
 startServer();
