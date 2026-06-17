@@ -966,5 +966,42 @@ async function startServer() {
     console.log(`Sudanese Curriculum Server is running on port ${PORT}`);
   });
 }
+// ==========================================
+// ⚙️ روابط المزامنة الناقصة المسببة لخطأ 404 (تمت إضافتها للنهاية)
+// ==========================================
 
+// 1. إرسال إعدادات سوبابيس للـ UI
+app.get("/api/config/supabase", (req, res) => {
+  try {
+    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
+    const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+    res.json({
+      url: url.trim(),
+      anonKey: anonKey.trim(),
+      isConfigured: !!url && !!anonKey
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2. فتح خط البث المباشر الفوري SSE
+app.get("/api/events", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  
+  if (typeof (res as any).flushHeaders === "function") {
+    (res as any).flushHeaders();
+  }
+  res.write("retry: 15000\n\n");
+  res.write(`data: ${JSON.stringify({ type: "connected", message: "متصل بنجاح" })}\n\n`);
+  
+  const clientId = Date.now();
+  sseClients.push({ id: clientId, res });
+  
+  req.on("close", () => {
+    sseClients = sseClients.filter(client => client.id !== clientId);
+  });
+});
 startServer();
