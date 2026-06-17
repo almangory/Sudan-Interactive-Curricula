@@ -547,7 +547,6 @@ app.get("/api/config/supabase", (req, res) => {
 });
 
 // Realtime sync states for SSE (Server-Sent Events)
-let sseClients: any[] = [];
 
 // API Endpoint for Server-Sent Events (SSE)
 app.get("/api/events", (req, res) => {
