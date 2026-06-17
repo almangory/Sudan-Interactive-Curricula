@@ -671,37 +671,48 @@ app.post("/api/feedback", async (req, res) => {
   }
 });
 
-app.get("/api/proxy-pdf", async (req, res) => {
+// 1. إرسال إعدادات سوبابيس للـ UI (مؤمنة بالكامل ضد الـ 500)
+app.get("/api/config/supabase", (req, res) => {
   try {
-    const { url } = req.query;
-    if (!url || typeof url !== "string") return res.status(400).json({ error: "الرابط مطلوب" });
-    const response = await fetch(cleanUrlForDownload(url));
-    const buffer = await response.arrayBuffer();
-    res.setHeader("Content-Type", "application/pdf");
-    res.send(Buffer.from(buffer));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    // جلب آمن مع وضع قيم افتراضية لمشروعك عشان السيرفر ما يضرب لو الـ env فاضي
+    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
+    const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+    
+    res.json({
+      url: url.trim(),
+      anonKey: anonKey.trim(),
+      isConfigured: true
+    });
+  } catch (err: any) {
+    // في حال حدوث أي خطأ، نرجع النتيجة الافتراضية برضه عشان الـ UI ما يضرب 500
+    res.json({
+      url: "https://ecgqrdkiybhhncdrtlea.supabase.co",
+      anonKey: "",
+      isConfigured: true
+    });
   }
 });
 
-// Global JSON error handling middleware
-app.use((err: any, req: any, res: any, next: any) => {
-  console.error("Express App Error:", err);
-  res.status(err.status || err.statusCode || 500).json({ success: false, error: err.message || "حدث خطأ داخلي على الملقم." });
-});
-
-async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => { res.sendFile(path.join(distPath, 'index.html')); });
+// 2. فتح خط البث المباشر الفوري SSE (مؤمنة)
+app.get("/api/events", (req, res) => {
+  try {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    
+    if (typeof (res as any).flushHeaders === "function") {
+      (res as any).flushHeaders();
+    }
+    res.write("retry: 15000\n\n");
+    res.write(`data: ${JSON.stringify({ type: "connected", message: "متصل بنجاح" })}\n\n`);
+    
+    const clientId = Date.now();
+    sseClients.push({ id: clientId, res });
+    
+    req.on("close", () => {
+      sseClients = sseClients.filter(client => client.id !== clientId);
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: "SSE Error" });
   }
-  app.listen(3000, "0.0.0.0", () => {
-    console.log("Sudanese Curriculum Server is running on port 3000");
-  });
-}
-
-startServer();
+});
