@@ -787,28 +787,41 @@ app.post("/api/chat/send", async (req, res) => {
 // 🛡️ نظام إدارة الصداقات الجديد (فوري وعبر الـ SSE)
 // ==========================================
 
-// رفعنا تعريف المصفوفة فوق هنا أولاً عشان الدوال التحت تقراها بدون أخطاء
+// 1. تعريف المصفوفة فوق خالص عشان كل الدوال التحت تشوفها وما تضرب
 let serverFriendships: any[] = [];
 
-// 1. جلب الطلبات المعلقة (حل خطأ /api/friendships/pending 404)
+// 2. جلب الطلبات المعلقة (مباشرة من جدول سوبابيس لحل مشكلة الـ 0 طلبات)
 app.get("/api/friendships/pending", async (req, res) => {
   try {
-    // جلب كل الطلبات القائمة المعلقة في السيرفر ومزامنتها
-    const pendingRequests = serverFriendships.filter(f => f.status === "pending");
-    res.json({ success: true, data: pendingRequests });
+    const supabaseUrl = process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
+    const supabaseKey = process.env.SUPABASE_ANON_KEY || "";
+
+    const response = await fetch(`${supabaseUrl}/rest/v1/friendships?status=eq.pending`, {
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": `Bearer ${supabaseKey}`
+      }
+    });
+
+    if (!response.ok) {
+      const pendingRequests = serverFriendships.filter(f => f.status === "pending");
+      return res.json({ success: true, data: pendingRequests });
+    }
+
+    const data = await response.json();
+    res.json({ success: true, data: data || [] });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 2. جلب كل علاقات مستخدم معين (مباشرة من جدول سوبابيس بالـ ID لضمان التزامن)
+// 3. جلب كل علاقات مستخدم معين (مباشرة من جدول سوبابيس بالـ ID لضمان التزامن)
 app.get("/api/friendships/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     const supabaseUrl = process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
     const supabaseKey = process.env.SUPABASE_ANON_KEY || "";
 
-    // جلب طلبات الصداقة الخاصة باليوزر ده (سواء هو المرسل أو المستقبل) مباشرة من سوبابيس
     const response = await fetch(`${supabaseUrl}/rest/v1/friendships?or=(sender_id.eq.${userId},receiver_id.eq.${userId})`, {
       headers: {
         "apikey": supabaseKey,
@@ -817,7 +830,6 @@ app.get("/api/friendships/:userId", async (req, res) => {
     });
 
     if (!response.ok) {
-      // Fallback للمصفوفة المحلية في حال حدوث خطأ في الاتصال
       const userRelations = serverFriendships.filter(f => f.sender_id === userId || f.receiver_id === userId);
       return res.json({ success: true, data: userRelations });
     }
@@ -829,7 +841,7 @@ app.get("/api/friendships/:userId", async (req, res) => {
   }
 });
 
-// 3. إرسال طلب صداقة جديد
+// 4. إرسال طلب صداقة جديد
 app.post("/api/friendships/send", async (req, res) => {
   try {
     const { senderId, receiverId } = req.body;
@@ -838,7 +850,6 @@ app.post("/api/friendships/send", async (req, res) => {
       return res.status(400).json({ success: false, error: "معطيات ناقصة" });
     }
 
-    // التحقق من عدم وجود طلب سابق في المصفوفة الاحتياطية
     const exists = serverFriendships.find(f => 
       (f.sender_id === senderId && f.receiver_id === receiverId) ||
       (f.sender_id === receiverId && f.receiver_id === senderId)
@@ -858,7 +869,6 @@ app.post("/api/friendships/send", async (req, res) => {
 
     serverFriendships.push(newFriendship);
 
-    // بث الإشعار فوراً للمستخدم المستهدف عبر الـ SSE
     sseClients.forEach((client) => {
       try {
         client.res.write(`data: ${JSON.stringify({
@@ -874,10 +884,10 @@ app.post("/api/friendships/send", async (req, res) => {
   }
 });
 
-// 4. إدارة طلبات الصداقة (قبول أو رفض)
+// 5. إدارة طلبات الصداقة (قبول أو رفض)
 app.post("/api/friendships/respond", async (req, res) => {
   try {
-    const { friendshipId, action } = req.body; // action: 'accepted' أو 'rejected'
+    const { friendshipId, action } = req.body;
 
     if (action === "accepted") {
       serverFriendships = serverFriendships.map(f => 
@@ -887,7 +897,6 @@ app.post("/api/friendships/respond", async (req, res) => {
       serverFriendships = serverFriendships.filter(f => f.id !== friendshipId);
     }
 
-    // بث التحديث الفوري للطرفين
     sseClients.forEach((client) => {
       try {
         client.res.write(`data: ${JSON.stringify({
@@ -904,7 +913,7 @@ app.post("/api/friendships/respond", async (req, res) => {
   }
 });
 
-// POST delete chat message (restricted to admin privileges)
+// 6. POST delete chat message (restricted to admin privileges)
 app.post("/api/chat/delete", async (req, res) => {
   try {
     const { messageId, adminPassword } = req.body;
@@ -916,7 +925,6 @@ app.post("/api/chat/delete", async (req, res) => {
     serverChatMessages = serverChatMessages.filter(m => m.id !== messageId);
     await saveChatMessages();
 
-    // Broadcast message deletion to all eventstreams!
     sseClients.forEach((client) => {
       try {
         client.res.write(`data: ${JSON.stringify({
@@ -936,41 +944,11 @@ app.post("/api/chat/delete", async (req, res) => {
   }
 });
 
-// Global JSON error handling middleware to safely catch body-parser/payload and unexpected server errors
-app.use((err: any, req: any, res: any, next: any) => {
-  console.error("Express App Error:", err);
-  res.status(err.status || err.statusCode || 500).json({
-    success: false,
-    error: err.message || "حدث خطأ داخلي على الملقم."
-  });
-});
-
-async function startServer() {
-  // Serve assets with Vite in development, static in production
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
-
-  // Listen to port 3000 (Mandatory as per environmental constraints)
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Sudanese Curriculum Server is running on port ${PORT}`);
-  });
-}
 // ==========================================
-// ⚙️ روابط المزامنة الناقصة المسببة لخطأ 404 (تمت إضافتها للنهاية)
+// ⚙️ روابط المزامنة الناقصة المسببة لخطأ 404
 // ==========================================
 
-// 1. إرسال إعدادات سوبابيس للـ UI
+// 7. إرسال إعدادات سوبابيس للـ UI
 app.get("/api/config/supabase", (req, res) => {
   try {
     const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
@@ -985,7 +963,7 @@ app.get("/api/config/supabase", (req, res) => {
   }
 });
 
-// 2. فتح خط البث المباشر الفوري SSE
+// 8. فتح خط البث المباشر الفوري SSE
 app.get("/api/events", (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -1004,4 +982,36 @@ app.get("/api/events", (req, res) => {
     sseClients = sseClients.filter(client => client.id !== clientId);
   });
 });
+
+// Global JSON error handling middleware
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("Express App Error:", err);
+  res.status(err.status || err.statusCode || 500).json({
+    success: false,
+    error: err.message || "حدث خطأ داخلي على الملقم."
+  });
+});
+
+// دالة تشغيل الملقم الأساسية
+async function startServer() {
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Sudanese Curriculum Server is running on port ${PORT}`);
+  });
+}
+
+// تنفيذ التشغيل الفعلي
 startServer();
