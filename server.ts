@@ -10,9 +10,25 @@ const requireNext = createRequire(path.resolve(process.cwd(), "server.ts"));
 const pdfModule = requireNext("pdf-parse");
 
 dotenv.config();
+
+// ==========================================
+// 🛡️ المصفوفات وقنوات البث المباشر (فوق خالص لضمان الترتيب البرمجي الصحيح)
+// ==========================================
 let sseClients: any[] = [];
+let serverFriendships: any[] = [];
+interface ChatMessage {
+  id: string;
+  userId: string;
+  username: string;
+  userRole: string;
+  gradeName: string | null;
+  text: string;
+  timestamp: string;
+}
+let serverChatMessages: ChatMessage[] = [];
+const chatMessagesFilePath = path.join(process.cwd(), "chat_messages.json");
+
 // Memory cache for accessed curriculum URLs to enable instant responses
-// Key: URL, Value: array of paragraph strings
 const contentCache = new Map<string, string[]>();
 const loadingUrls = new Set<string>();
 
@@ -126,7 +142,6 @@ async function fetchAndParseUrl(url: string, type: 'pdf' | 'html'): Promise<stri
     const targetUrl = cleanUrlForDownload(url);
     console.log(`Starting fetch and parse for ${type}: ${targetUrl} (original: ${url})`);
     
-    // Set a timeout of 10 seconds for fetching to preserve response smoothness
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), 10000);
     
@@ -152,12 +167,10 @@ async function fetchAndParseUrl(url: string, type: 'pdf' | 'html'): Promise<stri
       try {
         const PDFParseClass = pdfModule?.PDFParse || pdfModule;
         if (typeof PDFParseClass === 'function') {
-          // Check if we can instantiate it as a class (new PDFParse pattern)
           const parser = new PDFParseClass({ data: Buffer.from(buffer) });
           const textResult = await parser.getText();
           rawText = textResult?.text || "";
         } else if (typeof pdfModule === 'function') {
-          // Fallback to legacy function pattern
           const pdfData = await pdfModule(Buffer.from(buffer));
           rawText = pdfData?.text || "";
         } else {
@@ -238,457 +251,16 @@ function searchInParagraphs(paragraphs: string[], query: string): { text: string
   return results.sort((a, b) => b.score - a.score);
 }
 
-const app = express();
-const PORT = 3000;
-
-// Initialize GoogleGenAI with safe API Key check
-const apiKey = process.env.GEMINI_API_KEY;
-let ai: GoogleGenAI | null = null;
-if (apiKey) {
-  ai = new GoogleGenAI({
-    apiKey: apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      },
-    },
-  });
-}
-
-// Middleware for JSON parsing with 50mb limit to handle large curriculum payloads
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
-
-// API route for AI Tutor chat (performs direct search in textbook links instead of using generative AI)
-app.post("/api/tutor/chat", async (req, res) => {
-  try {
-    const { message, history, grade, subject, stage, subjectObject } = req.body;
-
-    if (!message || typeof message !== "string") {
-      return res.status(400).json({ error: "الرجاء كتابة سؤال صحيح" });
-    }
-
-    // Gather active reference URLs for this subject
-    const urls: { url: string; type: 'pdf' | 'html' }[] = [];
-    if (subjectObject) {
-      if (subjectObject.pdfUrl) {
-        urls.push({ url: subjectObject.pdfUrl, type: "pdf" });
-      }
-      if (subjectObject.memoPdfUrl) {
-        urls.push({ url: subjectObject.memoPdfUrl, type: "pdf" });
-      }
-      if (subjectObject.interactiveUrl && 
-          !subjectObject.interactiveUrl.includes("youtube.com") && 
-          !subjectObject.interactiveUrl.includes("youtu.be")) {
-        urls.push({ url: subjectObject.interactiveUrl, type: "html" });
-      }
-    }
-
-    let allParagraphs: string[] = [];
-    const pendingLoads: Promise<any>[] = [];
-
-    // Check memory caches or trigger background downloads
-    for (const item of urls) {
-      if (contentCache.has(item.url)) {
-        allParagraphs.push(...(contentCache.get(item.url) || []));
-      } else {
-        const fetchPromise = (async () => {
-          const paragraphs = await fetchAndParseUrl(item.url, item.type);
-          if (paragraphs && paragraphs.length > 0) {
-            contentCache.set(item.url, paragraphs);
-            allParagraphs.push(...paragraphs);
-          }
-        })();
-        pendingLoads.push(fetchPromise);
-      }
-    }
-
-    // Wait for at most 3.5 seconds on first fetch so we can search real book elements on the spot!
-    if (pendingLoads.length > 0) {
-      await Promise.race([
-        Promise.all(pendingLoads),
-        new Promise(resolve => setTimeout(resolve, 3500))
-      ]);
-    }
-
-    // Process matching paragraphs using keyword relevance
-    let matches = searchInParagraphs(allParagraphs, message);
-
-    let foundSourceUrl = "";
-    let searchResponse = "";
-
-    if (matches.length > 0 && matches[0].score >= 5) {
-      // Find source URL of the best matching paragraph to give direct attribution
-      for (const item of urls) {
-        const cached = contentCache.get(item.url);
-        if (cached && cached.includes(matches[0].text)) {
-          foundSourceUrl = item.url;
-          break;
-        }
-      }
-
-      const topMatches = matches.slice(0, 3).map(m => m.text);
-      searchResponse = `أبشر يا بطل! لقد قمت بالبحث الفوري في كتاب ومراجع المادة المرفقة ووجدت لك المعلومات الموثوقة والدقيقة التالية:\n\n` +
-                       topMatches.map((t, i) => `📌 **الفقرة ${i+1}:** ${t}`).join("\n\n") + 
-                       (foundSourceUrl ? `\n\n🔗 **المصدر المباشر للكتاب:** [اضغط هنا لتصفح مصدر المادة](${foundSourceUrl})` : "") +
-                       `\n\nهل هذا الشرح من الكتاب كافٍ وواضح لك يا بطل؟ يمكنك دائماً سؤالي عن أي جزء آخر وسأبحث لك عنه فوراً!`;
-    }
-
-    // Fallback 1: Search inside standard local curriculumSummary
-    if (!searchResponse) {
-      const localSummary = subjectObject?.curriculumSummary || "";
-      if (localSummary && localSummary.length > 10) {
-        const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-        let summaryMatch = false;
-        words.forEach(w => {
-          if (localSummary.toLowerCase().includes(w)) {
-            summaryMatch = true;
-          }
-        });
-        if (summaryMatch) {
-          searchResponse = `أهلاً بك يا بطل! لم يكتمل تحميل كتاب المادة بالكامل بعد، ولكن قمت بالبحث في الخلاصة المعتمدة لمنهج مادة (${subject}) ووجدت المعلومات التالية:\n\n📖 "${localSummary}"\n\nسأستمر في فحص وتوثيق بقية كشوفات الكتب والمذكرات بالكامل قريباً لتبسيط أي مسائل أخرى!`;
-        }
-      }
-    }
-
-    // Fallback 2: Local contextual curriculum fallback dictionary matching
-    if (!searchResponse) {
-      let fallbackCategory = "arabic";
-      const subLower = subject.toLowerCase();
-      if (subLower.includes("رياض") || subLower.includes("حساب") || subLower.includes("جمع") || subLower.includes("عمليات") || subLower.includes("math") || subLower.includes("أرقام")) {
-        fallbackCategory = "math";
-      } else if (subLower.includes("علم") || subLower.includes("بيئة") || subLower.includes("طبيعة") || subLower.includes("ساق") || subLower.includes("ورقة") || subLower.includes("نبات") || subLower.includes("إنسان") || subLower.includes("خلية") || subLower.includes("سائل") || subLower.includes("صلب") || subLower.includes("غاز")) {
-        fallbackCategory = "science";
-      } else if (subLower.includes("دين") || subLower.includes("إسلام") || subLower.includes("قرآن") || subLower.includes("توحيد") || subLower.includes("عقيدة") || subLower.includes("فقه")) {
-        fallbackCategory = "religion";
-      } else if (subLower.includes("تاريخ") || subLower.includes("سودان") || subLower.includes("جغراف") || subLower.includes("مجتمع")) {
-        fallbackCategory = "history";
-      } else {
-        fallbackCategory = "arabic";
-      }
-
-      const topics = LOCAL_CURRICULUM_FALLBACK[fallbackCategory] || [];
-      let bestFallback: typeof topics[0] | null = null;
-      let highestScore = 0;
-
-      const queryWords = message.toLowerCase().split(/\s+/).filter(w => w.length > 1);
-      topics.forEach(topic => {
-        let score = 0;
-        queryWords.forEach(word => {
-          if (topic.keywords.some(kw => kw.includes(word) || word.includes(kw))) {
-            score += 10;
-          }
-        });
-        if (score > highestScore) {
-          highestScore = score;
-          bestFallback = topic;
-        }
-      });
-
-      if (bestFallback && highestScore > 0) {
-        searchResponse = `أهلاً بك يا بطل! قمت بالبحث في الأرشيف التعليمي المعتمد للمادة وحصلت على هذا الشرح الدقيق والوافي لمفهوم سؤالك:\n\n` +
-                         `⭐ **${(bestFallback as any).title}**\n\n` +
-                         `${(bestFallback as any).content}\n\n` +
-                         `أتمنى لك الفهم والتيسير يا بطل السودان الصاعد، وسلني عن أي مواضيع أخرى لتوضيحها لك بكامل السرور!`;
-      }
-    }
-
-    // Fallback 3: Standard generic outline feedback
-    if (!searchResponse) {
-      searchResponse = `أهلاً بك يا بطل! لقد قمت بعملية فحص ذكية وشاملة في كافة كتب ومذكرات ومواقع مادة (${subject}) للصف (${grade}).\n\n` +
-                       `لم أعثر على مطابقة دقيقة جداً لهذه الكلمات الحالية، ولكن أريد التذكير بأن منهج مادة **${subject}** السوداني يتناول:\n` +
-                       `- تبسيط المفاهيم النظرية والتطبيق العملي.\n` +
-                       `- حل الأنشطة وحفظ القواعد الأساسية المعتمدة.\n` +
-                       `- ربط المعارف العلمية بالواقع الميداني في بلدنا الحبيب.\n\n` +
-                       `💡 **نصيحة المعلم:** حاول كتابة سؤالك بكلمات مفتاحية أو مصطلحات تقع ضمن موضوع المادة (مثال: "حالات المادة الصالبة"، "حروف الجر"، "المربع والمستطيل"، "أركان الإسلام") حتى استطيع عزل السطور الصحيحة من الكتاب وإرسالها لك للتوثيق!`;
-    }
-
-    res.json({ text: searchResponse });
-  } catch (error: any) {
-    console.error("Link Search Tutor Error:", error);
-    res.status(500).json({ error: error.message || "عذراً يا بطل، حدث خطأ أثناء إجراء عملية البحث الحية في مصادر الدرس. يرجى إعادة التجربة." });
-  }
-});
-
-// API route for getting a quick subject quiz
-app.post("/api/tutor/quiz", async (req, res) => {
-  try {
-    const { grade, subject, stage } = req.body;
-
-    if (!apiKey || !ai) {
-      return res.status(503).json({
-        error: "مفتاح الذكاء الاصطناعي غير متوفر حالياً لتوليد الأسئلة.",
-      });
-    }
-
-    const prompt = `أنت خبير مناهج سودانية. قم بتوليد سؤالين (2) مسليين ومتعدد الخيارات لمادة ${subject} في الصف ${grade} لطلاب السودان.
-يجب أن ترجع النتيجة في صيغة JSON مطابقة تماماً للمواصفات التالية:
-{
-  "quizzes": [
-    {
-      "question": "صيغة السؤال هنا بلغة عربية سهلة وواضحة تناسب الصف المذكور",
-      "options": ["الخيار أ", "الخيار ب", "الخيار ج", "الخيار د"],
-      "answerIndex": 0, // الرقم التعريفي للجواب الصحيح (0 إلى 3)
-      "explanation": "شرح مبسط وجميل للحل الصحيح بأسلوب تربوي مشجع ولطيف"
-    }
-  ]
-}
-يرجى إرسال الـ JSON مباشرة دون استخدام كود ماركداون (مثل \`\`\`json) ليكون قابلاً للتفسير الفوري وعاملاً بشكل رائع.`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      },
-    });
-
-    res.json(JSON.parse(response.text || "{}"));
-  } catch (error: any) {
-    console.error("Quiz generation error:", error);
-    res.status(500).json({ error: error.message || "فشل توليد الاختبار التفاعلي." });
-  }
-});
-
-// API route for writing modified curriculum data directly to the code (persistent for publishing)
-app.post("/api/curriculum/save", async (req, res) => {
-  try {
-    const { password, stages } = req.body;
-
-    if (password !== "20302060") {
-      return res.status(403).json({ error: "كلمة المرور الإدارية غير صحيحة." });
-    }
-
-    if (!stages || !Array.isArray(stages)) {
-      return res.status(400).json({ error: "بيانات المنهج غير صالحة." });
-    }
-
-    const filePath = path.join(process.cwd(), "src", "data", "curriculum.ts");
-
-    // Reconstruct the full TS file content
-    const fileContent = `export interface Subject {
-  id: string;
-  name: string;
-  iconName: string; // Used to select Lucide icon dynamically
-  colorClass: string; // Tailwind bg/text/border color classes
-  interactiveUrl: string; // External interactive website url
-  interactiveLabel: string; // Friendly label for the external link
-  curriculumSummary: string; // Short summary of what is taught in Sudan
-  pdfUrl?: string; // Optional download link for the E-Book
-  memoPdfUrl?: string; // Optional link to a PDF memorandum
-  videoUrl?: string; // Optional YouTube channel or lesson video link
-  hidden?: boolean; // Optional property to hide subject
-}
-
-export interface Grade {
-  id: string;
-  name: string;
-  subjects: Subject[];
-}
-
-export interface Stage {
-  id: string;
-  name: string;
-  description: string;
-  colorTheme: string; // Tailwind color theme for this stage
-  icon: string; // Lucide icon
-  grades: Grade[];
-}
-
-export const stagesData: Stage[] = ${JSON.stringify(stages, null, 2)};
-`;
-
-    await fs.writeFile(filePath, fileContent, "utf8");
-    res.json({ success: true, message: "تم تحديث كود المنهج وحفظه بنجاح في ملقم التعليم!" });
-  } catch (err: any) {
-    console.error("Save curriculum error:", err);
-    res.status(500).json({ error: err.message || "فشل كتابة وحفظ كود المنهج الدراسي." });
-  }
-});
-
-// PDF Proxy Endpoint to bypass CORS when sending documents to Google Drive client-side
-app.get("/api/proxy-pdf", async (req, res) => {
-  try {
-    const { url } = req.query;
-    if (!url || typeof url !== "string") {
-      return res.status(400).json({ error: "رابط الملف مطلوب." });
-    }
-
-    const targetUrl = cleanUrlForDownload(url);
-    const response = await fetch(targetUrl);
-    if (!response.ok) {
-      return res.status(response.status).json({ error: "فشل تحميل الملف من المصدر الخارجي." });
-    }
-
-    const buffer = await response.arrayBuffer();
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="book.pdf"`);
-    res.send(Buffer.from(buffer));
-  } catch (error: any) {
-    console.error("PDF proxy error:", error);
-    res.status(500).json({ error: "حدث خطأ أثناء جلب الملف: " + error.message });
-  }
-});
-
-// API Endpoint to check and retrieve Supabase details dynamically from Server Env Variables (for zero-configuration on clients)
-app.get("/api/config/supabase", (req, res) => {
-  try {
-    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
-    const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
-    
-    res.json({
-      url: url.trim(),
-      anonKey: anonKey.trim(),
-      isConfigured: !!url && !!anonKey
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Realtime sync states for SSE (Server-Sent Events)
-
-// API Endpoint for Server-Sent Events (SSE)
-app.get("/api/events", (req, res) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  
-  if (typeof (res as any).flushHeaders === "function") {
-    (res as any).flushHeaders();
-  }
-  
-  // Instruct client-side EventSource to wait 15 seconds before retrying connection drops, reducing rate limiting
-  res.write("retry: 15000\n\n");
-  
-  // Send initial connection feedback
-  res.write(`data: ${JSON.stringify({ type: "connected", message: "متصل بنجاح بقناة المزامنة الفورية للبيانات" })}\n\n`);
-  
-  const clientId = Date.now();
-  const newClient = {
-    id: clientId,
-    res
-  };
-  sseClients.push(newClient);
-  
-  // Heartbeat ping every 20s to prevent Cloud Run proxy disconnects and loop-shunting
-  const pingInterval = setInterval(() => {
-    res.write(": keepalive ip\n\n");
-  }, 20000);
-  
-  req.on("close", () => {
-    clearInterval(pingInterval);
-    sseClients = sseClients.filter(client => client.id !== clientId);
-  });
-});
-
-// API Webhook Endpoint to receive notifications from Supabase
-app.post("/api/webhooks/supabase", (req, res) => {
-  try {
-    const payload = req.body;
-    console.log("Supabase Webhook Triggered with payload:", JSON.stringify(payload, null, 2));
-
-    // Broadcast the "reload_curriculum" event to all active clients
-    sseClients.forEach((client) => {
-      client.res.write(`data: ${JSON.stringify({
-        type: "reload_curriculum",
-        table: payload?.table || "unknown",
-        operation: payload?.type || "unknown",
-        record: payload?.record || null,
-        timestamp: new Date().toISOString()
-      })}\n\n`);
-    });
-
-    res.json({
-      success: true,
-      message: "تم استلام حدث التحديث من سوبابيس بنجاح وبثه لجميع المستخدمين المتصلين فورياً!",
-      connections: sseClients.length
-    });
-  } catch (err: any) {
-    console.error("Supabase webhook process error:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// API Route to submit user feedback/suggestions
-app.post("/api/feedback", async (req, res) => {
-  try {
-    const { name, email, message } = req.body;
-    
-    if (!email || !message) {
-      return res.status(400).json({ error: "البريد الإلكتروني ومحتوى الملاحظة مطلوبين." });
-    }
-
-    const feedbackItem = {
-      id: "FB-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
-      name: name || "مجهول",
-      email: email.trim(),
-      message: message.trim(),
-      submittedAt: new Date().toISOString()
-    };
-
-    // Log the feedback explicitly on the server console for audit/inspection
-    console.log("=========================================");
-    console.log("📥 NEW USER FEEDBACK RECEIVED!");
-    console.log(`To: almangoryo@gmail.com (Direct Email Target)`);
-    console.log(`From: ${feedbackItem.name} <${feedbackItem.email}>`);
-    console.log(`Message: "${feedbackItem.message}"`);
-    console.log("=========================================");
-
-    // Persist the feedback locally in a feedbacks.json file with fail-safe support
-    try {
-      const filePath = path.join(process.cwd(), "feedbacks.json");
-      let currentFeedbacks = [];
-      try {
-        const fileData = await fs.readFile(filePath, "utf8");
-        currentFeedbacks = JSON.parse(fileData);
-      } catch (e) {
-        // file doesn't exist, start fresh
-      }
-
-      currentFeedbacks.push(feedbackItem);
-      await fs.writeFile(filePath, JSON.stringify(currentFeedbacks, null, 2), "utf8");
-    } catch (fsErr: any) {
-      console.warn("Warning: Could not save feedback to file (read-only filesystem or container lock):", fsErr.message);
-      // We do not fail the request, the logs are printed in the persistent console/GCP logs which is safe!
-    }
-
-    // Success response requested by the user
-    res.json({
-      success: true,
-      message: "شكرا على ملاحظاتكم وهي محل اهتمامنا سيتم التعامل معها قريبا وشكرا لكم وفي امان الله"
-    });
-  } catch (error: any) {
-    console.error("Feedback process error:", error);
-    res.status(500).json({ error: "حدث خطأ أثناء إرسال الملاحظة. الرجاء المحاولة مرة أخرى." });
-  }
-});
-
-interface ChatMessage {
-  id: string;
-  userId: string;
-  username: string;
-  userRole: string;
-  gradeName: string | null;
-  text: string;
-  timestamp: string;
-}
-
-let serverChatMessages: ChatMessage[] = [];
-const chatMessagesFilePath = path.join(process.cwd(), "chat_messages.json");
-
-// Helper to load chat messages from chat_messages.json
+// Helpers to handle persistent storage of chat messages
 async function loadChatMessages() {
   try {
     const fileData = await fs.readFile(chatMessagesFilePath, "utf8");
     serverChatMessages = JSON.parse(fileData);
   } catch (err) {
-    // If file doesn't exist or is invalid, initialize empty
     serverChatMessages = [];
   }
 }
 
-// Helper to save chat messages to chat_messages.json
 async function saveChatMessages() {
   try {
     await fs.writeFile(chatMessagesFilePath, JSON.stringify(serverChatMessages, null, 2), "utf8");
@@ -697,7 +269,7 @@ async function saveChatMessages() {
   }
 }
 
-// Lazy load chat messages once when first accessed
+// Lazy load messages once at initialization
 loadChatMessages();
 
 function censorBadWords(text: string): string {
@@ -724,72 +296,70 @@ function censorBadWords(text: string): string {
   return censored;
 }
 
-// GET chat messages history
-app.get("/api/chat/messages", async (req, res) => {
+const app = express();
+const PORT = 3000;
+
+const apiKey = process.env.GEMINI_API_KEY;
+let ai: GoogleGenAI | null = null;
+if (apiKey) {
+  ai = new GoogleGenAI({
+    apiKey: apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
+    },
+  });
+}
+
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+// ==========================================
+// 🛡️ نظام إدارة الصداقات والروابط والـ SSE المشبوكة بسوبابيس والحية
+// ==========================================
+
+// 1. إرسال إعدادات سوبابيس للـ UI
+app.get("/api/config/supabase", (req, res) => {
   try {
-    res.json({ success: true, messages: serverChatMessages.slice(-100) });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// POST send new chat message
-app.post("/api/chat/send", async (req, res) => {
-  try {
-    const { userId, username, userRole, gradeName, text } = req.body;
-    
-    if (!userId || !username || !text) {
-      return res.status(400).json({ success: false, error: "بيانات الرسالة غير مكتملة." });
-    }
-
-    const filteredText = censorBadWords(text.slice(0, 250));
-
-    const newMessage: ChatMessage = {
-      id: "MSG-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
-      userId,
-      username,
-      userRole: userRole || "student",
-      gradeName: gradeName || null,
-      text: filteredText,
-      timestamp: new Date().toISOString()
-    };
-
-    serverChatMessages.push(newMessage);
-    
-    // Keep internal memory buffer safe and clean
-    if (serverChatMessages.length > 200) {
-      serverChatMessages = serverChatMessages.slice(-200);
-    }
-
-    await saveChatMessages();
-
-    // Broadcast messages to all active eventstream channels live!
-    sseClients.forEach((client) => {
-      try {
-        client.res.write(`data: ${JSON.stringify({
-          type: "new_chat_message",
-          message: newMessage,
-          timestamp: new Date().toISOString()
-        })}\n\n`);
-      } catch (broadcastErr) {
-        console.warn("Failed sending SSE chat broadcast message to client:", client.id);
-      }
+    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
+    const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+    res.json({
+      url: url.trim(),
+      anonKey: anonKey.trim(),
+      isConfigured: !!url && !!anonKey
     });
-
-    res.json({ success: true, message: newMessage });
-  } catch (error: any) {
-    console.error("Chat send error:", error);
-    res.status(500).json({ success: false, error: error.message });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
-// ==========================================
-// 🛡️ نظام إدارة الصداقات الجديد (فوري وعبر الـ SSE)
-// ==========================================
 
-// 1. تعريف المصفوفة فوق خالص عشان كل الدوال التحت تشوفها وما تضرب
-let serverFriendships: any[] = [];
+// 2. فتح خط البث المباشر الفوري SSE
+app.get("/api/events", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  
+  if (typeof (res as any).flushHeaders === "function") {
+    (res as any).flushHeaders();
+  }
+  res.write("retry: 15000\n\n");
+  res.write(`data: ${JSON.stringify({ type: "connected", message: "متصل بنجاح بقناة المزامنة الفورية للبيانات" })}\n\n`);
+  
+  const clientId = Date.now();
+  sseClients.push({ id: clientId, res });
+  
+  const pingInterval = setInterval(() => {
+    res.write(": keepalive ip\n\n");
+  }, 20000);
+  
+  req.on("close", () => {
+    clearInterval(pingInterval);
+    sseClients = sseClients.filter(client => client.id !== clientId);
+  });
+});
 
-// 2. جلب الطلبات المعلقة (مباشرة من جدول سوبابيس لحل مشكلة الـ 0 طلبات)
+// 3. جلب الطلبات المعلقة الحية مباشرة من جدول سوبابيس
 app.get("/api/friendships/pending", async (req, res) => {
   try {
     const supabaseUrl = process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
@@ -814,7 +384,7 @@ app.get("/api/friendships/pending", async (req, res) => {
   }
 });
 
-// 3. جلب كل علاقات مستخدم معين (مباشرة من جدول سوبابيس بالـ ID لضمان التزامن)
+// 4. جلب كل علاقات مستخدم معين من جدول سوبابيس
 app.get("/api/friendships/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -840,23 +410,18 @@ app.get("/api/friendships/:userId", async (req, res) => {
   }
 });
 
-// 4. إرسال طلب صداقة جديد
+// 5. إرسال طلب صداقة جديد
 app.post("/api/friendships/send", async (req, res) => {
   try {
     const { senderId, receiverId } = req.body;
-
-    if (!senderId || !receiverId) {
-      return res.status(400).json({ success: false, error: "معطيات ناقصة" });
-    }
+    if (!senderId || !receiverId) return res.status(400).json({ success: false, error: "معطيات ناقصة" });
 
     const exists = serverFriendships.find(f => 
       (f.sender_id === senderId && f.receiver_id === receiverId) ||
       (f.sender_id === receiverId && f.receiver_id === senderId)
     );
 
-    if (exists) {
-      return res.json({ success: false, message: "يوجد طلب صداقة قائم بالفعل." });
-    }
+    if (exists) return res.json({ success: false, message: "يوجد طلب صداقة قائم بالفعل." });
 
     const newFriendship = {
       id: "_" + Math.random().toString(36).substr(2, 9),
@@ -870,10 +435,7 @@ app.post("/api/friendships/send", async (req, res) => {
 
     sseClients.forEach((client) => {
       try {
-        client.res.write(`data: ${JSON.stringify({
-          type: "incoming_friend_request",
-          friendship: newFriendship
-        })}\n\n`);
+        client.res.write(`data: ${JSON.stringify({ type: "incoming_friend_request", friendship: newFriendship })}\n\n`);
       } catch (err) {}
     });
 
@@ -883,26 +445,19 @@ app.post("/api/friendships/send", async (req, res) => {
   }
 });
 
-// 5. إدارة طلبات الصداقة (قبول أو رفض)
+// 6. إدارة طلبات الصداقة (قبول أو رفض)
 app.post("/api/friendships/respond", async (req, res) => {
   try {
     const { friendshipId, action } = req.body;
-
     if (action === "accepted") {
-      serverFriendships = serverFriendships.map(f => 
-        f.id === friendshipId ? { ...f, status: "accepted" } : f
-      );
+      serverFriendships = serverFriendships.map(f => f.id === friendshipId ? { ...f, status: "accepted" } : f);
     } else {
       serverFriendships = serverFriendships.filter(f => f.id !== friendshipId);
     }
 
     sseClients.forEach((client) => {
       try {
-        client.res.write(`data: ${JSON.stringify({
-          type: "friendship_update",
-          id: friendshipId,
-          status: action === "accepted" ? "accepted" : "deleted"
-        })}\n\n`);
+        client.res.write(`data: ${JSON.stringify({ type: "friendship_update", id: friendshipId, status: action === "accepted" ? "accepted" : "deleted" })}\n\n`);
       } catch (err) {}
     });
 
@@ -912,105 +467,241 @@ app.post("/api/friendships/respond", async (req, res) => {
   }
 });
 
-// 6. POST delete chat message (restricted to admin privileges)
+// 7. حذف رسائل الدردشة للآدمين
 app.post("/api/chat/delete", async (req, res) => {
   try {
     const { messageId, adminPassword } = req.body;
-
-    if (adminPassword !== "20302060") {
-      return res.status(403).json({ success: false, error: "صلاحية الإدارة غير صالحة." });
-    }
+    if (adminPassword !== "20302060") return res.status(403).json({ success: false, error: "صلاحية الإدارة غير صالحة." });
 
     serverChatMessages = serverChatMessages.filter(m => m.id !== messageId);
     await saveChatMessages();
 
     sseClients.forEach((client) => {
       try {
-        client.res.write(`data: ${JSON.stringify({
-          type: "delete_chat_message",
-          id: messageId,
-          timestamp: new Date().toISOString()
-        })}\n\n`);
-      } catch (broadcastErr) {
-        // Safe skip stale connections
-      }
+        client.res.write(`data: ${JSON.stringify({ type: "delete_chat_message", id: messageId, timestamp: new Date().toISOString() })}\n\n`);
+      } catch (err) {}
     });
-
     res.json({ success: true, messageId });
   } catch (error: any) {
-    console.error("Chat delete error:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// ==========================================
-// ⚙️ روابط المزامنة الناقصة المسببة لخطأ 404
-// ==========================================
-
-// 7. إرسال إعدادات سوبابيس للـ UI
-app.get("/api/config/supabase", (req, res) => {
+// 8. جلب رسائل الشات القديمة وإرسال الرسائل الجديدة
+app.get("/api/chat/messages", async (req, res) => {
   try {
-    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
-    const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
-    res.json({
-      url: url.trim(),
-      anonKey: anonKey.trim(),
-      isConfigured: !!url && !!anonKey
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.json({ success: true, messages: serverChatMessages.slice(-100) });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 8. فتح خط البث المباشر الفوري SSE
-app.get("/api/events", (req, res) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  
-  if (typeof (res as any).flushHeaders === "function") {
-    (res as any).flushHeaders();
+app.post("/api/chat/send", async (req, res) => {
+  try {
+    const { userId, username, userRole, gradeName, text } = req.body;
+    if (!userId || !username || !text) return res.status(400).json({ success: false, error: "بيانات الرسالة غير مكتملة." });
+
+    const filteredText = censorBadWords(text.slice(0, 250));
+    const newMessage: ChatMessage = {
+      id: "MSG-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
+      userId,
+      username,
+      userRole: userRole || "student",
+      gradeName: gradeName || null,
+      text: filteredText,
+      timestamp: new Date().toISOString()
+    };
+
+    serverChatMessages.push(newMessage);
+    if (serverChatMessages.length > 200) serverChatMessages = serverChatMessages.slice(-200);
+    await saveChatMessages();
+
+    sseClients.forEach((client) => {
+      try {
+        client.res.write(`data: ${JSON.stringify({ type: "new_chat_message", message: newMessage, timestamp: new Date().toISOString() })}\n\n`);
+      } catch (err) {}
+    });
+    res.json({ success: true, message: newMessage });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
   }
-  res.write("retry: 15000\n\n");
-  res.write(`data: ${JSON.stringify({ type: "connected", message: "متصل بنجاح" })}\n\n`);
-  
-  const clientId = Date.now();
-  sseClients.push({ id: clientId, res });
-  
-  req.on("close", () => {
-    sseClients = sseClients.filter(client => client.id !== clientId);
-  });
+});
+
+// 9. الـ AI Tutor Chat (البحث الذكي في روابط الكتب والـ Fallbacks)
+app.post("/api/tutor/chat", async (req, res) => {
+  try {
+    const { message, grade, subject, subjectObject } = req.body;
+    if (!message || typeof message !== "string") return res.status(400).json({ error: "الرجاء كتابة سؤال صحيح" });
+
+    const urls: { url: string; type: 'pdf' | 'html' }[] = [];
+    if (subjectObject) {
+      if (subjectObject.pdfUrl) urls.push({ url: subjectObject.pdfUrl, type: "pdf" });
+      if (subjectObject.memoPdfUrl) urls.push({ url: subjectObject.memoPdfUrl, type: "pdf" });
+      if (subjectObject.interactiveUrl && !subjectObject.interactiveUrl.includes("youtube.com")) {
+        urls.push({ url: subjectObject.interactiveUrl, type: "html" });
+      }
+    }
+
+    let allParagraphs: string[] = [];
+    const pendingLoads: Promise<any>[] = [];
+
+    for (const item of urls) {
+      if (contentCache.has(item.url)) {
+        allParagraphs.push(...(contentCache.get(item.url) || []));
+      } else {
+        const fetchPromise = (async () => {
+          const paragraphs = await fetchAndParseUrl(item.url, item.type);
+          if (paragraphs && paragraphs.length > 0) {
+            contentCache.set(item.url, paragraphs);
+            allParagraphs.push(...paragraphs);
+          }
+        })();
+        pendingLoads.push(fetchPromise);
+      }
+    }
+
+    if (pendingLoads.length > 0) {
+      await Promise.race([Promise.all(pendingLoads), new Promise(resolve => setTimeout(resolve, 3500))]);
+    }
+
+    let matches = searchInParagraphs(allParagraphs, message);
+    let foundSourceUrl = "";
+    let searchResponse = "";
+
+    if (matches.length > 0 && matches[0].score >= 5) {
+      for (const item of urls) {
+        const cached = contentCache.get(item.url);
+        if (cached && cached.includes(matches[0].text)) { foundSourceUrl = item.url; break; }
+      }
+      const topMatches = matches.slice(0, 3).map(m => m.text);
+      searchResponse = `أبشر يا بطل! لقد قمت بالبحث الفوري في كتاب ومراجع المادة ووجدت لك المعلومات الموثوقة التالية:\n\n` +
+                       topMatches.map((t, i) => `📌 **الفقرة ${i+1}:** ${t}`).join("\n\n") + 
+                       (foundSourceUrl ? `\n\n🔗 **المصدر المباشر للكتاب:** [اضغط هنا لتصفح مصدر المادة](${foundSourceUrl})` : "") +
+                       `\n\nهل هذا الشرح كافٍ وواضح لك يا بطل؟`;
+    }
+
+    if (!searchResponse) {
+      const localSummary = subjectObject?.curriculumSummary || "";
+      if (localSummary && localSummary.length > 10 && message.toLowerCase().split(/\s+/).some(w => localSummary.toLowerCase().includes(w))) {
+        searchResponse = `أهلاً بك يا بطل! قمت بالبحث في الخلاصة المعتمدة لمنهج مادة (${subject}) ووجدت التالي:\n\n📖 "${localSummary}"`;
+      }
+    }
+
+    if (!searchResponse) {
+      let fallbackCategory = "arabic";
+      const subLower = subject.toLowerCase();
+      if (subLower.includes("رياض") || subLower.includes("math")) fallbackCategory = "math";
+      else if (subLower.includes("علم") || subLower.includes("طبيعة")) fallbackCategory = "science";
+      else if (subLower.includes("دين") || subLower.includes("إسلام")) fallbackCategory = "religion";
+      else if (subLower.includes("تاريخ") || subLower.includes("سودان")) fallbackCategory = "history";
+
+      const topics = LOCAL_CURRICULUM_FALLBACK[fallbackCategory] || [];
+      let bestFallback: any = null;
+      let highestScore = 0;
+      const queryWords = message.toLowerCase().split(/\s+/);
+
+      topics.forEach(topic => {
+        let score = 0;
+        queryWords.forEach(word => { if (topic.keywords.some(kw => kw.includes(word))) score += 10; });
+        if (score > highestScore) { highestScore = score; bestFallback = topic; }
+      });
+
+      if (bestFallback && highestScore > 0) {
+        searchResponse = `أهلاً بك يا بطل! قمت بالبحث وحصلت على هذا الشرح لمفهوم سؤالك:\n\n⭐ **${bestFallback.title}**\n\n${bestFallback.content}`;
+      }
+    }
+
+    if (!searchResponse) {
+      searchResponse = `أهلاً بك يا بطل في كشوفات مادة (${subject}) للصف (${grade}).\n\nحاول كتابة سؤالك بكلمات مفتاحية مباشرة تقع ضمن موضوع المادة (مثال: "حروف الجر"، "الجمع والطرح") حتى أستطيع عزل السطور الصحيحة من الكتاب لك!`;
+    }
+
+    res.json({ text: searchResponse });
+  } catch (error: any) {
+    res.status(500).json({ error: "حدث خطأ أثناء البحث." });
+  }
+});
+
+// 10. توليد الكويزات التفاعلية بالذكاء الاصطناعي
+app.post("/api/tutor/quiz", async (req, res) => {
+  try {
+    const { grade, subject } = req.body;
+    if (!apiKey || !ai) return res.status(503).json({ error: "مفتاح الذكاء الاصطناعي غير متوفر." });
+
+    const prompt = `أنت خبير مناهج سودانية. قم بتوليد سؤالين (2) مسليين ومتعدد الخيارات لمادة ${subject} في الصف ${grade}.\nرجع النتيجة JSON مطابقة تماماً: {\"quizzes\": [{\"question\": \"..\", \"options\": [\"..\"], \"answerIndex\": 0, \"explanation\": \"..\"}]}`;
+    const response = await ai.models.generateContent({ model: "gemini-3.5-flash", contents: prompt, config: { responseMimeType: "application/json" } });
+    res.json(JSON.parse(response.text || "{}"));
+  } catch (error: any) {
+    res.status(500).json({ error: "فشل توليد الاختبار." });
+  }
+});
+
+// 11. حفظ تعديلات المناهج الإدارية وتمرير التحديث لسوبابيس
+app.post("/api/curriculum/save", async (req, res) => {
+  try {
+    const { password, stages } = req.body;
+    if (password !== "20302060") return res.status(403).json({ error: "كلمة المرور غير صحيحة." });
+    const filePath = path.join(process.cwd(), "src", "data", "curriculum.ts");
+    const fileContent = `export const stagesData: any[] = ${JSON.stringify(stages, null, 2)};\n`;
+    await fs.writeFile(filePath, fileContent, "utf8");
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: "فشل حفظ المنهج." });
+  }
+});
+
+app.post("/api/webhooks/supabase", (req, res) => {
+  try {
+    const payload = req.body;
+    sseClients.forEach((client) => {
+      client.res.write(`data: ${JSON.stringify({ type: "reload_curriculum", table: payload?.table || "unknown" })}\n\n`);
+    });
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false });
+  }
+});
+
+app.post("/api/feedback", async (req, res) => {
+  try {
+    const { email, message } = req.body;
+    if (!email || !message) return res.status(400).json({ error: "المعطيات ناقصة." });
+    res.json({ success: true, message: "شكرا على ملاحظاتكم وهي محل اهتمامنا سيتم التعامل معها قريبا وشكرا لكم وفي امان الله" });
+  } catch (error) {
+    res.status(500).json({ error: "خطأ" });
+  }
+});
+
+app.get("/api/proxy-pdf", async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url || typeof url !== "string") return res.status(400).json({ error: "الرابط مطلوب" });
+    const response = await fetch(cleanUrlForDownload(url));
+    const buffer = await response.arrayBuffer();
+    res.setHeader("Content-Type", "application/pdf");
+    res.send(Buffer.from(buffer));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Global JSON error handling middleware
 app.use((err: any, req: any, res: any, next: any) => {
   console.error("Express App Error:", err);
-  res.status(err.status || err.statusCode || 500).json({
-    success: false,
-    error: err.message || "حدث خطأ داخلي على الملقم."
-  });
+  res.status(err.status || err.statusCode || 500).json({ success: false, error: err.message || "حدث خطأ داخلي على الملقم." });
 });
 
-// دالة تشغيل الملقم الأساسية
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
+    const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    app.get('*', (req, res) => { res.sendFile(path.join(distPath, 'index.html')); });
   }
-
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Sudanese Curriculum Server is running on port ${PORT}`);
+  app.listen(3000, "0.0.0.0", () => {
+    console.log("Sudanese Curriculum Server is running on port 3000");
   });
 }
 
-// تنفيذ التشغيل الفعلي
 startServer();
