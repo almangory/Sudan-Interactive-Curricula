@@ -866,6 +866,35 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
     }
   };
 
+  const deleteSubject = (stageId: string, gradeId: string, subjectId: string) => {
+    const newData = curriculumData.map(stg => {
+      if (stg.id !== stageId) return stg;
+      return {
+        ...stg,
+        grades: stg.grades.map(grd => {
+          if (grd.id !== gradeId) return grd;
+          return {
+            ...grd,
+            subjects: grd.subjects.filter(sub => sub.id !== subjectId)
+          };
+        })
+      };
+    });
+    setCurriculumData(newData);
+    localStorage.setItem("sudan_custom_curriculum_v3", JSON.stringify(newData));
+    
+    // Auto sync to server file system code!
+    saveCurriculumToServer(newData);
+    
+    // Auto sync to Supabase database!
+    saveCurriculumToCloudAutomatically(newData);
+
+    // If activeSubject is deleted, close the modal
+    if (activeSubject && activeSubject.id === subjectId) {
+      setActiveSubject(null);
+    }
+  };
+
   const addSubject = (stageId: string, gradeId: string, newSubject: Subject) => {
     const newData = curriculumData.map(stg => {
       if (stg.id !== stageId) return stg;
@@ -2274,6 +2303,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             subject={activeSubject}
             onClose={() => setActiveSubject(null)}
             onUpdateSubject={updateSubject}
+            onDeleteSubject={deleteSubject}
             isAdminActive={hasEditPermissions}
             currentLang={currentLang}
           />

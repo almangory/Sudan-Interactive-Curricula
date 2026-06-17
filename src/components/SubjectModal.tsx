@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import { 
   X, ExternalLink, Sparkles, BookOpen, Clock, Users, ShieldAlert,
   ChevronRight, Award, Compass, Heart, HelpCircle, Download, Video,
-  FileText, Youtube, Lock, Unlock, Save, Edit, Share2, Check, Star
+  FileText, Youtube, Lock, Unlock, Save, Edit, Share2, Check, Star, Trash2
 } from "lucide-react";
 import { Subject } from "../data/curriculum";
 import DynamicIcon from "./DynamicIcon";
@@ -66,11 +66,12 @@ interface SubjectModalProps {
   subject: Subject;
   onClose: () => void;
   onUpdateSubject?: (stageId: string, gradeId: string, subjectId: string, updatedFields: Partial<Subject>) => void;
+  onDeleteSubject?: (stageId: string, gradeId: string, subjectId: string) => void;
   isAdminActive?: boolean;
   currentLang?: "ar" | "en";
 }
 
-export default function SubjectModal({ stageId, stageName, gradeId, gradeName, subject, onClose, onUpdateSubject, isAdminActive, currentLang: passedLang }: SubjectModalProps) {
+export default function SubjectModal({ stageId, stageName, gradeId, gradeName, subject, onClose, onUpdateSubject, onDeleteSubject, isAdminActive, currentLang: passedLang }: SubjectModalProps) {
   const [showTutor, setShowTutor] = useState(false);
 
   const currentLang = passedLang || (localStorage.getItem("sudan_edu_lang") as "ar" | "en") || "ar";
@@ -242,6 +243,18 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
       });
     }
     setIsEditing(false);
+  };
+
+  const handleDelete = () => {
+    const confirmMsg = currentLang === "ar" 
+      ? `هل أنت متأكد من رغبتك في حذف مادة (${subject.name}) بشكل نهائي من الصف؟` 
+      : `Are you sure you want to permanently delete (${subject.name}) from this grade?`;
+    if (window.confirm(confirmMsg)) {
+      if (onDeleteSubject) {
+        onDeleteSubject(stageId, gradeId, subject.id);
+      }
+      onClose();
+    }
   };
 
   // Check if interactiveUrl exists and is not empty
@@ -512,13 +525,22 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                 <span>{isCopied ? t("تم النسخ!") : t("مشاركة المادة")}</span>
               </button>
               {isAdminActive && (
-                <button 
-                  onClick={handleEditClick}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border rounded-xl text-3xs font-bold transition-all cursor-pointer shadow-sm bg-emerald-900/30 hover:bg-emerald-900/40 border-emerald-800/80 text-emerald-450 hover:text-emerald-300"
-                >
-                  <Edit className="w-3 h-3" />
-                  <span>{isEditing ? t("إلغاء التعديل") : t("تعديل الإدارة 🔑")}</span>
-                </button>
+                <>
+                  <button 
+                    onClick={handleEditClick}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border rounded-xl text-3xs font-bold transition-all cursor-pointer shadow-sm bg-emerald-900/30 hover:bg-emerald-900/40 border-emerald-800/80 text-emerald-450 hover:text-emerald-300"
+                  >
+                    <Edit className="w-3 h-3" />
+                    <span>{isEditing ? t("إلغاء التعديل") : t("تعديل الإدارة 🔑")}</span>
+                  </button>
+                  <button 
+                    onClick={handleDelete}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border rounded-xl text-3xs font-bold transition-all cursor-pointer shadow-sm bg-red-950/40 hover:bg-red-900/40 border-red-900/50 text-red-400 hover:text-red-350"
+                  >
+                    <Trash2 className="w-3 h-3 text-red-450" />
+                    <span>{currentLang === "ar" ? "حذف المقرر 🗑️" : "Delete Subject 🗑️"}</span>
+                  </button>
+                </>
               )}
               <div className={`hidden sm:block px-3 py-1 rounded-full text-xs font-semibold ${subject.colorClass} border`}>
                 {t(gradeName)}
