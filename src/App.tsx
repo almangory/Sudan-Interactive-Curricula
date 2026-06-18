@@ -2029,7 +2029,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       : stage.grades;
 
                     return (
-                      <div className="col-span-1 sm:col-span-2 lg:col-span-5 bg-slate-900/50 border border-slate-800/80 p-5 md:p-6 rounded-2xl space-y-6 mt-1 mb-4 select-text">
+                      <div className="col-span-2 md:col-span-3 lg:col-span-5 bg-slate-900/50 border border-slate-800/80 p-5 md:p-6 rounded-2xl space-y-6 mt-1 mb-4 select-text">
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-850 pb-4">
                           <div className="space-y-1 text-center sm:text-right">
                             <span className="text-3xs text-emerald-400 font-mono font-black uppercase tracking-widest block">{t("gradesLevels")}</span>

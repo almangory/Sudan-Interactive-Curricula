@@ -737,15 +737,36 @@ export default function StudentChatRoom({
                     allUsers.filter(u => activeFriendIds.has(u.id)).map(friend => (
                       <div 
                         key={friend.id}
-                        className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center gap-2.5 text-3xs font-bold text-slate-305"
+                        className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between gap-1.5 text-3xs font-bold text-slate-305 group relative"
                       >
-                        <div className="w-6 h-6 rounded-lg bg-indigo-950/40 text-indigo-400 flex items-center justify-center font-black">
-                          {friend.username.charAt(0).toUpperCase()}
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-6 h-6 rounded-lg bg-indigo-950/40 text-indigo-400 flex items-center justify-center font-black shrink-0">
+                            {friend.username.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="block text-slate-205 truncate text-4xs">{friend.username}</span>
+                            <span className="block text-5xs text-slate-500 font-medium">{friend.grade_name || "عام"}</span>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <span className="block text-slate-205 truncate text-4xs">{friend.username}</span>
-                          <span className="block text-5xs text-slate-500 font-medium">{friend.grade_name || "عام"}</span>
-                        </div>
+                        <button
+                          onClick={() => {
+                            const friendRel = friendships.find(f => 
+                              f.status === "accepted" && (
+                                (String(f.sender_id) === String(currentUser.id) && String(f.receiver_id) === String(friend.id)) ||
+                                (String(f.sender_id) === String(friend.id) && String(f.receiver_id) === String(currentUser.id))
+                              )
+                            );
+                            if (friendRel) {
+                              if (window.confirm(currentLang === "ar" ? `هل أنت متأكد من إلغاء الصداقة مع ${friend.username}؟` : `Are you sure you want to unfriend ${friend.username}?`)) {
+                                handleDeclineFriend(friendRel.id);
+                              }
+                            }
+                          }}
+                          className="w-5 h-5 rounded-md hover:bg-rose-950/40 text-slate-500 hover:text-rose-400 flex items-center justify-center transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0"
+                          title={currentLang === "ar" ? "إلغاء الصداقة" : "Unfriend"}
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
                       </div>
                     ))
                   )}
@@ -1025,16 +1046,53 @@ export default function StudentChatRoom({
 
                           <div className="pt-2">
                             {/* Actions / Status pills */}
-                            {isFriend ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-950/20 border border-emerald-900/40 rounded-xl text-5xs font-bold text-emerald-400">
-                                <UserCheck className="w-3 h-3 text-emerald-400" />
-                                <span>{t.friendsNow}</span>
-                              </span>
-                            ) : sentPending ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-950/20 border border-amber-900/40 rounded-xl text-5xs font-bold text-amber-405">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                <span>{t.pendingRequest}</span>
-                              </span>
+                             {isFriend ? (
+                               <div className="flex items-center gap-2 flex-wrap">
+                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-950/20 border border-emerald-900/40 rounded-xl text-5xs font-bold text-emerald-400">
+                                   <UserCheck className="w-2.5 h-2.5 text-emerald-400" />
+                                   <span>{t.friendsNow}</span>
+                                 </span>
+                                 <button
+                                   onClick={() => {
+                                     const friendRel = friendships.find(f => 
+                                       f.status === "accepted" && (
+                                         (String(f.sender_id) === String(currentUser.id) && String(f.receiver_id) === String(peer.id)) ||
+                                         (String(f.sender_id) === String(peer.id) && String(f.receiver_id) === String(currentUser.id))
+                                       )
+                                     );
+                                     if (friendRel) {
+                                       if (window.confirm(currentLang === "ar" ? `هل أنت متأكد من إلغاء الصداقة مع ${peer.username}؟` : `Are you sure you want to unfriend ${peer.username}?`)) {
+                                         handleDeclineFriend(friendRel.id);
+                                       }
+                                     }
+                                   }}
+                                   className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-rose-950/30 hover:bg-rose-900/40 border border-rose-900/30 hover:border-rose-700/50 text-rose-400 rounded-lg text-5xs font-extrabold transition-all cursor-pointer select-none active:scale-95"
+                                   title={currentLang === "ar" ? "إلغاء الصداقة" : "Unfriend"}
+                                 >
+                                   <X className="w-2.5 h-2.5" />
+                                   <span>{currentLang === "ar" ? "الغاء" : "Unfriend"}</span>
+                                 </button>
+                               </div>
+                             ) : sentPending ? (
+                               <div className="flex items-center gap-2 flex-wrap">
+                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-950/20 border border-amber-900/40 rounded-xl text-5xs font-bold text-amber-405">
+                                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                   <span>{t.pendingRequest}</span>
+                                 </span>
+                                 <button
+                                   onClick={() => {
+                                     const friendRel = pendingOutgoing.find(f => String(f.receiver_id) === String(peer.id));
+                                     if (friendRel) {
+                                       handleDeclineFriend(friendRel.id);
+                                     }
+                                   }}
+                                   className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-slate-800 hover:bg-slate-700 hover:text-slate-200 border border-slate-700 text-slate-400 rounded-lg text-5xs font-extrabold transition-all cursor-pointer select-none active:scale-95"
+                                   title={currentLang === "ar" ? "تراجع عن الطلب" : "Cancel request"}
+                                 >
+                                   <X className="w-2.5 h-2.5" />
+                                   <span>{currentLang === "ar" ? "تراجع" : "Cancel"}</span>
+                                 </button>
+                               </div>
                             ) : receivedPending ? (
                               <div className="flex gap-2">
                                 <button
