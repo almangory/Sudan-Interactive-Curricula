@@ -1,1 +1,21 @@
 @import "tailwindcss";
+
+@keyframes custom-ripple-effect {
+  0% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.ripple-circle {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: custom-ripple-effect 550ms cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+  z-index: 9999;
+}

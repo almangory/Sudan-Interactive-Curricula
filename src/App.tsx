@@ -36,6 +36,14 @@ export default function App() {
   const [selectedStage, setSelectedStage] = useState<Stage | null>(null);
   const [activeGrade, setActiveGrade] = useState<Grade | null>(null);
   const [activeSubject, setActiveSubject] = useState<Subject | null>(null);
+  const [recentSubjects, setRecentSubjects] = useState<any[]>(() => {
+    try {
+      const stored = localStorage.getItem("sudan_edu_recent_subjects");
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
   const [addSubjectState, setAddSubjectState] = useState<{
     stageId: string;
     gradeId: string;
@@ -71,6 +79,74 @@ export default function App() {
     }
     return key;
   };
+
+  // Global ripple click effect initializer for superb touch and click response
+  useEffect(() => {
+    const handleGlobalRipple = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Find closest button, link, role="button", or elements categorized as card/trigger/pointer
+      const trigger = target.closest('button, a, [role="button"], .cursor-pointer, .group, .ripple-trigger') as HTMLElement | null;
+
+      if (!trigger) return;
+
+      // Avoid triggering on standard editable fields to preserve focus flow
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") {
+        return;
+      }
+
+      // Ensure the clickable element is styled with relative position so ripple is masked
+      const computedStyle = window.getComputedStyle(trigger);
+      if (computedStyle.position === "static") {
+        trigger.style.position = "relative";
+      }
+
+      const prevOverflow = trigger.style.overflow;
+      trigger.style.overflow = "hidden";
+
+      // Calculate absolute click offsets relative to the parent bounding coordinates
+      const rect = trigger.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      // Select maximum bounding radius to cover the diagonal corners smoothly
+      const size = Math.max(rect.width, rect.height) * 2;
+
+      const ripple = document.createElement("span");
+      ripple.className = "ripple-circle";
+      ripple.style.width = `${size}px`;
+      ripple.style.height = `${size}px`;
+      ripple.style.left = `${x}px`;
+      ripple.style.top = `${y}px`;
+
+      // Smart color selector: use dark ripple on light backgrounds, light ripple on dark backgrounds
+      const isLightBg = trigger.classList.contains("bg-white") || 
+                         trigger.classList.contains("bg-yellow-400") || 
+                         trigger.classList.contains("bg-yellow-350") || 
+                         trigger.classList.contains("bg-pink-400") || 
+                         trigger.classList.contains("bg-emerald-400") ||
+                         trigger.classList.contains("bg-emerald-300") ||
+                         trigger.classList.contains("bg-slate-100");
+
+      ripple.style.backgroundColor = isLightBg 
+        ? "rgba(0, 0, 0, 0.16)" 
+        : "rgba(255, 255, 255, 0.28)";
+
+      trigger.appendChild(ripple);
+
+      // Clean up DOM node once animation ends
+      ripple.addEventListener("animationend", () => {
+        ripple.remove();
+        if (prevOverflow) {
+          trigger.style.overflow = prevOverflow;
+        }
+      });
+    };
+
+    document.addEventListener("mousedown", handleGlobalRipple);
+    return () => {
+      document.removeEventListener("mousedown", handleGlobalRipple);
+    };
+  }, []);
 
   // Load from Supabase on start if available and subscribe to Webhook SSE events
   useEffect(() => {
@@ -445,6 +521,16 @@ export default function App() {
       return;
     }
     setActiveSubject(subject);
+    setRecentSubjects(prev => {
+      const filtered = prev.filter(s => s.id !== subject.id);
+      const updated = [subject, ...filtered].slice(0, 3);
+      try {
+        localStorage.setItem("sudan_edu_recent_subjects", JSON.stringify(updated));
+      } catch (err) {
+        console.warn("Could not save recent subjects to localStorage", err);
+      }
+      return updated;
+    });
   };
 
   // 🎓 Student & Teacher Custom Fields
@@ -1907,6 +1993,68 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-6 space-y-12">
+        
+        {/* Recent History Section */}
+        {recentSubjects.length > 0 && (
+          <section className="space-y-3 relative overflow-hidden bg-slate-900/40 border border-slate-800 p-4 rounded-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-emerald-400" />
+                <h2 className="text-xs font-black tracking-wide text-slate-200">
+                  {currentLang === "ar" ? "المواد المفتوحة مؤخراً" : "Recent Study History"}
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setRecentSubjects([]);
+                  localStorage.removeItem("sudan_edu_recent_subjects");
+                }}
+                className="text-[10px] font-extrabold text-rose-450 hover:text-rose-400 transition-colors cursor-pointer"
+              >
+                {currentLang === "ar" ? "مسح السجل" : "Clear History"}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              {recentSubjects.map((subject, index) => (
+                <div
+                  key={`${subject.id}-${index}`}
+                  className="group relative p-3 bg-slate-950/60 hover:bg-slate-900 border border-slate-800 hover:border-emerald-500/40 rounded-xl transition-all duration-200 cursor-pointer flex items-center justify-between overflow-hidden"
+                  onClick={() => handleOpenSubject(subject)}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="text-2xl shrink-0 select-none">
+                      {subject.icon || "📚"}
+                    </span>
+                    <div className="min-w-0">
+                      <span className="block text-slate-100 text-xs font-bold truncate">
+                        {t(subject.name)}
+                      </span>
+                      <span className="block text-[10px] text-slate-400 font-medium truncate mt-0.5">
+                        {subject.gradeName ? t(subject.gradeName) : ""}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRecentSubjects(prev => {
+                        const updated = prev.filter((_, i) => i !== index);
+                        localStorage.setItem("sudan_edu_recent_subjects", JSON.stringify(updated));
+                        return updated;
+                      });
+                    }}
+                    className="w-5 h-5 rounded-md hover:bg-rose-950/40 text-slate-500 hover:text-rose-400 flex items-center justify-center transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 ml-1"
+                    title={currentLang === "ar" ? "حذف من السجل" : "Remove from History"}
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
         
 
 
