@@ -58,6 +58,43 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
 
+  // 📢 Breaking News & Live Broadcasting Settings
+  const [breakingNews, setBreakingNews] = useState(() => {
+    try {
+      const stored = localStorage.getItem("sudan_edu_breaking_news_setting_v1");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.bgColor === "bg-[#D21034]/95" || parsed.bgColor === "bg-[#D21034]" || parsed.bgColor === "bg-red-950/90" || parsed.bgColor === "bg-slate-100") {
+          parsed.bgColor = "bg-slate-900";
+          parsed.textColor = "text-slate-100";
+          localStorage.setItem("sudan_edu_breaking_news_setting_v1", JSON.stringify(parsed));
+        }
+        return parsed;
+      }
+      return {
+        enabled: true,
+        textAr: "🔴 عاجل: تم تفعيل منصة التعليم لمساندة الطلاب السودانيين للعام الجديد - تصفح المقررات والملخصات والدروس المرئية الآن مجاناً 🇸🇩",
+        textEn: "🔴 Breaking: Education platform enabled to support Sudanese students - browse courses, summaries, and video lessons now for free! 🇸🇩",
+        speed: "normal",
+        bgColor: "bg-slate-900",
+        textColor: "text-slate-100"
+      };
+    } catch {
+      return {
+        enabled: true,
+        textAr: "🔴 عاجل: تم تفعيل منصة التعليم لمساندة الطلاب السودانيين للعام الجديد - تصفح المقررات والملخصات والدروس المرئية الآن مجاناً 🇸🇩",
+        textEn: "🔴 Breaking: Education platform enabled to support Sudanese students - browse courses, summaries, and video lessons now for free! 🇸🇩",
+        speed: "normal",
+        bgColor: "bg-slate-900",
+        textColor: "text-slate-100"
+      };
+    }
+  });
+
+  const [isTickerDismissed, setIsTickerDismissed] = useState(() => {
+    return sessionStorage.getItem("sudan_edu_ticker_dismissed") === "true";
+  });
+
   // 🔔 Notification States & Realtime counters
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
   const [pendingFriendRequests, setPendingFriendRequests] = useState<any[]>([]);
@@ -407,6 +444,42 @@ export default function App() {
     }
   };
 
+  const handleUpdateBreakingNews = async (updated: {
+    enabled: boolean;
+    textAr: string;
+    textEn: string;
+    speed: string;
+    bgColor: string;
+    textColor: string;
+  }) => {
+    // 1. Update state immediately
+    setBreakingNews(updated);
+    localStorage.setItem("sudan_edu_breaking_news_setting_v1", JSON.stringify(updated));
+    // Reset dismissed state since it's a freshly updated announcement!
+    setIsTickerDismissed(false);
+    sessionStorage.removeItem("sudan_edu_ticker_dismissed");
+
+    // 2. Broadcast via existing site_updates table
+    const configPayload = {
+      enabled: updated.enabled,
+      speed: updated.speed,
+      bgColor: updated.bgColor,
+      textColor: updated.textColor,
+    };
+
+    try {
+      await logSiteUpdate(
+        "breaking_news",
+        updated.textAr,
+        updated.textEn,
+        JSON.stringify(configPayload),
+        "broadcast_config"
+      );
+    } catch (err) {
+      console.warn("Could not broadcast news configuration:", err);
+    }
+  };
+
   const fetchNotificationData = async () => {
     // 1. Fetch site updates (load local storage first)
     let updates = [];
@@ -588,6 +661,35 @@ export default function App() {
       }
     };
   }, [currentUser]);
+
+  // Synchronize breaking news whenever site updates load or refresh from either storage or database
+  useEffect(() => {
+    const breakingUpdate = siteUpdates.find(upd => upd.category === "breaking_news");
+    if (breakingUpdate) {
+      try {
+        let config: any = {};
+        if (breakingUpdate.body_ar) {
+          try {
+            config = JSON.parse(breakingUpdate.body_ar);
+          } catch {
+            // fallback
+          }
+        }
+        const updated = {
+          enabled: config.enabled !== undefined ? config.enabled : true,
+          textAr: breakingUpdate.title_ar || "",
+          textEn: breakingUpdate.title_en || "",
+          speed: config.speed || "normal",
+          bgColor: config.bgColor || "bg-slate-900",
+          textColor: config.textColor || "text-slate-100"
+        };
+        setBreakingNews(updated);
+        localStorage.setItem("sudan_edu_breaking_news_setting_v1", JSON.stringify(updated));
+      } catch (e) {
+        console.warn("Could not parse sync breaking news:", e);
+      }
+    }
+  }, [siteUpdates]);
 
   // Filter stages based on logged-in student profile or admin view
   const displayedStages = React.useMemo(() => {
@@ -1586,6 +1688,65 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         <div className="bg-[#000000] flex-1"></div>
         <div className="bg-[#007229] flex-1"></div>
       </div>
+
+      {/* 📢 Breaking News Moving Ticker Bar from Right to Left */}
+      {breakingNews && breakingNews.enabled && !isTickerDismissed && (
+        <div 
+          className={`relative w-full ${breakingNews.bgColor} ${breakingNews.textColor} text-xs py-2 px-4 md:px-6 select-none overflow-hidden flex items-center border-b border-white/5 z-40 transition-all shadow-lg shadow-black/10`}
+          dir={currentLang === "ar" ? "rtl" : "ltr"}
+        >
+          <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-3">
+            
+            {/* Red alert badge with pulsing dot */}
+            <div className="flex items-center gap-1.5 font-black bg-black/30 px-2.5 py-1 rounded-xl text-[10px] uppercase shadow-inner shrink-0 relative z-10 select-none border border-white/10">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
+              <span className="text-[10px] md:text-[11px] font-black">{currentLang === "ar" ? "أخبار عاجلة 🔴" : "Breaking News 🔴"}</span>
+            </div>
+
+            {/* Animated Ticker container */}
+            <div className="flex-1 overflow-hidden relative mx-2">
+              <div 
+                className={currentLang === "ar" ? "animate-marquee text-right" : "animate-marquee-ltr text-left"}
+                style={{ 
+                  "--marquee-duration": breakingNews.speed === "slow" ? "50s" : breakingNews.speed === "fast" ? "14s" : "26s" 
+                } as React.CSSProperties}
+              >
+                <span className="px-6 text-[11px] md:text-xs font-black tracking-wide">
+                  {currentLang === "ar" ? breakingNews.textAr : breakingNews.textEn}
+                </span>
+                <span className="px-6 text-[11px] md:text-xs font-black tracking-wide opacity-90 select-none">
+                  🔴 {currentLang === "ar" ? breakingNews.textAr : breakingNews.textEn}
+                </span>
+              </div>
+            </div>
+
+            {/* Actions: Admin direct shortcut & Dismiss key */}
+            <div className="flex items-center gap-1.5 relative z-10 shrink-0">
+              {currentUser && (currentUser.user_role === "admin" || currentUser.username === "almangory") && (
+                <button
+                  onClick={() => setShowAdminDashboard(true)}
+                  className="hidden md:inline-flex items-center gap-0.5 bg-black/40 hover:bg-black/60 text-[9px] font-extrabold px-1.5 py-0.5 rounded-lg cursor-pointer transition-all border border-white/10 active:scale-95"
+                  title="تعديل محتوى وبث هذا الإعلان فوراً"
+                >
+                  <span>تعديل ⚙️</span>
+                </button>
+              )}
+              
+              <button
+                onClick={() => {
+                  setIsTickerDismissed(true);
+                  sessionStorage.setItem("sudan_edu_ticker_dismissed", "true");
+                }}
+                className="hover:bg-black/35 p-1 rounded-lg text-white/80 hover:text-[#ffffff] transition-opacity active:scale-90 cursor-pointer border border-transparent hover:border-white/10"
+                title={currentLang === "ar" ? "إخفاء الشريط" : "Hide Announcement"}
+              >
+                <X className="w-3.5 h-3.5 stroke-[2.5]" />
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Top Header Bar for Admin Portal */}
       <div className="bg-slate-900/90 border-b border-slate-800/60 px-6 py-2.5 relative z-50">
@@ -2881,6 +3042,8 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 saveCurriculumToCloudAutomatically(newStages);
               }}
               onClose={() => setShowAdminDashboard(false)}
+              breakingNews={breakingNews}
+              onUpdateBreakingNews={handleUpdateBreakingNews}
             />
           </motion.div>
         ) : showOnlyFavorites ? (

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { 
   Database, Save, Plus, Trash2, Edit3, Settings, AlertTriangle, CheckCircle, 
   RefreshCw, Globe, BookOpen, Video, FileText, LayoutGrid, X, Sparkles, Award,
-  Users, ShieldAlert, CheckCircle2, UserCheck
+  Users, ShieldAlert, CheckCircle2, UserCheck, Bell
 } from "lucide-react";
 import { Stage, Grade, Subject } from "../data/curriculum";
 import { getSupabaseConfig, saveSupabaseConfig, getSupabaseClient, saveCurriculumToSupabase, fetchCurriculumFromSupabase, testSupabaseConnection, AppUser, fetchAllRegisteredUsers, updateUserRoleAndPermissions } from "../lib/supabase";
@@ -11,11 +11,52 @@ interface AdminDashboardProps {
   stages: Stage[];
   onUpdateCurriculum: (newStages: Stage[]) => void;
   onClose: () => void;
+  breakingNews?: {
+    enabled: boolean;
+    textAr: string;
+    textEn: string;
+    speed: string;
+    bgColor: string;
+    textColor: string;
+  };
+  onUpdateBreakingNews?: (updated: {
+    enabled: boolean;
+    textAr: string;
+    textEn: string;
+    speed: string;
+    bgColor: string;
+    textColor: string;
+  }) => void;
 }
 
-export default function AdminDashboard({ stages, onUpdateCurriculum, onClose }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"edit" | "supabase" | "users">("edit");
+export default function AdminDashboard({ 
+  stages, 
+  onUpdateCurriculum, 
+  onClose,
+  breakingNews,
+  onUpdateBreakingNews
+}: AdminDashboardProps) {
+  const [activeTab, setActiveTab] = useState<"edit" | "supabase" | "users" | "announcements">("edit");
   
+  // Breaking News Ticker States
+  const [newsEnabled, setNewsEnabled] = useState(breakingNews?.enabled ?? true);
+  const [newsTextAr, setNewsTextAr] = useState(breakingNews?.textAr ?? "");
+  const [newsTextEn, setNewsTextEn] = useState(breakingNews?.textEn ?? "");
+  const [newsSpeed, setNewsSpeed] = useState(breakingNews?.speed ?? "normal");
+  const [newsBgColor, setNewsBgColor] = useState(breakingNews?.bgColor ?? "bg-slate-900");
+  const [newsTextColor, setNewsTextColor] = useState(breakingNews?.textColor ?? "text-slate-100");
+
+  useEffect(() => {
+    if (breakingNews) {
+      setNewsEnabled(breakingNews.enabled);
+      setNewsTextAr(breakingNews.textAr);
+      setNewsTextEn(breakingNews.textEn);
+      setNewsSpeed(breakingNews.speed);
+      setNewsBgColor(breakingNews.bgColor);
+      setNewsTextColor(breakingNews.textColor);
+    }
+  }, [breakingNews]);
+
   // Selection States
   const [selectedStageId, setSelectedStageId] = useState<string>(stages[1]?.id || stages[0]?.id || "");
   const [selectedGradeId, setSelectedGradeId] = useState<string>("");
@@ -611,6 +652,18 @@ NOTIFY pgrst, 'reload schema';`;
         >
           <Users className="w-4 h-4" />
           <span>👤 إدارة الحسابات وصلاحيات المعلمين</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("announcements")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === "announcements"
+              ? "bg-rose-600 text-[#ffffff] shadow-md shadow-rose-950"
+              : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+          }`}
+        >
+          <Bell className="w-4 h-4" />
+          <span>📢 شريط الإعلان العاجل (بث)</span>
         </button>
       </div>
 
@@ -1341,6 +1394,156 @@ NOTIFY pgrst, 'reload schema';`;
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Tab Contents: Broadcast Announcements (Breaking News) */}
+      {activeTab === "announcements" && (
+        <div className="space-y-6 relative z-10 text-right" dir="rtl">
+          <div className="border border-slate-800 rounded-3xl p-6 bg-slate-900/60 space-y-6">
+            <div>
+              <h4 className="text-sm font-black text-slate-100 flex items-center gap-2">
+                <Bell className="w-4 h-4 text-rose-450 animate-pulse" />
+                <span>📢 بث الأخبار العاجلة على شريط الإعلانات الرئيسي</span>
+              </h4>
+              <p className="text-[11px] text-slate-400 mt-1">
+                يمكنك هنا صياغة رسالة عاجلة لتظهر فوراً للمستخدمين والزوار على هيئة شريط متحرك ذكي من اليمين إلى اليسار في أعلى كافة صفحات المنصة.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-300 block">نص الإعلان العاجل (بالسوداني/العربي):</label>
+                <textarea
+                  rows={3}
+                  value={newsTextAr}
+                  onChange={(e) => setNewsTextAr(e.target.value)}
+                  placeholder="مثال: 🔴 عاجل: تم فتح باب التسجيل بجميع الحلقات التعليمية التفاعلية للطلاب!"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-xs text-slate-200 outline-none focus:border-rose-600 resize-none font-bold"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-300 block font-mono">Breaking News Text (English):</label>
+                <textarea
+                  rows={3}
+                  value={newsTextEn}
+                  onChange={(e) => setNewsTextEn(e.target.value)}
+                  placeholder="Example: 🔴 Breaking: Free interactive classes are now live for all stages!"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-xs text-slate-200 outline-none focus:border-rose-600 resize-none text-left font-mono"
+                  dir="ltr"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-300 block">سرعة حركة الإعلان:</label>
+                <select
+                  value={newsSpeed}
+                  onChange={(e) => setNewsSpeed(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-250 outline-none focus:border-rose-600 font-bold"
+                >
+                  <option value="slow">بطيء جداً (مريح للعين)</option>
+                  <option value="normal">عادي ومتوسط</option>
+                  <option value="fast">سريع وبارز</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-300 block">نمط ولون شريط الإعلان:</label>
+                <select
+                  value={newsBgColor}
+                  onChange={(e) => setNewsBgColor(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-250 outline-none focus:border-rose-600 font-bold"
+                >
+                  <option value="bg-slate-900">⚫ رمادي داكن فخم (موصى به وهادئ للعين)</option>
+                  <option value="bg-slate-100">⚪ رمادي فاتح (أنيق وعصري)</option>
+                  <option value="bg-[#D21034]/95">🔴 أحمر عاجل (ألوان علم السودان)</option>
+                  <option value="bg-amber-950/95">🟡 كهرماني داكن (تنبيه هادئ)</option>
+                  <option value="bg-emerald-950/95">🟢 أخضر زمردي جميل (أخبار سارة)</option>
+                  <option value="bg-indigo-950/95">🔵 نيلي تفاعلي حديث</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-300 block">لون نص الكتابة:</label>
+                <select
+                  value={newsTextColor}
+                  onChange={(e) => setNewsTextColor(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-250 outline-none focus:border-rose-600 font-bold"
+                >
+                  <option value="text-slate-100">⚪ أبيض ناصع / رمادي فاتح جداً</option>
+                  <option value="text-slate-900">⚫ أسود فحمى (منصح به للخلفية الفاتحة)</option>
+                  <option value="text-[#ffffff]">⚪ أبيض ناصع متباين</option>
+                  <option value="text-red-100">🔴 أحمر فاتح جداً</option>
+                  <option value="text-yellow-250">🟡 أصفر ذهبي</option>
+                  <option value="text-emerald-100">🟢 أخضر نضر</option>
+                  <option value="text-indigo-100">🔵 أزرق سماوي</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-slate-950 border border-slate-850 p-4 rounded-2xl flex items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <h5 className="text-xs font-bold text-slate-200">تفعيل وبث الإعلان مباشرة</h5>
+                <p className="text-[10px] text-slate-450">عند إيقاف هذا الخيار، سيختفي شريط الإعلان العاجل عن جميع المستخدمين مؤقتاً.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNewsEnabled(!newsEnabled)}
+                className={`px-4 py-2 rounded-xl text-3xs font-black select-none cursor-pointer duration-300 ${
+                  newsEnabled 
+                    ? "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40" 
+                    : "bg-slate-900 text-slate-500 border border-slate-800"
+                }`}
+              >
+                {newsEnabled ? "🟢 مفعل ومبثوث" : "⚪ متوقف حالياً"}
+              </button>
+            </div>
+
+            {/* Preview Card */}
+            <div className="p-3 border border-dashed border-slate-800 rounded-2xl space-y-1.5 bg-slate-950/50">
+              <span className="text-[10px] font-bold text-slate-500">ماتراه بالأسفل هو معاينة حية لشريط الإعلان:</span>
+              <div className={`h-8 rounded-lg relative overflow-hidden flex items-center ${newsBgColor} ${newsTextColor} text-xs font-bold border border-slate-800/20`}>
+                <div className="absolute right-0 top-0 bottom-0 px-2 flex items-center bg-black/35 text-[10px] tracking-widest z-10 font-black border-l border-white/5 uppercase select-none">
+                  معاينة 🔔
+                </div>
+                <div className="w-full overflow-hidden">
+                  <div className="inline-block whitespace-nowrap animate-marquee" style={{ "--marquee-duration": newsSpeed === "slow" ? "45s" : newsSpeed === "fast" ? "12s" : "24s" } as React.CSSProperties}>
+                    <span className="px-4">{newsTextAr || "ـ ـ لم يتم إدخال نص إعلاني بعد ـ ـ"}</span>
+                    <span className="opacity-40 px-2 font-mono">/</span>
+                    <span className="px-4 font-mono">{newsTextEn || "No English announcement text provided yet"}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onUpdateBreakingNews) {
+                    onUpdateBreakingNews({
+                      enabled: newsEnabled,
+                      textAr: newsTextAr,
+                      textEn: newsTextEn,
+                      speed: newsSpeed,
+                      bgColor: newsBgColor,
+                      textColor: newsTextColor
+                    });
+                    showFeedback("🎉 تم بث وتعميم الإعلان العاجل بنجاح لكافة مستخدمي المنصة!", "success");
+                  } else {
+                    showFeedback("خطأ: تعذر الوصول لمعالِج البث في التطبيق الرئيسي", "error");
+                  }
+                }}
+                className="px-6 py-2.5 bg-[#D21034] hover:bg-red-655 text-white active:scale-95 text-xs font-black rounded-xl duration-200 cursor-pointer shadow-lg shadow-red-955 flex items-center gap-2"
+              >
+                <Save className="w-4 h-4 text-white" />
+                <span>حفظ ونشر البث العاجل 📣</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

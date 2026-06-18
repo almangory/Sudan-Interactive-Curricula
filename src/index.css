@@ -19,3 +19,29 @@
   animation: custom-ripple-effect 550ms cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
   z-index: 9999;
 }
+
+@keyframes marquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+@keyframes marquee-ltr {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee var(--marquee-duration, 25s) linear infinite;
+}
+
+.animate-marquee-ltr {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee-ltr var(--marquee-duration, 25s) linear infinite;
+}
+
+.animate-marquee:hover, .animate-marquee-ltr:hover {
+  animation-play-state: paused;
+}
