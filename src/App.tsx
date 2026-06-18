@@ -248,11 +248,11 @@ export default function App() {
       const { data: frData, error: frError } = await client
         .from("friendships")
         .select("*")
-        .eq("receiver_id", currentUser.id)
+        .eq("receiver_id", String(currentUser.id))
         .eq("status", "pending");
 
       if (!frError && frData) {
-        const senderIds = frData.map((f: any) => f.sender_id);
+        const senderIds = frData.map((f: any) => parseInt(String(f.sender_id), 10)).filter(id => !isNaN(id));
         if (senderIds.length > 0) {
           const { data: usersData } = await client
             .from("users")
@@ -1238,22 +1238,11 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
   const handleNotificationClick = (item: any) => {
     if (item.action === "open_chat") {
       setShowStudentChat(true);
-      setShowEducationalMindMap(false);
-      setShowStudyCamp(false);
-      setSelectedStage(null);
-      setActiveGrade(null);
-      setShowOnlyFavorites(false);
-      setShowAdminDashboard(false);
       
       const nowStr = new Date().toISOString();
       localStorage.setItem("sudan_chat_last_read", nowStr);
       setLastCheckedChat(nowStr);
     } else {
-      setShowStudentChat(false);
-      setShowEducationalMindMap(false);
-      setShowStudyCamp(false);
-      setShowOnlyFavorites(false);
-      
       const nowStr = new Date().toISOString();
       localStorage.setItem("sudan_updates_last_read", nowStr);
       setLastCheckedUpdates(nowStr);
@@ -1303,12 +1292,6 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               onClick={() => {
                 const targetState = !showStudentChat;
                 setShowStudentChat(targetState);
-                setShowEducationalMindMap(false);
-                setShowStudyCamp(false);
-                setSelectedStage(null);
-                setActiveGrade(null);
-                setShowOnlyFavorites(false);
-                setShowAdminDashboard(false);
                 
                 // Clear unread indicator
                 const nowStr = new Date().toISOString();
@@ -1621,8 +1604,12 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         </div>
       )}
 
-      {/* Embedded Sudan Cultural and Academic Hero Banner */}
-      <header className="relative py-12 md:py-16 px-6 overflow-hidden">
+      {/* Split web layout shell to show chat beside main workspace */}
+      <div className="flex flex-col lg:flex-row relative z-10 w-full min-h-screen">
+        {/* Main interactive curriculum workspace column */}
+        <div className="flex-1 min-w-0">
+          {/* Embedded Sudan Cultural and Academic Hero Banner */}
+          <header className="relative py-12 md:py-16 px-6 overflow-hidden">
         {/* Abstract Geometrics */}
         <div className="absolute inset-x-0 bottom-0 top-0 bg-gradient-to-b from-emerald-950/20 via-slate-950/30 to-slate-950 pointer-events-none" />
         <div className="absolute -left-36 top-12 w-96 h-96 bg-emerald-700/10 rounded-full blur-3xl pointer-events-none" />
@@ -2352,23 +2339,6 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           >
             <StudyCamp stages={displayedStages} />
           </motion.div>
-        ) : showStudentChat ? (
-          <motion.div
-            key="student-chat-view"
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
-          >
-            <StudentChatRoom 
-              currentUser={currentUser}
-              currentLang={currentLang}
-              isAdminLoggedIn={isAdminLoggedIn}
-              onTriggerAuth={() => {
-                setShowUserModal(true);
-                setUserModalTab("login");
-              }}
-            />
-          </motion.div>
         ) : (
           false && selectedStage && (() => {
             const renderedGrades = currentUser && currentUser.user_role === "student" && currentUser.grade_id
@@ -2714,6 +2684,34 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           );
         })())}
       </main>
+        </div>
+
+        {/* Sidebar Vertical Chat Space */}
+        <AnimatePresence>
+          {showStudentChat && (
+            <motion.div
+              initial={{ opacity: 0, x: currentLang === "ar" ? -50 : 50, width: 0 }}
+              animate={{ opacity: 1, x: 0, width: "auto" }}
+              exit={{ opacity: 0, x: currentLang === "ar" ? -50 : 50, width: 0 }}
+              transition={{ type: "spring", damping: 28, stiffness: 140 }}
+              className="w-full lg:w-[480px] shrink-0 border-t lg:border-t-0 lg:border-s border-slate-800/60 bg-slate-950/20 z-40 relative flex flex-col"
+            >
+              <div className="lg:h-[calc(100vh-100px)] lg:sticky lg:top-4 lg:overflow-y-auto p-4 lg:p-6 w-full">
+                <StudentChatRoom 
+                  currentUser={currentUser}
+                  currentLang={currentLang}
+                  isAdminLoggedIn={isAdminLoggedIn}
+                  onTriggerAuth={() => {
+                    setShowUserModal(true);
+                    setUserModalTab("login");
+                  }}
+                  onClose={() => setShowStudentChat(false)}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* Embedded Subject entry gate Modal */}
       <AnimatePresence>

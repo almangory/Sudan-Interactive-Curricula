@@ -28,13 +28,15 @@ interface StudentChatRoomProps {
   currentLang: "ar" | "en";
   isAdminLoggedIn: boolean;
   onTriggerAuth: () => void;
+  onClose?: () => void;
 }
 
 export default function StudentChatRoom({ 
   currentUser, 
   currentLang, 
   isAdminLoggedIn, 
-  onTriggerAuth 
+  onTriggerAuth,
+  onClose
 }: StudentChatRoomProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
@@ -617,7 +619,16 @@ export default function StudentChatRoom({
     >
       {/* Dynamic Hub Banner Header */}
       <span className="h-1 bg-gradient-to-r from-indigo-500 via-emerald-500 to-indigo-700 block" />
-      <header className="p-4 sm:p-5 border-b border-secondary bg-slate-900/80 flex flex-col md:flex-row items-center justify-between gap-4 select-none">
+      <header className="p-4 sm:p-5 border-b border-snug bg-slate-900/80 flex flex-col md:flex-row items-center justify-between gap-4 select-none relative">
+        {onClose && (
+          <button 
+            onClick={onClose}
+            className="absolute top-3.5 end-3.5 p-1.5 rounded-full bg-slate-950/80 border border-slate-800 hover:border-red-500/40 hover:bg-slate-900 text-slate-400 hover:text-red-400 cursor-pointer transition-all z-20"
+            title={currentLang === "ar" ? "إغلاق الدردشة" : "Close Chat"}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
         <div className="flex items-center gap-3">
           <div className="p-3 bg-indigo-600/15 border border-indigo-800/35 text-indigo-400 rounded-2xl shadow-inner">
             <MessageSquare className="w-6 h-6 text-indigo-400 animate-pulse" />
