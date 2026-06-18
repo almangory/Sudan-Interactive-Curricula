@@ -375,54 +375,116 @@ export default function App() {
 
   // 🔔 HELPER LOG RETRIEVAL & CREATION ENGINE FOR NOTIFICATIONS
   const logSiteUpdate = async (category: string, titleAr: string, titleEn: string, bodyAr: string, bodyEn: string) => {
+    const updateId = `UPD-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+    const newUpdate = {
+      id: updateId,
+      title_ar: titleAr,
+      title_en: titleEn,
+      body_ar: bodyAr,
+      body_en: bodyEn,
+      category: category,
+      created_at: new Date().toISOString()
+    };
+
+    // Update local state and local storage immediately so it reflects in the UI instantly
+    setSiteUpdates(prev => {
+      const filtered = prev.filter(x => x.id !== updateId);
+      const updated = [newUpdate, ...filtered].slice(0, 30);
+      try {
+        localStorage.setItem("sudan_edu_local_updates_v1", JSON.stringify(updated));
+      } catch (err) {
+        console.warn("Could not save site updates to local storage:", err);
+      }
+      return updated;
+    });
+
     const client = getSupabaseClient();
     if (!client) return;
     try {
-      const updateId = `UPD-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
-      await client.from("site_updates").insert([{
-        id: updateId,
-        title_ar: titleAr,
-        title_en: titleEn,
-        body_ar: bodyAr,
-        body_en: bodyEn,
-        category: category,
-        created_at: new Date().toISOString()
-      }]);
+      await client.from("site_updates").insert([newUpdate]);
     } catch (err) {
-      console.warn("Could not log site update automatically:", err);
+      console.warn("Could not log site update automatically to Supabase:", err);
     }
   };
 
   const fetchNotificationData = async () => {
-    const client = getSupabaseClient();
-    if (!client) return;
-
+    // 1. Fetch site updates (load local storage first)
+    let updates = [];
     try {
-      // 1. Fetch site updates
-      const { data: updates, error: updatesError } = await client
-        .from("site_updates")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(30);
+      const stored = localStorage.getItem("sudan_edu_local_updates_v1");
+      updates = stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      console.warn(e);
+    }
 
-      if (!updatesError && updates) {
-        setSiteUpdates(updates);
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        const { data, error } = await client
+          .from("site_updates")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(30);
+
+        if (!error && data) {
+          updates = data;
+          try {
+            localStorage.setItem("sudan_edu_local_updates_v1", JSON.stringify(data));
+          } catch (e) {
+            console.warn(e);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch cloud site updates, using local cache:", err);
       }
+    }
+    setSiteUpdates(updates);
 
-      if (!currentUser) {
-        setPendingFriendRequests([]);
-        return;
+    if (!currentUser) {
+      setPendingFriendRequests([]);
+      return;
+    }
+
+    // 2. Fetch pending incoming friend requests
+    let frData = [];
+    try {
+      const storedFr = localStorage.getItem("sudan_edu_local_friendships");
+      frData = storedFr ? JSON.parse(storedFr) : [];
+    } catch (e) {
+      console.warn(e);
+    }
+
+    // Always capture pending incoming ones locally
+    let pendingFr = frData.filter((f: any) => 
+      String(f.receiver_id) === String(currentUser.id) && f.status === "pending"
+    );
+
+    if (client) {
+      try {
+        const { data, error } = await client
+          .from("friendships")
+          .select("*")
+          .eq("receiver_id", String(currentUser.id))
+          .eq("status", "pending");
+
+        if (!error && data) {
+          frData = data;
+          pendingFr = data;
+          try {
+            localStorage.setItem("sudan_edu_local_friendships", JSON.stringify(data));
+          } catch (e) {
+            console.warn(e);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch cloud friendships, using local storage:", err);
       }
+    }
 
-      // 2. Fetch pending incoming friend requests using our clean string-casting check
-      const { data: frData, error: frError } = await client
-        .from("friendships")
-        .select("*")
-        .eq("receiver_id", String(currentUser.id))
-        .eq("status", "pending");
-
-      if (!frError && frData) {
-        const senderIds = frData.map((f: any) => parseInt(String(f.sender_id), 10)).filter(id => !isNaN(id));
+    // Translate senderName from users if online, otherwise fallback
+    if (client && pendingFr.length > 0) {
+      try {
+        const senderIds = pendingFr.map((f: any) => parseInt(String(f.sender_id), 10)).filter(id => !isNaN(id));
         if (senderIds.length > 0) {
           const { data: usersData } = await client
             .from("users")
@@ -430,28 +492,45 @@ export default function App() {
             .in("id", senderIds);
           
           const userMap = new Map(usersData?.map((u: any) => [String(u.id), u.username]) || []);
-          const requestsWithSender = frData.map((f: any) => ({
+          const requestsWithSender = pendingFr.map((f: any) => ({
             ...f,
-            senderName: userMap.get(String(f.sender_id)) || (currentLang === "ar" ? "طالب آخر" : "Another Peer")
+            senderName: f.senderName || userMap.get(String(f.sender_id)) || (currentLang === "ar" ? "طالب آخر" : "Another Peer")
           }));
           setPendingFriendRequests(requestsWithSender);
         } else {
           setPendingFriendRequests([]);
         }
+      } catch (err) {
+        console.warn("Error parsing sender names, falling back:", err);
+        const requestsWithSenderFallback = pendingFr.map((f: any) => ({
+          ...f,
+          senderName: f.senderName || (currentLang === "ar" ? "زميل دراسة" : "Study Peer")
+        }));
+        setPendingFriendRequests(requestsWithSenderFallback);
       }
+    } else {
+      const requestsWithSenderFallback = pendingFr.map((f: any) => ({
+        ...f,
+        senderName: f.senderName || (currentLang === "ar" ? "زميل دراسة" : "Study Peer")
+      }));
+      setPendingFriendRequests(requestsWithSenderFallback);
+    }
 
-      // 3. Fetch recent chat messages for parsing unread notifications
-      const { data: msgs, error: msgsError } = await client
-        .from("chat_messages")
-        .select("*")
-        .order("timestamp", { ascending: false })
-        .limit(30);
+    // 3. Fetch recent chat messages for parsing unread notifications
+    if (client) {
+      try {
+        const { data: msgs, error: msgsError } = await client
+          .from("chat_messages")
+          .select("*")
+          .order("timestamp", { ascending: false })
+          .limit(30);
 
-      if (!msgsError && msgs) {
-        setRecentChatMessages(msgs);
+        if (!msgsError && msgs) {
+          setRecentChatMessages(msgs);
+        }
+      } catch (err) {
+        console.warn("Could not fetch recent chat messages for notifications:", err);
       }
-    } catch (e) {
-      console.warn("Dynamic notification lookup note:", e);
     }
   };
 
@@ -459,41 +538,54 @@ export default function App() {
   useEffect(() => {
     fetchNotificationData();
 
-    const client = getSupabaseClient();
-    if (!client) return;
+    // 1. Hook instant local custom event listener
+    const handleLocalNotificationUpdate = () => {
+      fetchNotificationData();
+    };
+    window.addEventListener("sudan_edu_notification_update", handleLocalNotificationUpdate);
 
-    const channel = client
-      .channel("global-notifications")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "friendships" },
-        () => {
-          fetchNotificationData();
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "chat_messages" },
-        () => {
-          fetchNotificationData();
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "site_updates" },
-        () => {
-          fetchNotificationData();
-        }
-      )
-      .subscribe();
-
+    // 2. High-reliability polling fallback
     const timer = setInterval(() => {
       fetchNotificationData();
     }, 12500);
 
+    // 3. Realtime Supabase channel (if configured)
+    const client = getSupabaseClient();
+    let channel: any = null;
+    
+    if (client) {
+      channel = client
+        .channel("global-notifications")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "friendships" },
+          () => {
+            fetchNotificationData();
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "chat_messages" },
+          () => {
+            fetchNotificationData();
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "site_updates" },
+          () => {
+            fetchNotificationData();
+          }
+        )
+        .subscribe();
+    }
+
     return () => {
-      client.removeChannel(channel);
+      window.removeEventListener("sudan_edu_notification_update", handleLocalNotificationUpdate);
       clearInterval(timer);
+      if (client && channel) {
+        client.removeChannel(channel);
+      }
     };
   }, [currentUser]);
 

@@ -128,7 +128,29 @@ export default function StudentChatRoom({
   const fetchFriendshipsAndPeers = async () => {
     if (!currentUser) return;
     const client = getSupabaseClient();
-    if (!client) return;
+
+    // Setup local mock users directory fallback
+    const mockGrId = currentUser.grade_id || "g1";
+    const demoPeers = [
+      { id: 1001, username: "أحمد السوداني", email: "ahmed@sudan.edu", user_role: "student", grade_id: mockGrId },
+      { id: 1002, username: "سارة الفاتح", email: "sara@sudan.edu", user_role: "student", grade_id: mockGrId },
+      { id: 1003, username: "عمر الفاروق", email: "omar@sudan.edu", user_role: "student", grade_id: mockGrId },
+      { id: 1004, username: "آية عبد المجيد", email: "aya@sudan.edu", user_role: "student", grade_id: mockGrId }
+    ];
+
+    let localFriendships = [];
+    try {
+      const stored = localStorage.getItem("sudan_edu_local_friendships");
+      localFriendships = stored ? JSON.parse(stored) : [];
+    } catch {
+      localFriendships = [];
+    }
+
+    if (!client) {
+      setFriendships(localFriendships);
+      setAllUsers(demoPeers);
+      return;
+    }
 
     try {
       setIsRelationsLoading(true);
@@ -141,6 +163,9 @@ export default function StudentChatRoom({
 
       if (!relationError && friendshipsData) {
         setFriendships(friendshipsData as Friendship[]);
+        localStorage.setItem("sudan_edu_local_friendships", JSON.stringify(friendshipsData));
+      } else {
+        setFriendships(localFriendships);
       }
 
       // 2. Fetch all registered users to construct the students directory
@@ -150,12 +175,15 @@ export default function StudentChatRoom({
         .limit(200);
 
       if (!usersError && usersData) {
-        // Exclude ourselves from the directory
         const filteredPeers = (usersData as AppUser[]).filter(u => u.id !== currentUser.id);
-        setAllUsers(filteredPeers);
+        setAllUsers(filteredPeers.length > 0 ? filteredPeers : demoPeers);
+      } else {
+        setAllUsers(demoPeers);
       }
     } catch (e) {
-      console.warn("Error fetching friendship states:", e);
+      console.warn("Error fetching friendship states, using local fallbacks:", e);
+      setFriendships(localFriendships);
+      setAllUsers(demoPeers);
     } finally {
       setIsRelationsLoading(false);
     }
@@ -447,8 +475,7 @@ export default function StudentChatRoom({
   // FRIENDSHIP OPERATIONAL ACTIONS
   // 1. Send Friend Request
   const handleAddFriend = async (targetUser: AppUser) => {
-    const client = getSupabaseClient();
-    if (!client || !currentUser) return;
+    if (!currentUser) return;
 
     try {
       // Rule validation: can only add friends from the exact same stage ("من نفس المرحلة فقط")
@@ -471,23 +498,78 @@ export default function StudentChatRoom({
         status: "pending"
       };
 
-      const { error } = await client.from("friendships").insert([payload]);
-      if (error) {
-        console.error("Could not insert friendship:", error);
-        return;
+      // Always save to localStorage immediately for instant local UI updates and offline use!
+      let localFriendships = [];
+      try {
+        const stored = localStorage.getItem("sudan_edu_local_friendships");
+        localFriendships = stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        console.warn(e);
+      }
+      localFriendships.push(payload);
+      localStorage.setItem("sudan_edu_local_friendships", JSON.stringify(localFriendships));
+
+      const client = getSupabaseClient();
+      if (client) {
+        const { error } = await client.from("friendships").insert([payload]);
+        if (error) {
+          console.error("Could not insert friendship in Supabase:", error);
+        }
       }
 
       alert(t.sentSuccess);
       fetchFriendshipsAndPeers();
+      window.dispatchEvent(new Event("sudan_edu_notification_update"));
     } catch (e) {
       console.error("Add friend error:", e);
     }
   };
 
+  // 1.5. Simulate receiving Friend Request
+  const handleSimulateIncomingRequest = (senderPeer: AppUser) => {
+    if (!currentUser) return;
+    const friendshipId = `FRND-SIM-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+    const payload = {
+      id: friendshipId,
+      sender_id: senderPeer.id,
+      receiver_id: currentUser.id,
+      status: "pending",
+      senderName: senderPeer.username
+    };
+
+    let localFriendships = [];
+    try {
+      const stored = localStorage.getItem("sudan_edu_local_friendships");
+      localFriendships = stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      console.warn(e);
+    }
+    // Remove duplicate sims
+    localFriendships = localFriendships.filter((f: any) => 
+      !(String(f.sender_id) === String(senderPeer.id) && String(f.receiver_id) === String(currentUser.id))
+    );
+    localFriendships.push(payload);
+    localStorage.setItem("sudan_edu_local_friendships", JSON.stringify(localFriendships));
+
+    const client = getSupabaseClient();
+    if (client) {
+      client.from("friendships").insert([payload]).then(({ error }) => {
+        if (error) console.warn("Supabase simulate insert error:", error);
+      });
+    }
+
+    alert(currentLang === "ar"
+      ? `🔔 تم محاكاة استقبال طلب صداقة وارد من الزميل "${senderPeer.username}"! تفقد جرس الإشعارات في الأعلى الآن 🎈`
+      : `🔔 Simulated an incoming friend request from "${senderPeer.username}"! Check the notification bell above 🎈`
+    );
+
+    fetchFriendshipsAndPeers();
+    window.dispatchEvent(new Event("sudan_edu_notification_update"));
+  };
+
   // 2. Accept Friend Request with Strict same-stage condition verification
   const handleAcceptFriend = async (friendshipId: string, senderUser: AppUser) => {
-    const client = getSupabaseClient();
-    if (!client || !currentUser) return;
+    if (!currentUser) return;
 
     try {
       // Validate the mandatory same stage condition before accepting
@@ -502,19 +584,38 @@ export default function StudentChatRoom({
         return;
       }
 
-      const { error } = await client
-        .from("friendships")
-        .update({ status: "accepted" })
-        .eq("id", friendshipId);
+      // Update locally
+      let localFriendships = [];
+      try {
+        const stored = localStorage.getItem("sudan_edu_local_friendships");
+        localFriendships = stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        console.warn(e);
+      }
+      localFriendships = localFriendships.map((f: any) => {
+        if (f.id === friendshipId) {
+          return { ...f, status: "accepted" };
+        }
+        return f;
+      });
+      localStorage.setItem("sudan_edu_local_friendships", JSON.stringify(localFriendships));
 
-      if (error) {
-        console.error("Could not accept friendship:", error);
-        return;
+      const client = getSupabaseClient();
+      if (client) {
+        const { error } = await client
+          .from("friendships")
+          .update({ status: "accepted" })
+          .eq("id", friendshipId);
+
+        if (error) {
+          console.error("Could not accept friendship:", error);
+        }
       }
 
       alert(t.acceptSuccess);
       fetchFriendshipsAndPeers();
       fetchMessagesDirect();
+      window.dispatchEvent(new Event("sudan_edu_notification_update"));
     } catch (e) {
       console.error("Accept friend error:", e);
     }
@@ -522,25 +623,36 @@ export default function StudentChatRoom({
 
   // 3. Decline / Ignore Friend Request
   const handleDeclineFriend = async (friendshipId: string) => {
-    const client = getSupabaseClient();
-    if (!client) return;
-
+    // Update locally
+    let localFriendships = [];
     try {
-      const { error } = await client
-        .from("friendships")
-        .delete()
-        .eq("id", friendshipId);
-
-      if (error) {
-        console.error("Could not delete/decline friendship:", error);
-        return;
-      }
-
-      alert(t.declineSuccess);
-      fetchFriendshipsAndPeers();
+      const stored = localStorage.getItem("sudan_edu_local_friendships");
+      localFriendships = stored ? JSON.parse(stored) : [];
     } catch (e) {
-      console.error("Decline friend error:", e);
+      console.warn(e);
     }
+    localFriendships = localFriendships.filter((f: any) => f.id !== friendshipId);
+    localStorage.setItem("sudan_edu_local_friendships", JSON.stringify(localFriendships));
+
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        const { error } = await client
+          .from("friendships")
+          .delete()
+          .eq("id", friendshipId);
+
+        if (error) {
+          console.error("Could not delete/decline friendship:", error);
+        }
+      } catch (e) {
+        console.warn("DB friendship delete error:", e);
+      }
+    }
+
+    alert(t.declineSuccess);
+    fetchFriendshipsAndPeers();
+    window.dispatchEvent(new Event("sudan_edu_notification_update"));
   };
 
   // Helper formatting for message timestamps
@@ -1117,13 +1229,23 @@ export default function StudentChatRoom({
                                 </button>
                               </div>
                             ) : isSameStage ? (
-                              <button
-                                onClick={() => handleAddFriend(peer)}
-                                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-slate-50 text-5xs font-extrabold rounded-xl cursor-pointer inline-flex items-center gap-1 select-none active:scale-95 duration-200"
-                              >
-                                <UserPlus className="w-3 h-3 text-white" />
-                                <span>{t.addFriend}</span>
-                              </button>
+                              <div className="flex gap-1.5 flex-wrap">
+                                <button
+                                  onClick={() => handleAddFriend(peer)}
+                                  className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-slate-50 text-[10px] sm:text-5xs font-extrabold rounded-xl cursor-pointer inline-flex items-center gap-1 select-none active:scale-95 duration-200"
+                                >
+                                  <UserPlus className="w-3 h-3 text-white" />
+                                  <span>{t.addFriend}</span>
+                                </button>
+                                
+                                <button
+                                  onClick={() => handleSimulateIncomingRequest(peer)}
+                                  className="px-2 py-1.5 bg-amber-950/20 hover:bg-amber-900/10 border border-amber-900/30 text-amber-400 text-[10px] sm:text-5xs font-extrabold rounded-xl cursor-pointer inline-flex items-center gap-1 select-none active:scale-95 duration-200"
+                                  title="اضغط لتجربة واستقبال طلب صداقة وهمي من هذا الطالب على حسابك"
+                                >
+                                  <span>محاكاة استلام طلب 📥</span>
+                                </button>
+                              </div>
                             ) : (
                               <span className="inline-flex py-1 text-5xs font-bold text-rose-500 bg-rose-950/10 px-2 rounded-lg leading-none select-none">
                                 {t.differentStage}
