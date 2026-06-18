@@ -178,12 +178,12 @@ export default function StudentChatRoom({
 
       friendshipList.forEach(rel => {
         if (rel.status === "accepted") {
-          approvedFriendIds.add(rel.sender_id === currentUser.id ? rel.receiver_id : rel.sender_id);
+          approvedFriendIds.add(String(rel.sender_id) === String(currentUser.id) ? rel.receiver_id : rel.sender_id);
         }
       });
 
       // Also include ourselves and admin postings
-      approvedFriendIds.add(currentUser.id);
+      approvedFriendIds.add(String(currentUser.id));
 
       // Fetch messages from Supabase directly
       const { data: msgs, error } = await client
@@ -201,7 +201,7 @@ export default function StudentChatRoom({
         // Filter messages to strictly match only accepted friendships
         // This acts as a client-side layer to double-guarantee RLS compliance and safety
         const secureMessages = msgs
-          .filter((m: any) => approvedFriendIds.has(m.user_id) || m.user_role === "admin")
+          .filter((m: any) => approvedFriendIds.has(String(m.user_id)) || m.user_role === "admin")
           .map((m: any) => ({
             id: m.id,
             userId: m.user_id,
@@ -258,18 +258,18 @@ export default function StudentChatRoom({
               .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`);
 
             const approvedFriendIds = new Set<string>();
-            approvedFriendIds.add(currentUser.id);
+            approvedFriendIds.add(String(currentUser.id));
 
             if (relations) {
               relations.forEach((rel: any) => {
                 if (rel.status === "accepted") {
-                  approvedFriendIds.add(rel.sender_id === currentUser.id ? rel.receiver_id : rel.sender_id);
+                  approvedFriendIds.add(String(rel.sender_id) === String(currentUser.id) ? rel.receiver_id : rel.sender_id);
                 }
               });
             }
 
             // Strictly filter realtime message inserts
-            if (approvedFriendIds.has(newMsg.user_id) || newMsg.user_role === "admin") {
+            if (approvedFriendIds.has(String(newMsg.user_id)) || newMsg.user_role === "admin") {
               const formatted: ChatMessage = {
                 id: newMsg.id,
                 userId: newMsg.user_id,
@@ -308,6 +308,13 @@ export default function StudentChatRoom({
           if (oldMsg && oldMsg.id) {
             setMessages(prev => prev.filter(m => m.id !== oldMsg.id));
           }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "friendships" },
+        () => {
+          fetchFriendshipsAndPeers();
         }
       )
       .subscribe();
@@ -585,13 +592,13 @@ export default function StudentChatRoom({
   const myStageId = getStageOfGrade(currentUser.grade_id);
 
   // Parse direct list of relationships of current user
-  const pendingIncoming = friendships.filter(f => f.receiver_id === currentUser.id && f.status === "pending");
-  const pendingOutgoing = friendships.filter(f => f.sender_id === currentUser.id && f.status === "pending");
+  const pendingIncoming = friendships.filter(f => String(f.receiver_id) === String(currentUser.id) && f.status === "pending");
+  const pendingOutgoing = friendships.filter(f => String(f.sender_id) === String(currentUser.id) && f.status === "pending");
   const activeFriendIds = new Set<string>();
 
   friendships.forEach(f => {
     if (f.status === "accepted") {
-      activeFriendIds.add(f.sender_id === currentUser.id ? f.receiver_id : f.sender_id);
+      activeFriendIds.add(String(f.sender_id) === String(currentUser.id) ? f.receiver_id : f.sender_id);
     }
   });
 
@@ -743,7 +750,7 @@ export default function StudentChatRoom({
                   </h4>
                   <div className="space-y-2 max-h-[160px] overflow-y-auto">
                     {pendingIncoming.map(req => {
-                      const sender = allUsers.find(u => u.id === req.sender_id);
+                      const sender = allUsers.find(u => String(u.id) === String(req.sender_id));
                       if (!sender) return null;
                       return (
                         <div key={req.id} className="p-2 rounded-xl bg-slate-950/85 border border-slate-850/80 space-y-2">
@@ -975,9 +982,9 @@ export default function StudentChatRoom({
                   const isSameStage = peerStage === myStageId;
                   
                   // Friendship Status computation
-                  const isFriend = activeFriendIds.has(peer.id);
-                  const sentPending = pendingOutgoing.some(f => f.receiver_id === peer.id);
-                  const receivedPending = pendingIncoming.some(f => f.sender_id === peer.id);
+                  const isFriend = activeFriendIds.has(String(peer.id));
+                  const sentPending = pendingOutgoing.some(f => String(f.receiver_id) === String(peer.id));
+                  const receivedPending = pendingIncoming.some(f => String(f.sender_id) === String(peer.id));
 
                   return (
                     <div 
@@ -1021,7 +1028,7 @@ export default function StudentChatRoom({
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => {
-                                    const friendObj = pendingIncoming.find(f => f.sender_id === peer.id);
+                                    const friendObj = pendingIncoming.find(f => String(f.sender_id) === String(peer.id));
                                     if (friendObj) handleAcceptFriend(friendObj.id, peer);
                                   }}
                                   className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-100 text-5xs font-extrabold rounded-lg cursor-pointer flex items-center gap-1 select-none active:scale-95"
@@ -1031,7 +1038,7 @@ export default function StudentChatRoom({
                                 </button>
                                 <button
                                   onClick={() => {
-                                    const friendObj = pendingIncoming.find(f => f.sender_id === peer.id);
+                                    const friendObj = pendingIncoming.find(f => String(f.sender_id) === String(peer.id));
                                     if (friendObj) handleDeclineFriend(friendObj.id);
                                   }}
                                   className="px-2.5 py-1 bg-rose-950/40 hover:bg-rose-900/40 text-rose-400 border border-rose-900/35 text-5xs font-black rounded-lg cursor-pointer flex items-center gap-1 select-none active:scale-95"

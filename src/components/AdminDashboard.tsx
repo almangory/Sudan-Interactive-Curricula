@@ -498,7 +498,36 @@ CREATE POLICY "Allow select for everyone on chat_messages" ON chat_messages FOR 
 CREATE POLICY "Allow insert for everyone on chat_messages" ON chat_messages FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow delete for everyone on chat_messages" ON chat_messages FOR DELETE USING (true);
 
--- 5. تنشيط ذاكرة الكاش المؤقتة لـ PostgREST لتسريع قراءة وحفظ الأعمدة الجديدة:
+-- 5. إنشاء جدول الصداقات للدردشة والمطابقة الطلابية (friendships)
+CREATE TABLE IF NOT EXISTS friendships (
+  id TEXT PRIMARY KEY,
+  sender_id TEXT NOT NULL,
+  receiver_id TEXT NOT NULL,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+  UNIQUE(sender_id, receiver_id)
+);
+
+ALTER TABLE friendships ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow select for everyone on friendships" ON friendships FOR SELECT USING (true);
+CREATE POLICY "Allow insert update delete for all on friendships" ON friendships FOR ALL USING (true) WITH CHECK (true);
+
+-- 6. إنشاء جدول إشعارات تحديثات المنصة والمناهج (site_updates)
+CREATE TABLE IF NOT EXISTS site_updates (
+  id TEXT PRIMARY KEY,
+  title_ar TEXT NOT NULL,
+  title_en TEXT NOT NULL,
+  body_ar TEXT,
+  body_en TEXT,
+  category TEXT DEFAULT 'general',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE site_updates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow select for everyone on site_updates" ON site_updates FOR SELECT USING (true);
+CREATE POLICY "Allow insert update delete for all on site_updates" ON site_updates FOR ALL USING (true) WITH CHECK (true);
+
+-- 7. تنشيط ذاكرة الكاش المؤقتة لـ PostgREST لتسريع قراءة وحفظ الأعمدة الجديدة:
 NOTIFY pgrst, 'reload schema';`;
 
   const handleCreateDatabaseTable = async () => {

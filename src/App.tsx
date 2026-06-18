@@ -4,7 +4,7 @@ import {
   GraduationCap, Award, Compass, BookOpen, Clock, Heart, 
   Map, Sparkles, Star, ChevronLeft, ChevronDown, CheckCircle, 
   Search, ShieldAlert, History, Globe, Plus, FileText, Video, Filter,
-  Lock, Network, MessageSquare, X
+  Lock, Network, MessageSquare, X, Bell, MessagesSquare, UserCheck, Check, Link
 } from "lucide-react";
 import { stagesData, Stage, Grade, Subject } from "./data/curriculum";
 import SubjectModal from "./components/SubjectModal";
@@ -48,6 +48,14 @@ export default function App() {
   const [categoryFilter, setCategoryFilter] = useState<"all" | "books" | "videos" | "interactive">("all");
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
+
+  // 🔔 Notification States & Realtime counters
+  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
+  const [pendingFriendRequests, setPendingFriendRequests] = useState<any[]>([]);
+  const [recentChatMessages, setRecentChatMessages] = useState<any[]>([]);
+  const [siteUpdates, setSiteUpdates] = useState<any[]>([]);
+  const [lastCheckedChat, setLastCheckedChat] = useState<string>(() => localStorage.getItem("sudan_chat_last_read") || new Date(0).toISOString());
+  const [lastCheckedUpdates, setLastCheckedUpdates] = useState<string>(() => localStorage.getItem("sudan_updates_last_read") || new Date(0).toISOString());
 
   const [currentLang, setCurrentLang] = useState<"ar" | "en">(() => {
     return (localStorage.getItem("sudan_edu_lang") as "ar" | "en") || "ar";
@@ -194,6 +202,130 @@ export default function App() {
   const [userAuthError, setUserAuthError] = useState("");
   const [userAuthSuccess, setUserAuthSuccess] = useState("");
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  // 🔔 HELPER LOG RETRIEVAL & CREATION ENGINE FOR NOTIFICATIONS
+  const logSiteUpdate = async (category: string, titleAr: string, titleEn: string, bodyAr: string, bodyEn: string) => {
+    const client = getSupabaseClient();
+    if (!client) return;
+    try {
+      const updateId = `UPD-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+      await client.from("site_updates").insert([{
+        id: updateId,
+        title_ar: titleAr,
+        title_en: titleEn,
+        body_ar: bodyAr,
+        body_en: bodyEn,
+        category: category,
+        created_at: new Date().toISOString()
+      }]);
+    } catch (err) {
+      console.warn("Could not log site update automatically:", err);
+    }
+  };
+
+  const fetchNotificationData = async () => {
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    try {
+      // 1. Fetch site updates
+      const { data: updates, error: updatesError } = await client
+        .from("site_updates")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(30);
+
+      if (!updatesError && updates) {
+        setSiteUpdates(updates);
+      }
+
+      if (!currentUser) {
+        setPendingFriendRequests([]);
+        return;
+      }
+
+      // 2. Fetch pending incoming friend requests using our clean string-casting check
+      const { data: frData, error: frError } = await client
+        .from("friendships")
+        .select("*")
+        .eq("receiver_id", currentUser.id)
+        .eq("status", "pending");
+
+      if (!frError && frData) {
+        const senderIds = frData.map((f: any) => f.sender_id);
+        if (senderIds.length > 0) {
+          const { data: usersData } = await client
+            .from("users")
+            .select("id, username")
+            .in("id", senderIds);
+          
+          const userMap = new Map(usersData?.map((u: any) => [String(u.id), u.username]) || []);
+          const requestsWithSender = frData.map((f: any) => ({
+            ...f,
+            senderName: userMap.get(String(f.sender_id)) || (currentLang === "ar" ? "طالب آخر" : "Another Peer")
+          }));
+          setPendingFriendRequests(requestsWithSender);
+        } else {
+          setPendingFriendRequests([]);
+        }
+      }
+
+      // 3. Fetch recent chat messages for parsing unread notifications
+      const { data: msgs, error: msgsError } = await client
+        .from("chat_messages")
+        .select("*")
+        .order("timestamp", { ascending: false })
+        .limit(30);
+
+      if (!msgsError && msgs) {
+        setRecentChatMessages(msgs);
+      }
+    } catch (e) {
+      console.warn("Dynamic notification lookup note:", e);
+    }
+  };
+
+  // Realtime subscription and high-reliability polling fallback
+  useEffect(() => {
+    fetchNotificationData();
+
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const channel = client
+      .channel("global-notifications")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "friendships" },
+        () => {
+          fetchNotificationData();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "chat_messages" },
+        () => {
+          fetchNotificationData();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "site_updates" },
+        () => {
+          fetchNotificationData();
+        }
+      )
+      .subscribe();
+
+    const timer = setInterval(() => {
+      fetchNotificationData();
+    }, 12500);
+
+    return () => {
+      client.removeChannel(channel);
+      clearInterval(timer);
+    };
+  }, [currentUser]);
 
   // Filter stages based on logged-in student profile or admin view
   const displayedStages = React.useMemo(() => {
@@ -860,6 +992,18 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
     // Auto sync to Supabase database!
     saveCurriculumToCloudAutomatically(newData);
 
+    // Dynamically post a site update notifications alert if links/lessons were added/modified
+    if (updatedFields.pdfUrl || updatedFields.memoPdfUrl || updatedFields.videoUrl || updatedFields.interactiveUrl) {
+      const subjectName = updatedFields.name || "مادة دراسية";
+      logSiteUpdate(
+        "resource_update",
+        `تم تحديث محتوى مادة: ${subjectName}`,
+        `Curriculum contents refreshed: ${subjectName}`,
+        `تم تعديل الروابط الدراسية ونشر مصادر إضافية/حصص مرئية جديدة لمادة "${subjectName}".`,
+        `The online notes, teaching folders, or digital files for "${subjectName}" have been synced.`
+      );
+    }
+
     // Update active subject if it is currently open
     if (activeSubject && activeSubject.id === subjectId) {
       setActiveSubject({
@@ -920,6 +1064,17 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
     // Auto sync to Supabase database!
     saveCurriculumToCloudAutomatically(newData);
+
+    // Dynamic user updates alert log
+    const targetStage = curriculumData.find(s => s.id === stageId);
+    const targetStageName = targetStage ? targetStage.name : "";
+    logSiteUpdate(
+      "new_subject",
+      `إضافة مادة دراسية جديدة: ${newSubject.name}`,
+      `New subject course loaded: ${newSubject.name}`,
+      `تم إدراج منهج ومقرر مادة "${newSubject.name}" في المرحلة الدراسية بنجاح سيدي. تصفحوا الحصص الإلكترونية الآن.`,
+      `The educational material syllabus for "${newSubject.name}" has been registered inside ${targetStageName}.`
+    );
   };
 
   // Local achievements stats stored in localStorage
@@ -996,6 +1151,116 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
     });
   });
 
+  // 🔔 Compute Dynamic Notifications List
+  const formattedNotifications = React.useMemo(() => {
+    const list: any[] = [];
+
+    // 1. Pending Friend Requests
+    pendingFriendRequests.forEach((req: any) => {
+      list.push({
+        id: `friendship-${req.id}`,
+        type: "friend_request",
+        title: currentLang === "ar" ? "طلب صداقة وارد 👥" : "Incoming Friend Request 👥",
+        body: currentLang === "ar" 
+          ? `الزميل *${req.senderName}* يرغب في إضافتك لقائمته لتتمكنا من الدردشة والمذاكرة معاً.`
+          : `Peer *${req.senderName}* wants to add you to chat and study together in the same stage.`,
+        timeLabel: currentLang === "ar" ? "معلق وبانتظارك ⏳" : "Pending your approval ⏳",
+        isUnread: true,
+        icon: <UserCheck className="w-4 h-4 text-amber-500" />,
+        iconBg: "bg-amber-955/20 border border-amber-900/40",
+        action: "open_chat"
+      });
+    });
+
+    // 2. Unread Chat Messages
+    const unreadMsgs = recentChatMessages.filter((m: any) => {
+      if (currentUser && String(m.user_id) === String(currentUser.id)) return false;
+      return new Date(m.timestamp) > new Date(lastCheckedChat);
+    });
+
+    if (unreadMsgs.length > 0) {
+      if (unreadMsgs.length === 1) {
+        const m = unreadMsgs[0];
+        list.push({
+          id: `msg-${m.id}`,
+          type: "message",
+          title: currentLang === "ar" ? "رسالة جديدة 💬" : "New Message 💬",
+          body: `*${m.username}*: ${m.text}`,
+          timeLabel: new Date(m.timestamp).toLocaleTimeString(currentLang === "ar" ? "ar-SD" : "en-US", { hour: '2-digit', minute: '2-digit' }),
+          isUnread: true,
+          icon: <MessagesSquare className="w-4 h-4 text-indigo-400" />,
+          iconBg: "bg-indigo-950/20 border border-indigo-900/30",
+          action: "open_chat"
+        });
+      } else {
+        const uniqueSenders = Array.from(new Set(unreadMsgs.map((m: any) => m.username)));
+        list.push({
+          id: `msgs-grouped`,
+          type: "message",
+          title: currentLang === "ar" ? "رسائل جديدة غير مقروءة 💬" : "Unread Chat Messages 💬",
+          body: currentLang === "ar" 
+            ? `لديك ${unreadMsgs.length} رسالة جديدة من: ${uniqueSenders.join(", ")}`
+            : `You have ${unreadMsgs.length} new messages from: ${uniqueSenders.join(", ")}`,
+          timeLabel: currentLang === "ar" ? "نشط الآن ⚡" : "Active now ⚡",
+          isUnread: true,
+          icon: <MessagesSquare className="w-4 h-4 text-indigo-400 animate-bounce" />,
+          iconBg: "bg-indigo-950/35 border border-indigo-900/40",
+          action: "open_chat"
+        });
+      }
+    }
+
+    // 3. Site Curricula / updates
+    siteUpdates.forEach((upd: any) => {
+      const isUnread = new Date(upd.created_at) > new Date(lastCheckedUpdates);
+      const isNewSubject = upd.category === "new_subject";
+      
+      list.push({
+        id: `update-${upd.id}`,
+        type: upd.category,
+        title: currentLang === "ar" ? upd.title_ar : upd.title_en,
+        body: currentLang === "ar" ? upd.body_ar : upd.body_en,
+        timeLabel: new Date(upd.created_at).toLocaleDateString(currentLang === "ar" ? "ar-SD" : "en-US", { month: 'short', day: 'numeric' }),
+        isUnread: isUnread,
+        icon: isNewSubject ? <Sparkles className="w-4 h-4 text-emerald-400" /> : <Link className="w-4 h-4 text-cyan-400" />,
+        iconBg: isNewSubject ? "bg-emerald-955/20 border border-emerald-900/30" : "bg-cyan-955/20 border border-cyan-900/30",
+        action: "open_curriculum"
+      });
+    });
+
+    return list;
+  }, [pendingFriendRequests, recentChatMessages, siteUpdates, currentUser, lastCheckedChat, lastCheckedUpdates, currentLang]);
+
+  const unreadCount = React.useMemo(() => {
+    return formattedNotifications.filter(n => n.isUnread).length;
+  }, [formattedNotifications]);
+
+  const handleNotificationClick = (item: any) => {
+    if (item.action === "open_chat") {
+      setShowStudentChat(true);
+      setShowEducationalMindMap(false);
+      setShowStudyCamp(false);
+      setSelectedStage(null);
+      setActiveGrade(null);
+      setShowOnlyFavorites(false);
+      setShowAdminDashboard(false);
+      
+      const nowStr = new Date().toISOString();
+      localStorage.setItem("sudan_chat_last_read", nowStr);
+      setLastCheckedChat(nowStr);
+    } else {
+      setShowStudentChat(false);
+      setShowEducationalMindMap(false);
+      setShowStudyCamp(false);
+      setShowOnlyFavorites(false);
+      
+      const nowStr = new Date().toISOString();
+      localStorage.setItem("sudan_updates_last_read", nowStr);
+      setLastCheckedUpdates(nowStr);
+    }
+    setShowNotificationsDropdown(false);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-600 selection:text-white pb-16" dir={currentLang === "ar" ? "rtl" : "ltr"}>
       {/* Upper Flag Trim (Sudan Flag Colors: Red, White, Black, Green) */}
@@ -1032,6 +1297,137 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               <Globe className="w-3.5 h-3.5 text-emerald-400" />
               <span>{currentLang === "ar" ? "English" : "العربية"}</span>
             </button>
+
+            {/* Live Student Chat Tab at Top */}
+            <button
+              onClick={() => {
+                const targetState = !showStudentChat;
+                setShowStudentChat(targetState);
+                setShowEducationalMindMap(false);
+                setShowStudyCamp(false);
+                setSelectedStage(null);
+                setActiveGrade(null);
+                setShowOnlyFavorites(false);
+                setShowAdminDashboard(false);
+                
+                // Clear unread indicator
+                const nowStr = new Date().toISOString();
+                localStorage.setItem("sudan_chat_last_read", nowStr);
+                setLastCheckedChat(nowStr);
+              }}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 border font-sans font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all cursor-pointer ${
+                showStudentChat
+                  ? "bg-indigo-600/35 border-indigo-500 text-indigo-200 ring-1 ring-indigo-500/35"
+                  : "bg-slate-950/60 border-slate-850 hover:bg-slate-900 hover:border-indigo-500/50 text-slate-200"
+              }`}
+            >
+              <MessagesSquare className="w-3.5 h-3.5 text-indigo-400" />
+              <span>{currentLang === "ar" ? "الدردشة الطلابية 💬" : "Student Chat 💬"}</span>
+            </button>
+
+            {/* Notification Bell Dropdown Component */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowNotificationsDropdown(prev => !prev);
+                  if (!showNotificationsDropdown) {
+                    const nowStr = new Date().toISOString();
+                    localStorage.setItem("sudan_updates_last_read", nowStr);
+                    setLastCheckedUpdates(nowStr);
+                  }
+                }}
+                className={`inline-flex items-center justify-center p-2 bg-slate-950/65 hover:bg-slate-900 border rounded-xl shadow-sm transition-all cursor-pointer relative ${
+                  showNotificationsDropdown ? "border-amber-500" : "border-slate-850 hover:border-amber-500/40"
+                }`}
+                title={currentLang === "ar" ? "الإشعارات" : "Notifications"}
+              >
+                <Bell className={`w-3.5 h-3.5 ${unreadCount > 0 ? "text-amber-400 animate-bounce" : "text-slate-400"}`} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 text-[9px] font-black text-white rounded-full flex items-center justify-center border border-slate-950 animate-pulse">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              <AnimatePresence>
+                {showNotificationsDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute left-0 mt-3 w-80 sm:w-96 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-4 z-[9999] text-right font-sans"
+                    dir={currentLang === "ar" ? "rtl" : "ltr"}
+                  >
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                      <div className="flex items-center gap-1.5">
+                        <Bell className="w-4 h-4 text-amber-500" />
+                        <h5 className="text-xs font-black text-slate-100">
+                          {currentLang === "ar" ? "الإشعارات والتحديثات 🔔" : "Notifications & Updates 🔔"}
+                        </h5>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const nowStr = new Date().toISOString();
+                          localStorage.setItem("sudan_chat_last_read", nowStr);
+                          setLastCheckedChat(nowStr);
+                          localStorage.setItem("sudan_updates_last_read", nowStr);
+                          setLastCheckedUpdates(nowStr);
+                          setShowNotificationsDropdown(false);
+                        }}
+                        className="text-[9px] text-slate-400 hover:text-white transition-colors cursor-pointer"
+                      >
+                        {currentLang === "ar" ? "تحديد كالمقروءة وإغلاق ✓" : "Mark read & close ✓"}
+                      </button>
+                    </div>
+
+                    <div className="mt-3 space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                      {formattedNotifications.length === 0 ? (
+                        <div className="py-8 text-center text-slate-500 text-2xs space-y-1">
+                          <p className="font-extrabold text-slate-400">
+                            {currentLang === "ar" ? "لا توجد إشعارات جديدة حالياً." : "No new notifications yet."}
+                          </p>
+                          <p className="text-[10px] text-slate-500">
+                            {currentLang === "ar" 
+                              ? "سيتم تنبيهك هنا عند تلقي طلب صداقة، رسائل جديدة، أو إضافة مواد وروابط." 
+                              : "You will be notified of requests, replies, new subjects, or resource links here."}
+                          </p>
+                        </div>
+                      ) : (
+                        formattedNotifications.map(item => (
+                          <div
+                            key={item.id}
+                            onClick={() => handleNotificationClick(item)}
+                            className={`p-2.5 rounded-xl border text-right transition-all cursor-pointer ${
+                              item.isUnread
+                                ? "bg-amber-955/5 border-amber-900/40 hover:bg-slate-850 hover:border-amber-500/30"
+                                : "bg-slate-950/40 border-slate-900/40 hover:bg-slate-850"
+                            }`}
+                          >
+                            <div className="flex gap-2.5 items-start">
+                              <div className={`p-1.5 rounded-lg shrink-0 ${item.iconBg}`}>
+                                {item.icon}
+                              </div>
+                              <div className="space-y-1 min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[10px] font-black text-slate-100 truncate block">{item.title}</span>
+                                  {item.isUnread && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                  )}
+                                </div>
+                                <p className="text-[9px] text-slate-350 leading-normal font-medium whitespace-pre-line text-right">
+                                  {item.body}
+                                </p>
+                                <span className="text-[8px] text-slate-500 block pt-0.5 font-mono text-right">{item.timeLabel}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             {/* Student / user login trigger */}
             {currentUser ? (
@@ -1794,49 +2190,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               </div>
             </button>
 
-            {/* Interactive Student Chat Room Card Activator */}
-            <button
-              id="student-chat-activator"
-              onClick={() => {
-                setShowStudentChat(true);
-                setShowEducationalMindMap(false);
-                setShowStudyCamp(false);
-                setSelectedStage(null);
-                setActiveGrade(null);
-                setShowOnlyFavorites(false);
-              }}
-              className={`relative p-5 rounded-2xl text-right border transition-all text-xs md:text-sm shadow-sm overflow-hidden group cursor-pointer ${
-                showStudentChat 
-                  ? "bg-slate-900 border-indigo-600 shadow-md shadow-indigo-950/20" 
-                  : "bg-slate-900/40 border-slate-800/60 hover:bg-slate-900 hover:border-indigo-650/40"
-              }`}
-            >
-              {/* Decorative Subtle Accent Tag for selected */}
-              {showStudentChat && (
-                <span className="absolute top-0 right-0 bottom-0 w-1.5 bg-gradient-to-b from-indigo-500 to-indigo-700" />
-              )}
-
-              <div className="flex items-start gap-4">
-                <div className={`p-3 rounded-xl transition-all ${
-                  showStudentChat 
-                    ? "bg-indigo-600/20 text-indigo-400" 
-                    : "bg-slate-800 text-slate-400 group-hover:text-indigo-405"
-                }`}>
-                  <MessageSquare className="w-5 h-5 text-indigo-400" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="font-bold text-slate-100">
-                    {currentLang === "ar" ? "غرفة الدردشة الطلابية 💬" : "Student Chat Room 💬"}
-                  </h3>
-                  <p className="text-2xs text-slate-400 line-clamp-1">
-                    {currentLang === "ar" ? "تواصل وتناقش مع بقية زملائك بالمنصة" : "Discuss and chat with peers on the platform"}
-                  </p>
-                  <span className="text-3xs text-indigo-455 font-bold block mt-1 animate-pulse">
-                    {currentLang === "ar" ? "دردشة آمنة وفورية 🔒" : "Secure Live Chat 🔒"}
-                  </span>
-                </div>
-              </div>
-            </button>
+            {/* Interactive Student Chat Room Card Activator is now moved to the top header nav */}
           </div>
         </section>
 
