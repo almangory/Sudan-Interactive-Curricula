@@ -1400,7 +1400,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             <span className="text-3xs md:text-2xs text-slate-400 font-bold">{t("tagline")}</span>
           </div>
 
-          <div className="flex items-center gap-3 relative">
+          <div className="flex items-center gap-2 sm:gap-3 relative">
             {/* Language Toggle Button */}
             <button
               onClick={() => {
@@ -1408,11 +1408,12 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 setCurrentLang(nextLang);
                 localStorage.setItem("sudan_edu_lang", nextLang);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-950/60 hover:bg-slate-900 border border-slate-800 hover:border-emerald-500/60 text-slate-200 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-950/60 hover:bg-slate-900 border border-slate-800 hover:border-emerald-500/60 text-slate-200 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans"
               title={currentLang === "ar" ? "Switch to English" : "التحويل للغة العربية"}
             >
               <Globe className="w-3.5 h-3.5 text-emerald-400" />
-              <span>{currentLang === "ar" ? "English" : "العربية"}</span>
+              <span className="hidden xs:inline">{currentLang === "ar" ? "English" : "العربية"}</span>
+              <span className="xs:hidden">{currentLang === "ar" ? "EN" : "عربي"}</span>
             </button>
 
             {/* Kid Mode (البراعم) Playful Toggle Button - only visible to registered primary/kindergarten stage students */}
@@ -1428,10 +1429,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     ? "bg-pink-500/25 border-2 border-pink-400 ring-4 ring-pink-500/35 scale-110 shadow-pink-500/30 animate-bounce"
                     : "bg-slate-950/75 border border-slate-800 hover:border-pink-500/60 hover:scale-110 shadow-inner"
                 }`}
-                style={{ width: "42px", height: "42px", minWidth: "42px" }}
+                style={{ width: "38px", height: "38px", minWidth: "38px" }}
                 title={currentLang === "ar" ? "اضغط على البالون للانتقال لواجهة الأطفال اللطيفة! 🎈" : "Click the balloon to launch children mode! 🎈"}
               >
-                <span className={`text-[22px] select-none transition-all duration-300 ${isKidModeActive ? "scale-110" : "hover:scale-115"}`} style={{ transformOrigin: 'center' }}>
+                <span className={`text-[18px] sm:text-[22px] select-none transition-all duration-300 ${isKidModeActive ? "scale-110" : "hover:scale-115"}`} style={{ transformOrigin: 'center' }}>
                   🎈
                 </span>
                 {isKidModeActive && (
@@ -1450,15 +1451,24 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 const nowStr = new Date().toISOString();
                 localStorage.setItem("sudan_chat_last_read", nowStr);
                 setLastCheckedChat(nowStr);
+
+                // Seamless mobile focus scroll
+                if (targetState && window.innerWidth < 1024) {
+                  setTimeout(() => {
+                    const chatEl = document.getElementById("friends-chat-dashboard") || document.getElementById("chat-visitor-blocked");
+                    chatEl?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 250);
+                }
               }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 border font-sans font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 border font-sans font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer ${
                 showStudentChat
                   ? "bg-indigo-650/25 border-indigo-500 text-indigo-300 ring-2 ring-indigo-500/20"
                   : "bg-slate-950/60 border-slate-800 hover:bg-slate-900 hover:border-indigo-500/50 text-slate-200"
               }`}
             >
               <MessagesSquare className="w-3.5 h-3.5 text-indigo-400" />
-              <span>{currentLang === "ar" ? "الدردشة الطلابية" : "Student Chat"}</span>
+              <span className="hidden sm:inline">{currentLang === "ar" ? "الدردشة الطلابية" : "Student Chat"}</span>
+              <span className="sm:hidden">{currentLang === "ar" ? "الدردشة" : "Chat"}</span>
             </button>
 
             {/* Notification Bell Dropdown Component */}
@@ -1569,13 +1579,13 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
             {/* Student / user login trigger */}
             {currentUser ? (
-              <div className="inline-flex items-center gap-2.5 bg-slate-950 px-3.5 py-1.5 border border-slate-800 rounded-xl shadow-inner select-none">
+              <div className="inline-flex items-center gap-1.5 sm:gap-2.5 bg-slate-950 px-2 sm:px-3.5 py-1.5 border border-slate-800 rounded-xl shadow-inner select-none">
                 <span className="relative flex h-1.5 w-1.5 shrink-0">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-indigo-500"></span>
                 </span>
                 
-                <span className="inline-flex items-center gap-1.5 text-3xs md:text-2xs text-indigo-300 font-extrabold max-w-[130px] truncate">
+                <span className="inline-flex items-center gap-1 text-3xs md:text-2xs text-indigo-300 font-extrabold max-w-[80px] xs:max-w-[130px] truncate">
                   <User className="w-3.5 h-3.5 text-indigo-450 shrink-0" />
                   <span className="truncate">{currentUser.username}</span>
                 </span>
@@ -1585,9 +1595,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 <button
                   onClick={triggerEditProfile}
                   className="inline-flex items-center gap-1 text-[9px] text-amber-500 hover:text-amber-400 transition-colors cursor-pointer font-extrabold"
+                  title={t("editProfile")}
                 >
                   <Settings className="w-3 h-3 text-amber-500" />
-                  <span>{t("editProfile")}</span>
+                  <span className="hidden xs:inline">{t("editProfile")}</span>
                 </button>
 
                 <div className="h-4 w-px bg-slate-800 shrink-0" />
@@ -1604,9 +1615,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     setTimeout(() => setSaveStatus(null), 3000);
                   }}
                   className="inline-flex items-center gap-1 text-[9px] text-rose-550 hover:text-rose-450 transition-colors cursor-pointer font-extrabold"
+                  title={t("logout")}
                 >
                   <LogOut className="w-3 h-3 text-rose-500" />
-                  <span>{t("logout")}</span>
+                  <span className="hidden xs:inline">{t("logout")}</span>
                 </button>
               </div>
             ) : (
@@ -1623,7 +1635,8 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-950/65 hover:bg-slate-900 border border-slate-800 hover:border-indigo-500/40 text-slate-200 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer"
               >
                 <User className="w-3.5 h-3.5 text-indigo-450" />
-                <span>{t("studentAccount")}</span>
+                <span className="hidden xs:inline">{t("studentAccount")}</span>
+                <span className="xs:hidden">{currentLang === "ar" ? "حسابي" : "Account"}</span>
               </button>
             )}
 
@@ -1922,7 +1935,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           </div>
 
           {/* Grid of Stage Selector Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-1">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 pt-1">
             {displayedStages.map((stage) => {
               const isSelected = selectedStage?.id === stage.id && !showOnlyFavorites && !showStudyCamp && !showEducationalMindMap && !showStudentChat;
               
@@ -1944,12 +1957,12 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     }}
                     className={
                       isKidModeActive && (stage.id === "primary" || stage.id === "kindergarten")
-                        ? `relative p-5 rounded-3xl text-right border-2 transition-all text-sm shadow-md overflow-hidden group cursor-pointer ${
+                        ? `relative p-3 sm:p-5 rounded-3xl text-center xs:text-right border-2 transition-all text-xs md:text-sm shadow-md overflow-hidden group cursor-pointer ${
                             isSelected 
                               ? "bg-gradient-to-br from-pink-900/40 via-amber-900/20 to-indigo-900/40 border-pink-400 ring-4 ring-pink-500/20 shadow-lg shadow-pink-500/10 scale-[1.02]" 
                               : "bg-slate-900/70 border-pink-500/30 hover:border-pink-400 hover:bg-slate-900/90"
                           }`
-                        : `relative p-5 rounded-2xl text-right border transition-all text-xs md:text-sm shadow-sm overflow-hidden group cursor-pointer ${
+                        : `relative p-3 sm:p-5 rounded-2xl text-center xs:text-right border transition-all text-xs md:text-sm shadow-sm overflow-hidden group cursor-pointer ${
                             isSelected 
                               ? "bg-slate-900 border-emerald-600 shadow-md shadow-emerald-950/20" 
                               : "bg-slate-900/40 border-slate-800/60 hover:bg-slate-900 hover:border-slate-800"
@@ -1965,8 +1978,8 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       }`} />
                     )}
 
-                    <div className="flex items-start gap-4">
-                      <div className={`p-3 rounded-2xl transition-all ${
+                    <div className="flex flex-col xs:flex-row items-center xs:items-start gap-2 sm:gap-4">
+                      <div className={`p-2.5 sm:p-3 rounded-2xl transition-all shrink-0 ${
                         isKidModeActive && (stage.id === "primary" || stage.id === "kindergarten")
                           ? isSelected
                             ? "bg-pink-500/30 text-pink-350 scale-110 rotate-3"
@@ -1977,17 +1990,17 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       }`}>
                         {getStageIcon(stage.icon)}
                       </div>
-                      <div className="space-y-1 text-right">
-                        <h3 className={`font-black tracking-wide ${
+                      <div className="space-y-1 text-center xs:text-right min-w-0 w-full">
+                        <h3 className={`font-black tracking-wide truncate ${
                           isKidModeActive && (stage.id === "primary" || stage.id === "kindergarten")
-                            ? "text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-pink-300 to-indigo-300 font-sans text-[13px] md:text-sm"
-                            : "font-bold text-slate-100"
+                            ? "text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-pink-300 to-indigo-300 font-sans text-xs md:text-sm"
+                            : "font-bold text-slate-100 text-xs md:text-sm"
                         }`}>
                           {isKidModeActive && (stage.id === "primary" || stage.id === "kindergarten")
                             ? `🎈 ${t(stage.name)} 🍭`
                             : t(stage.name)}
                         </h3>
-                        <p className="text-2xs text-slate-400 line-clamp-1">
+                        <p className="text-[10px] sm:text-2xs text-slate-400 line-clamp-1">
                           {currentLang === "ar" 
                             ? stage.description 
                             : (stage.id === "kindergarten" 
@@ -2000,10 +2013,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                      ? "High school secondary general curricula." 
                                      : stage.description)}
                         </p>
-                        <span className="text-3xs text-emerald-500 font-bold block mt-1">
+                        <span className="text-[9px] sm:text-3xs text-emerald-400 font-bold block mt-1">
                           {currentLang === "ar" 
-                            ? `عدد الفصول: ${stage.grades.length} ${stage.id === "kindergarten" ? "سنوات" : "صفوف دراسية"}` 
-                            : `Classes: ${stage.grades.length} ${stage.id === "kindergarten" ? "Years" : "Grades"}`}
+                            ? `الصفوف: ${stage.grades.length}` 
+                            : `Classes: ${stage.grades.length}`}
                         </span>
                       </div>
                     </div>
