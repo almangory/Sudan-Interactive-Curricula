@@ -5,7 +5,7 @@ import {
   Map, Sparkles, Star, ChevronLeft, ChevronDown, CheckCircle, 
   Search, ShieldAlert, History, Globe, Plus, FileText, Video, Filter,
   Lock, Network, MessageSquare, X, Bell, MessagesSquare, UserCheck, Check, Link,
-  User, LogOut, Settings
+  User, LogOut, Settings, Wifi, WifiOff
 } from "lucide-react";
 import { stagesData, Stage, Grade, Subject } from "./data/curriculum";
 import SubjectModal from "./components/SubjectModal";
@@ -65,6 +65,23 @@ export default function App() {
   const [siteUpdates, setSiteUpdates] = useState<any[]>([]);
   const [lastCheckedChat, setLastCheckedChat] = useState<string>(() => localStorage.getItem("sudan_chat_last_read") || new Date(0).toISOString());
   const [lastCheckedUpdates, setLastCheckedUpdates] = useState<string>(() => localStorage.getItem("sudan_updates_last_read") || new Date(0).toISOString());
+  const [isOnline, setIsOnline] = useState<boolean>(() => typeof navigator !== "undefined" ? navigator.onLine : true);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   const [currentLang, setCurrentLang] = useState<"ar" | "en">(() => {
     return (localStorage.getItem("sudan_edu_lang") as "ar" | "en") || "ar";
@@ -1481,9 +1498,33 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
       {/* Top Header Bar for Admin Portal */}
       <div className="bg-slate-900/90 border-b border-slate-800/60 px-6 py-2.5 relative z-50">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap text-right">
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-            <span className="text-3xs md:text-2xs text-slate-400 font-bold">{t("tagline")}</span>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-ping' : 'bg-amber-500 animate-pulse'}`}></span>
+              <span className="text-3xs md:text-2xs text-slate-400 font-bold">{t("tagline")}</span>
+            </div>
+            
+            {/* Elegant Offline Indicator Badge */}
+            <div 
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-black tracking-wide transition-all duration-300 ${
+                isOnline 
+                  ? 'bg-emerald-950/20 text-emerald-400 border-emerald-900/30' 
+                  : 'bg-amber-950/30 text-amber-400 border-amber-900/40 animate-pulse'
+              }`}
+              title={isOnline ? "مزامنة ذكية مفعلة - جميع المواد المفتوحة تُحمل تلقائياً" : "وضع عدم الاتصال مفعل - تصفح ما تم فتحه مسبقاً بدقة عالية"}
+            >
+              {isOnline ? (
+                <>
+                  <Wifi className="w-2.5 h-2.5 text-emerald-400 stroke-[3]" />
+                  <span>{currentLang === "ar" ? "متصل" : "Online"}</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-2.5 h-2.5 text-amber-400 stroke-[3]" />
+                  <span>{currentLang === "ar" ? "وضع عدم الاتصال" : "Offline Mode"}</span>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 relative">

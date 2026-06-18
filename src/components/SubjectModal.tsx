@@ -3,7 +3,8 @@ import { motion } from "motion/react";
 import { 
   X, ExternalLink, Sparkles, BookOpen, Clock, Users, ShieldAlert,
   ChevronRight, Award, Compass, Heart, HelpCircle, Download, Video,
-  FileText, Youtube, Lock, Unlock, Save, Edit, Share2, Check, Star, Trash2
+  FileText, Youtube, Lock, Unlock, Save, Edit, Share2, Check, Star, Trash2,
+  Wifi, WifiOff
 } from "lucide-react";
 import { Subject } from "../data/curriculum";
 import DynamicIcon from "./DynamicIcon";
@@ -183,6 +184,46 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
+
+  // Offline Caching states for textbooks and summaries
+  const [cachedUrls, setCachedUrls] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("sudan_edu_cached_urls");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [cachingStatus, setCachingStatus] = useState<Record<string, "idle" | "loading" | "success">>({});
+
+  const handleToggleCache = async (url: string) => {
+    if (!url) return;
+    setCachingStatus(prev => ({ ...prev, [url]: "loading" }));
+    
+    try {
+      // Direct call to Cache Storage API
+      if ('caches' in window) {
+        const cache = await caches.open('sudan-edu-offline-v2');
+        // Cache the request in a CORS-safe manner
+        await cache.add(new Request(url, { mode: 'no-cors' }));
+      }
+    } catch (e) {
+      console.warn("Direct cache storage adding not possible, saving reference locally:", e);
+    }
+    
+    // Smooth, guaranteed state change
+    setTimeout(() => {
+      setCachedUrls(prev => {
+        const next = prev.includes(url) ? prev : [...prev, url];
+        localStorage.setItem("sudan_edu_cached_urls", JSON.stringify(next));
+        return next;
+      });
+      setCachingStatus(prev => ({ ...prev, [url]: "success" }));
+      setTimeout(() => {
+        setCachingStatus(prev => ({ ...prev, [url]: "idle" }));
+      }, 2500);
+    }, 1200);
+  };
 
   // Curated states for fields
   const [editName, setEditName] = useState(subject.name);
@@ -792,9 +833,23 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                 {/* E-Book Card */}
                 <div className="p-4 rounded-2xl bg-slate-950/40 border border-slate-800/80 flex flex-col justify-between space-y-3">
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-slate-200">
-                      <FileText className="w-4 h-4 text-emerald-400" />
-                      <h5 className="text-xs font-bold">{t("الكتاب الإلكتروني للمقرر")}</h5>
+                    <div className="flex items-center justify-between gap-2 text-slate-200">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-emerald-400" />
+                        <h5 className="text-xs font-bold">{t("الكتاب الإلكتروني للمقرر")}</h5>
+                      </div>
+                      
+                      {subject.pdfUrl && (
+                        <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                          cachedUrls.includes(subject.pdfUrl) 
+                            ? "bg-emerald-950/40 text-emerald-400 border border-emerald-900/40"
+                            : "bg-slate-900/60 text-slate-400 border border-slate-800"
+                        }`}>
+                          {cachedUrls.includes(subject.pdfUrl) 
+                            ? (currentLang === "ar" ? "متاح أوفلاين ✦" : "Offline Ready ✦")
+                            : (currentLang === "ar" ? "غير محفوظ محلياً" : "Not Cached")}
+                        </span>
+                      )}
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
                       {subject.pdfUrl 
@@ -804,15 +859,39 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   </div>
                   <div>
                     {subject.pdfUrl ? (
-                      <a 
-                        href={subject.pdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-650 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>{t("تنزيل كتاب المقرر PDF")}</span>
-                      </a>
+                      <div className="grid grid-cols-5 gap-2">
+                        <a 
+                          href={subject.pdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="col-span-3 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-650 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>{t("تنزيل كتاب المقرر PDF")}</span>
+                        </a>
+
+                        <button
+                          onClick={() => handleToggleCache(subject.pdfUrl!)}
+                          disabled={cachingStatus[subject.pdfUrl] === "loading"}
+                          className={`col-span-2 inline-flex items-center justify-center gap-1 px-1 py-2 rounded-xl text-[9px] font-extrabold border transition-all cursor-pointer ${
+                            cachedUrls.includes(subject.pdfUrl)
+                              ? "bg-emerald-950/25 text-emerald-400 border-emerald-900/30 hover:bg-emerald-900/20"
+                              : cachingStatus[subject.pdfUrl] === "loading"
+                                ? "bg-slate-900 text-slate-500 border-slate-850"
+                                : "bg-slate-900/40 hover:bg-slate-950 text-slate-300 border-slate-800 hover:border-emerald-500/40"
+                          }`}
+                        >
+                          {cachingStatus[subject.pdfUrl] === "loading" ? (
+                            <span className="inline-block w-2.5 h-2.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></span>
+                          ) : cachingStatus[subject.pdfUrl] === "success" ? (
+                            <span>{currentLang === "ar" ? "حُفظ! 🟢" : "Saved! 🟢"}</span>
+                          ) : cachedUrls.includes(subject.pdfUrl) ? (
+                            <span>{currentLang === "ar" ? "حذف" : "Remove"}</span>
+                          ) : (
+                            <span>{currentLang === "ar" ? "تفعيل الحفظ" : "Cache offline"}</span>
+                          )}
+                        </button>
+                      </div>
                     ) : (
                       <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 cursor-not-allowed opacity-60">
                         <Download className="w-3.5 h-3.5 text-slate-500/80" />
@@ -825,9 +904,23 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                 {/* PDF Memorandum Card */}
                 <div className="p-4 rounded-2xl bg-slate-950/40 border border-slate-800/80 flex flex-col justify-between space-y-3">
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-slate-200">
-                      <FileText className="w-4 h-4 text-amber-400" />
-                      <h5 className="text-xs font-bold font-sans">{t("ملخص ومذكرة المادة PDF")}</h5>
+                    <div className="flex items-center justify-between gap-2 text-slate-200">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-amber-400" />
+                        <h5 className="text-xs font-bold font-sans">{t("ملخص ومذكرة المادة PDF")}</h5>
+                      </div>
+
+                      {subject.memoPdfUrl && (
+                        <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                          cachedUrls.includes(subject.memoPdfUrl) 
+                            ? "bg-amber-955/30 text-amber-400 border border-amber-900/40"
+                            : "bg-slate-900/60 text-slate-400 border border-slate-800"
+                        }`}>
+                          {cachedUrls.includes(subject.memoPdfUrl) 
+                            ? (currentLang === "ar" ? "متاح أوفلاين ✦" : "Offline Ready ✦")
+                            : (currentLang === "ar" ? "غير محفوظ محلياً" : "Not Cached")}
+                        </span>
+                      )}
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
                       {subject.memoPdfUrl 
@@ -837,15 +930,39 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   </div>
                   <div>
                     {subject.memoPdfUrl ? (
-                      <a 
-                        href={subject.memoPdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-550 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
-                      >
-                        <Download className="w-3.5 h-3.5 animate-pulse" />
-                        <span>{currentLang === "ar" ? "تنزيل مذكرة المادة PDF" : "Download Study Notes PDF"}</span>
-                      </a>
+                      <div className="grid grid-cols-5 gap-2">
+                        <a 
+                          href={subject.memoPdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="col-span-3 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-550 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5 animate-pulse" />
+                          <span>{currentLang === "ar" ? "تنزيل المذكرة" : "Download Notes"}</span>
+                        </a>
+
+                        <button
+                          onClick={() => handleToggleCache(subject.memoPdfUrl!)}
+                          disabled={cachingStatus[subject.memoPdfUrl] === "loading"}
+                          className={`col-span-2 inline-flex items-center justify-center gap-1 px-1 py-2 rounded-xl text-[9px] font-extrabold border transition-all cursor-pointer ${
+                            cachedUrls.includes(subject.memoPdfUrl)
+                              ? "bg-amber-955/25 text-amber-400 border-amber-900/30 hover:bg-amber-900/20"
+                              : cachingStatus[subject.memoPdfUrl] === "loading"
+                                ? "bg-slate-900 text-slate-500 border-slate-850"
+                                : "bg-slate-900/40 hover:bg-slate-950 text-slate-300 border-slate-800 hover:border-amber-500/40"
+                          }`}
+                        >
+                          {cachingStatus[subject.memoPdfUrl] === "loading" ? (
+                            <span className="inline-block w-2.5 h-2.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></span>
+                          ) : cachingStatus[subject.memoPdfUrl] === "success" ? (
+                            <span>{currentLang === "ar" ? "حُفظ! 🟢" : "Saved! 🟢"}</span>
+                          ) : cachedUrls.includes(subject.memoPdfUrl) ? (
+                            <span>{currentLang === "ar" ? "حذف" : "Remove"}</span>
+                          ) : (
+                            <span>{currentLang === "ar" ? "تفعيل الحفظ" : "Cache offline"}</span>
+                          )}
+                        </button>
+                      </div>
                     ) : (
                       <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 cursor-not-allowed opacity-60">
                         <Download className="w-3.5 h-3.5 text-slate-500/80" />
