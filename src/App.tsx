@@ -77,7 +77,8 @@ export default function App() {
         textEn: "🔴 Breaking: Education platform enabled to support Sudanese students - browse courses, summaries, and video lessons now for free! 🇸🇩",
         speed: "normal",
         bgColor: "bg-slate-900",
-        textColor: "text-slate-100"
+        textColor: "text-slate-100",
+        direction: "rtl"
       };
     } catch {
       return {
@@ -86,7 +87,8 @@ export default function App() {
         textEn: "🔴 Breaking: Education platform enabled to support Sudanese students - browse courses, summaries, and video lessons now for free! 🇸🇩",
         speed: "normal",
         bgColor: "bg-slate-900",
-        textColor: "text-slate-100"
+        textColor: "text-slate-100",
+        direction: "rtl"
       };
     }
   });
@@ -455,9 +457,14 @@ export default function App() {
     speed: string;
     bgColor: string;
     textColor: string;
+    direction?: "rtl" | "ltr";
   }) => {
     // 1. Update state immediately
     setBreakingNews(updated);
+    if (updated.direction) {
+      setTickerDirection(updated.direction);
+      localStorage.setItem("sudan_edu_ticker_direction", updated.direction);
+    }
     localStorage.setItem("sudan_edu_breaking_news_setting_v1", JSON.stringify(updated));
     // Reset dismissed state since it's a freshly updated announcement!
     setIsTickerDismissed(false);
@@ -469,6 +476,7 @@ export default function App() {
       speed: updated.speed,
       bgColor: updated.bgColor,
       textColor: updated.textColor,
+      direction: updated.direction || "rtl"
     };
 
     try {
@@ -685,9 +693,14 @@ export default function App() {
           textEn: breakingUpdate.title_en || "",
           speed: config.speed || "normal",
           bgColor: config.bgColor || "bg-slate-900",
-          textColor: config.textColor || "text-slate-100"
+          textColor: config.textColor || "text-slate-100",
+          direction: config.direction || "rtl"
         };
         setBreakingNews(updated);
+        if (config.direction) {
+          setTickerDirection(config.direction);
+          localStorage.setItem("sudan_edu_ticker_direction", config.direction);
+        }
         localStorage.setItem("sudan_edu_breaking_news_setting_v1", JSON.stringify(updated));
       } catch (e) {
         console.warn("Could not parse sync breaking news:", e);
@@ -1641,7 +1654,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
     // 3. Site Curricula / updates
     siteUpdates.forEach((upd: any) => {
-      if (upd.category === "breaking_news") return; // Skip internal system config payloads
+      if (upd.category === "breaking_news" || (upd.body_ar && upd.body_ar.includes('"bgColor"')) || (upd.body_ar && upd.body_ar.includes('"enabled"'))) return; // Skip internal system config payloads
       const isUnread = new Date(upd.created_at) > new Date(lastCheckedUpdates);
       const isNewSubject = upd.category === "new_subject";
       

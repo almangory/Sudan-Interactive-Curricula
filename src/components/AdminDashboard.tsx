@@ -18,6 +18,7 @@ interface AdminDashboardProps {
     speed: string;
     bgColor: string;
     textColor: string;
+    direction?: "rtl" | "ltr";
   };
   onUpdateBreakingNews?: (updated: {
     enabled: boolean;
@@ -26,6 +27,7 @@ interface AdminDashboardProps {
     speed: string;
     bgColor: string;
     textColor: string;
+    direction: "rtl" | "ltr";
   }) => void;
 }
 
@@ -45,6 +47,7 @@ export default function AdminDashboard({
   const [newsSpeed, setNewsSpeed] = useState(breakingNews?.speed ?? "normal");
   const [newsBgColor, setNewsBgColor] = useState(breakingNews?.bgColor ?? "bg-slate-900");
   const [newsTextColor, setNewsTextColor] = useState(breakingNews?.textColor ?? "text-slate-100");
+  const [newsDirection, setNewsDirection] = useState<"rtl" | "ltr">(breakingNews?.direction ?? "rtl");
 
   useEffect(() => {
     if (breakingNews) {
@@ -54,6 +57,7 @@ export default function AdminDashboard({
       setNewsSpeed(breakingNews.speed);
       setNewsBgColor(breakingNews.bgColor);
       setNewsTextColor(breakingNews.textColor);
+      setNewsDirection(breakingNews.direction ?? "rtl");
     }
   }, [breakingNews]);
 
@@ -1437,7 +1441,7 @@ NOTIFY pgrst, 'reload schema';`;
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-300 block">سرعة حركة الإعلان:</label>
                 <select
@@ -1445,7 +1449,7 @@ NOTIFY pgrst, 'reload schema';`;
                   onChange={(e) => setNewsSpeed(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-250 outline-none focus:border-rose-600 font-bold"
                 >
-                  <option value="slow">بطيء جداً (مريح للعين)</option>
+                  <option value="slow">بطيىء (مريح للعين)</option>
                   <option value="normal">عادي ومتوسط</option>
                   <option value="fast">سريع وبارز</option>
                 </select>
@@ -1483,6 +1487,18 @@ NOTIFY pgrst, 'reload schema';`;
                   <option value="text-indigo-100">🔵 أزرق سماوي</option>
                 </select>
               </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-300 block">اتجاه حركة النص:</label>
+                <select
+                  value={newsDirection}
+                  onChange={(e) => setNewsDirection(e.target.value as "rtl" | "ltr")}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-250 outline-none focus:border-rose-600 font-bold"
+                >
+                  <option value="rtl">⏪ من اليمين إلى اليسار (الافتراضي للعربي)</option>
+                  <option value="ltr">⏩ من اليسار إلى اليمين (الافتراضي للإنجليزي)</option>
+                </select>
+              </div>
             </div>
 
             <div className="bg-slate-950 border border-slate-850 p-4 rounded-2xl flex items-center justify-between gap-4">
@@ -1511,7 +1527,10 @@ NOTIFY pgrst, 'reload schema';`;
                   معاينة 🔔
                 </div>
                 <div className="w-full overflow-hidden">
-                  <div className="inline-block whitespace-nowrap animate-marquee" style={{ "--marquee-duration": newsSpeed === "slow" ? "45s" : newsSpeed === "fast" ? "12s" : "24s" } as React.CSSProperties}>
+                  <div 
+                    className={newsDirection === "rtl" ? "inline-block whitespace-nowrap animate-marquee text-right" : "inline-block whitespace-nowrap animate-marquee-ltr text-left"} 
+                    style={{ "--marquee-duration": newsSpeed === "slow" ? "45s" : newsSpeed === "fast" ? "12s" : "24s" } as React.CSSProperties}
+                  >
                     <span className="px-4">{newsTextAr || "ـ ـ لم يتم إدخال نص إعلاني بعد ـ ـ"}</span>
                     <span className="opacity-40 px-2 font-mono">/</span>
                     <span className="px-4 font-mono">{newsTextEn || "No English announcement text provided yet"}</span>
@@ -1531,7 +1550,8 @@ NOTIFY pgrst, 'reload schema';`;
                       textEn: newsTextEn,
                       speed: newsSpeed,
                       bgColor: newsBgColor,
-                      textColor: newsTextColor
+                      textColor: newsTextColor,
+                      direction: newsDirection
                     });
                     showFeedback("🎉 تم بث وتعميم الإعلان العاجل بنجاح لكافة مستخدمي المنصة!", "success");
                   } else {
