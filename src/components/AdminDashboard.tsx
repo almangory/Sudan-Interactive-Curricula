@@ -1526,14 +1526,14 @@ NOTIFY pgrst, 'reload schema';`;
                 <div className="absolute right-0 top-0 bottom-0 px-2 flex items-center bg-black/35 text-[10px] tracking-widest z-10 font-black border-l border-white/5 uppercase select-none">
                   معاينة 🔔
                 </div>
-                <div className="w-full overflow-hidden">
+                <div className="w-full overflow-hidden" dir="ltr">
                   <div 
                     className={newsDirection === "rtl" ? "inline-block whitespace-nowrap animate-marquee text-right" : "inline-block whitespace-nowrap animate-marquee-ltr text-left"} 
                     style={{ "--marquee-duration": newsSpeed === "slow" ? "45s" : newsSpeed === "fast" ? "12s" : "24s" } as React.CSSProperties}
                   >
-                    <span className="px-4">{newsTextAr || "ـ ـ لم يتم إدخال نص إعلاني بعد ـ ـ"}</span>
-                    <span className="opacity-40 px-2 font-mono">/</span>
-                    <span className="px-4 font-mono">{newsTextEn || "No English announcement text provided yet"}</span>
+                    <span className="px-4" dir="rtl">{newsTextAr || "ـ ـ لم يتم إدخال نص إعلاني بعد ـ ـ"}</span>
+                    <span className="opacity-40 px-2 font-mono" dir="ltr">/</span>
+                    <span className="px-4 font-mono" dir="ltr">{newsTextEn || "No English announcement text provided yet"}</span>
                   </div>
                 </div>
               </div>

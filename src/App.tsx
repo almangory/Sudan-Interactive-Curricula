@@ -1722,17 +1722,17 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             </div>
 
             {/* Animated Ticker container */}
-            <div className="flex-1 overflow-hidden relative mx-2">
+            <div className="flex-1 overflow-hidden relative mx-2" dir="ltr">
               <div 
                 className={tickerDirection === "rtl" ? "animate-marquee text-right" : "animate-marquee-ltr text-left"}
                 style={{ 
                   "--marquee-duration": breakingNews.speed === "slow" ? "50s" : breakingNews.speed === "fast" ? "14s" : "26s" 
                 } as React.CSSProperties}
               >
-                <span className="px-6 text-[11px] md:text-xs font-black tracking-wide">
+                <span className="px-6 text-[11px] md:text-xs font-black tracking-wide" dir={currentLang === "ar" ? "rtl" : "ltr"}>
                   {currentLang === "ar" ? breakingNews.textAr : breakingNews.textEn}
                 </span>
-                <span className="px-6 text-[11px] md:text-xs font-black tracking-wide opacity-90 select-none">
+                <span className="px-6 text-[11px] md:text-xs font-black tracking-wide opacity-90 select-none" dir={currentLang === "ar" ? "rtl" : "ltr"}>
                   🔴 {currentLang === "ar" ? breakingNews.textAr : breakingNews.textEn}
                 </span>
               </div>
