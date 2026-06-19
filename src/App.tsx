@@ -4,7 +4,7 @@ import {
   GraduationCap, Award, Compass, BookOpen, Clock, Heart, 
   Map, Sparkles, Star, ChevronLeft, ChevronDown, CheckCircle, 
   Search, ShieldAlert, History, Globe, Plus, FileText, Video, Filter,
-  Lock, Network, MessageSquare, X, Bell, MessagesSquare, UserCheck, Check, Link,
+  Lock, Network, MessageSquare, X, Bell, MessagesSquare, UserCheck, Check, Link, ArrowLeftRight,
   User, LogOut, Settings, Wifi, WifiOff
 } from "lucide-react";
 import { stagesData, Stage, Grade, Subject } from "./data/curriculum";
@@ -93,6 +93,10 @@ export default function App() {
 
   const [isTickerDismissed, setIsTickerDismissed] = useState(() => {
     return sessionStorage.getItem("sudan_edu_ticker_dismissed") === "true";
+  });
+
+  const [tickerDirection, setTickerDirection] = useState<"rtl" | "ltr">(() => {
+    return (localStorage.getItem("sudan_edu_ticker_direction") as "rtl" | "ltr") || "rtl";
   });
 
   // 🔔 Notification States & Realtime counters
@@ -1637,6 +1641,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
     // 3. Site Curricula / updates
     siteUpdates.forEach((upd: any) => {
+      if (upd.category === "breaking_news") return; // Skip internal system config payloads
       const isUnread = new Date(upd.created_at) > new Date(lastCheckedUpdates);
       const isNewSubject = upd.category === "new_subject";
       
@@ -1689,7 +1694,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         <div className="bg-[#007229] flex-1"></div>
       </div>
 
-      {/* 📢 Breaking News Moving Ticker Bar from Right to Left */}
+      {/* 📢 Breaking News Moving Ticker Bar */}
       {breakingNews && breakingNews.enabled && !isTickerDismissed && (
         <div 
           className={`relative w-full ${breakingNews.bgColor} ${breakingNews.textColor} text-xs py-2 px-4 md:px-6 select-none overflow-hidden flex items-center border-b border-white/5 z-40 transition-all shadow-lg shadow-black/10`}
@@ -1706,7 +1711,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             {/* Animated Ticker container */}
             <div className="flex-1 overflow-hidden relative mx-2">
               <div 
-                className={currentLang === "ar" ? "animate-marquee text-right" : "animate-marquee-ltr text-left"}
+                className={tickerDirection === "rtl" ? "animate-marquee text-right" : "animate-marquee-ltr text-left"}
                 style={{ 
                   "--marquee-duration": breakingNews.speed === "slow" ? "50s" : breakingNews.speed === "fast" ? "14s" : "26s" 
                 } as React.CSSProperties}
@@ -1720,17 +1725,33 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               </div>
             </div>
 
-            {/* Actions: Admin direct shortcut & Dismiss key */}
-            <div className="flex items-center gap-1.5 relative z-10 shrink-0">
+            {/* Actions: Admin direct shortcut, Direction toggle & Dismiss key */}
+            <div className="flex items-center gap-2 relative z-10 shrink-0">
               {currentUser && (currentUser.user_role === "admin" || currentUser.username === "almangory") && (
                 <button
                   onClick={() => setShowAdminDashboard(true)}
-                  className="hidden md:inline-flex items-center gap-0.5 bg-black/40 hover:bg-black/60 text-[9px] font-extrabold px-1.5 py-0.5 rounded-lg cursor-pointer transition-all border border-white/10 active:scale-95"
+                  className="hidden md:inline-flex items-center gap-0.5 bg-black/40 hover:bg-black/60 text-[9px] font-extrabold px-1.5 py-0.5 rounded-lg cursor-pointer transition-all border border-white/10 active:scale-95 text-slate-200"
                   title="تعديل محتوى وبث هذا الإعلان فوراً"
                 >
                   <span>تعديل ⚙️</span>
                 </button>
               )}
+
+              {/* Direction selector Toggle key */}
+              <button
+                onClick={() => {
+                  const newDir = tickerDirection === "rtl" ? "ltr" : "rtl";
+                  setTickerDirection(newDir);
+                  localStorage.setItem("sudan_edu_ticker_direction", newDir);
+                }}
+                className="hover:bg-black/35 px-2 py-1 rounded-xl text-[10px] text-white/90 hover:text-white transition-all active:scale-90 cursor-pointer border border-white/10 flex items-center gap-1.5 font-bold select-none"
+                title={currentLang === "ar" ? "تغيير اتجاه حركة شريط الأخبار" : "Toggle Ticker Scroll Direction"}
+              >
+                <ArrowLeftRight className="w-3 h-3 text-white/90" />
+                <span className="text-[9px] md:text-[10px] font-black hidden xs:inline">
+                  {tickerDirection === "rtl" ? "يمين ⏪" : "⏪ يسار"}
+                </span>
+              </button>
               
               <button
                 onClick={() => {
