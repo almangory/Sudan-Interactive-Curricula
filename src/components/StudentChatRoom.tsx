@@ -57,6 +57,15 @@ export default function StudentChatRoom({
   const [userSearchText, setUserSearchText] = useState("");
   const [friendMessageIdMap, setFriendMessageIdMap] = useState<Set<string>>(new Set());
 
+  const [activeChatWith, setActiveChatWith] = useState<AppUser | null>(null);
+
+  const cleanMessageText = (text: string): string => {
+    if (text.startsWith("[DM:")) {
+      return text.replace(/^\[DM:[^\]]+\]/, "");
+    }
+    return text;
+  };
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -395,9 +404,14 @@ export default function StudentChatRoom({
       setIsSending(true);
       setCensorshipWarning(false);
 
-      const originalText = inputText.trim();
+       const originalText = inputText.trim();
       const filteredText = filterTextCensor(originalText);
       const newId = "MSG-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4);
+
+      // Prepend DM metadata if a private chat with a friend is selected
+      const finalPayloadText = activeChatWith 
+        ? `[DM:${activeChatWith.id}]${filteredText}`
+        : filteredText;
 
       const client = getSupabaseClient();
       if (!client) return;
@@ -408,7 +422,7 @@ export default function StudentChatRoom({
         username: currentUser.username,
         user_role: currentUser.user_role || "student",
         grade_name: currentUser.grade_name || null,
-        text: filteredText,
+        text: finalPayloadText,
         timestamp: new Date().toISOString()
       };
 
@@ -433,7 +447,7 @@ export default function StudentChatRoom({
         username: currentUser.username,
         userRole: currentUser.user_role || "student",
         gradeName: currentUser.grade_name || null,
-        text: filteredText,
+        text: finalPayloadText,
         timestamp: payload.timestamp
       };
 
@@ -735,6 +749,30 @@ export default function StudentChatRoom({
     }
   });
 
+  // Clean, verified list of current friends
+  const friendsList = allUsers.filter(peer => {
+    if (String(peer.id) === String(currentUser?.id)) return false;
+    return activeFriendIds.has(String(peer.id));
+  });
+
+  // Filter messages to show either General Chat or Private Chat with a specified friend
+  const displayedMessages = messages.filter(msg => {
+    const isDM = msg.text.startsWith("[DM:");
+    if (activeChatWith) {
+      if (!isDM) return false;
+      const dmMatch = msg.text.match(/^\[DM:([^\]]+)\]/);
+      if (!dmMatch) return false;
+      const recipientId = dmMatch[1];
+      
+      const isSentByMeToFriend = (String(msg.userId) === String(currentUser?.id)) && (String(recipientId) === String(activeChatWith.id));
+      const isSentByFriendToMe = (String(msg.userId) === String(activeChatWith.id)) && (String(recipientId) === String(currentUser?.id));
+      
+      return isSentByMeToFriend || isSentByFriendToMe;
+    } else {
+      return !isDM;
+    }
+  });
+
   // Calculate matching users
   const renderedUsers = allUsers.filter(user => {
     if (userSearchText.trim() === "") return true;
@@ -1011,6 +1049,88 @@ export default function StudentChatRoom({
 
             {/* Middle chat thread messages screen */}
             <div className="col-span-1 md:col-span-3 flex flex-col min-h-[420px] relative">
+              {/* Horizontal Active Chats & Friend DMs Picker Bar */}
+              <div className={`p-3 border-b flex items-center gap-2 overflow-x-auto scrollbar-none shrink-0 select-none ${
+                siteTheme === "sudanese"
+                  ? "bg-[#FCFAF3] border-mud/10"
+                  : "bg-slate-900/60 border-slate-900"
+              }`} dir={currentLang === "ar" ? "rtl" : "ltr"}>
+                <span className={`text-[10px] sm:text-xs font-bold leading-none shrink-0 border-l pl-2 select-none ${
+                  siteTheme === "sudanese" ? "text-mud border-mud/15" : "text-indigo-400 border-slate-800"
+                }`}>
+                  {currentLang === "ar" ? "دردش مع:" : "Chat with:"}
+                </span>
+
+                {/* General Group Chat Button */}
+                <button
+                  onClick={() => {
+                    setActiveChatWith(null);
+                    setTimeout(() => scrollToBottom("smooth"), 120);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-3xs font-extrabold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 duration-200 ${
+                    activeChatWith === null
+                      ? siteTheme === "sudanese"
+                        ? "bg-mud text-cream shadow-sm"
+                        : "bg-indigo-650 text-slate-50 shadow-md"
+                      : siteTheme === "sudanese"
+                        ? "bg-[#EDF2EE]/30 border border-mud/10 text-mud hover:bg-mud/5"
+                        : "bg-slate-900 border border-slate-850 text-slate-400 hover:text-slate-100"
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>{currentLang === "ar" ? "💬 المجموعة العامة" : "💬 Public Stage Chat"}</span>
+                </button>
+
+                {/* Friends List Button Mapping for Private Chat selection */}
+                {friendsList.map(friend => {
+                  const isSelected = activeChatWith !== null && String(activeChatWith.id) === String(friend.id);
+                  const hasDMs = messages.some(msg => 
+                    String(msg.userId) === String(friend.id) && 
+                    msg.text.startsWith(`[DM:${currentUser.id}]`)
+                  );
+
+                  return (
+                    <button
+                      key={friend.id}
+                      onClick={() => {
+                        setActiveChatWith(friend);
+                        setTimeout(() => scrollToBottom("smooth"), 120);
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-3xs font-black transition-all flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 duration-200 relative ${
+                        isSelected
+                          ? siteTheme === "sudanese"
+                            ? "bg-earthgold text-mud border-mud/30 shadow-sm"
+                            : "bg-indigo-900/60 border border-indigo-500 text-indigo-300"
+                          : siteTheme === "sudanese"
+                            ? "bg-white border border-mud/10 text-mud hover:bg-[#FCFAF3]"
+                            : "bg-slate-900/80 border border-slate-805 text-slate-350 hover:text-slate-100"
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black shrink-0 ${
+                        isSelected
+                          ? siteTheme === "sudanese"
+                            ? "bg-mud text-white"
+                            : "bg-indigo-500 text-white"
+                          : siteTheme === "sudanese"
+                            ? "bg-mud/10 text-[#5C2C16]"
+                            : "bg-slate-800 text-slate-300"
+                      }`}>
+                        {friend.username.charAt(0).toUpperCase()}
+                      </div>
+                      
+                      <span className="truncate max-w-[80px]">{friend.username.split(" ")[0]}</span>
+
+                      {/* Online Status Marker Dot */}
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-sm shrink-0" />
+
+                      {/* Realtime DM Presence Unread/New Message Alert Badge */}
+                      {hasDMs && !isSelected && (
+                        <span className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
               {censorshipWarning && (
                 <div 
                   id="chat-censor-banner"
@@ -1049,21 +1169,24 @@ export default function StudentChatRoom({
                       siteTheme === "sudanese" ? "border-earthgold" : "border-indigo-600"
                     }`} />
                   </div>
-                ) : messages.length === 0 ? (
+                ) : displayedMessages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center space-y-3 p-8">
                     <div className={`w-16 h-16 rounded-full flex items-center justify-center border ${
                       siteTheme === "sudanese" ? "bg-[#FAF5EC] border-mud/10 text-earthgold" : "bg-slate-900 border-slate-800/80 text-indigo-405"
                     }`}>
-                      <Sparkles className="w-8 h-8 opacity-60 animate-pulse" />
+                      <MessageSquare className="w-8 h-8 opacity-60 animate-pulse" />
                     </div>
                     <p className={`text-3xs font-bold max-w-sm leading-relaxed ${
                       siteTheme === "sudanese" ? "text-mud" : "text-slate-400"
                     }`}>
-                      {t.noMessagesYet}
+                      {activeChatWith
+                        ? (currentLang === "ar" ? `هذه هي بداية محادثتك الخاصة الآمنة مع ${activeChatWith.username} 👋` : `This is the start of your secure private chat with ${activeChatWith.username} 👋`)
+                        : t.noMessagesYet
+                      }
                     </p>
                   </div>
                 ) : (
-                  messages.map((msg) => {
+                  displayedMessages.map((msg) => {
                     const isMyMsg = msg.userId === currentUser.id;
                     const isMsgAdmin = msg.userRole === "admin";
                     const isMsgTeacher = msg.userRole === "teacher";
@@ -1137,7 +1260,7 @@ export default function StudentChatRoom({
                               ? "bg-white border border-mud/11 text-mud rounded-tr-none shadow-sm font-sans"
                               : "bg-slate-900/60 border border-slate-800 text-slate-101 rounded-tr-none"
                           }`}>
-                            {msg.text}
+                            {cleanMessageText(msg.text)}
                           </div>
 
                           {isAdminLoggedIn && (
@@ -1227,7 +1350,11 @@ export default function StudentChatRoom({
                 value={userSearchText}
                 onChange={(e) => setUserSearchText(e.target.value)}
                 placeholder={t.searchPlaceholder}
-                className="w-full bg-slate-900/55 border border-slate-800 focus:border-indigo-605 p-3 pr-10 rounded-2xl text-xs text-slate-100 outline-none transition-all placeholder:text-slate-500"
+                className={`w-full p-3 pr-10 rounded-2xl text-xs outline-none transition-all border ${
+                  siteTheme === "sudanese"
+                    ? "bg-white border-mud/20 text-mud placeholder:text-mud/40 focus:border-mud"
+                    : "bg-slate-900/55 border border-slate-800 focus:border-indigo-605 text-slate-100 placeholder:text-slate-505"
+                }`}
               />
             </div>
 
@@ -1235,11 +1362,13 @@ export default function StudentChatRoom({
             {isRelationsLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 hover:scale-100 gap-4">
                 {[1, 2, 3, 4].map(idx => (
-                  <div key={idx} className="p-4 rounded-2xl bg-slate-900/30 border border-slate-850 h-20 animate-pulse" />
+                  <div key={idx} className={`p-4 rounded-xl border h-20 animate-pulse ${
+                    siteTheme === "sudanese" ? "bg-mud/5 border-mud/10" : "bg-slate-900/30 border-slate-850"
+                  }`} />
                 ))}
               </div>
             ) : renderedUsers.length === 0 ? (
-              <div className="text-center p-12 text-slate-505 italic text-sm">
+              <div className={`text-center p-12 italic text-sm ${siteTheme === "sudanese" ? "text-mud/50" : "text-slate-505"}`}>
                 {t.noUsers}
               </div>
             ) : (
@@ -1257,29 +1386,43 @@ export default function StudentChatRoom({
                     <div 
                       key={peer.id}
                       className={`p-4 rounded-2xl border transition-all duration-300 relative ${
-                        isSameStage 
-                          ? "bg-slate-900/50 border-slate-850 hover:border-indigo-650/50 hover:bg-slate-900" 
-                          : "bg-slate-925/25 border-slate-900/70 opacity-60"
+                        siteTheme === "sudanese"
+                          ? isSameStage 
+                            ? "bg-white border-mud/10 hover:border-mud/30 text-mud shadow-sm" 
+                            : "bg-[#FAFAF6]/80 border-mud/5 opacity-80"
+                          : isSameStage 
+                            ? "bg-slate-900/50 border-slate-850 hover:border-indigo-650/50 hover:bg-slate-900" 
+                            : "bg-slate-925/25 border-slate-900/70 opacity-60"
                       }`}
                     >
                       <div className="flex items-start gap-3">
                         {/* Avatar */}
                         <div className={`w-10 h-10 rounded-xl shrink-0 border flex items-center justify-center font-bold text-xs ${
-                          isSameStage ? "bg-indigo-950/30 text-indigo-400 border-indigo-900/30" : "bg-slate-900 text-slate-500 border-slate-850"
+                          siteTheme === "sudanese"
+                            ? isSameStage 
+                              ? "bg-mud/10 text-mud border-mud/20 font-black" 
+                              : "bg-mud/5 text-mud/40 border-mud/5"
+                            : isSameStage 
+                              ? "bg-indigo-950/30 text-indigo-405 border-indigo-900/30" 
+                              : "bg-slate-900 text-slate-505 border-slate-850"
                         }`}>
                           {peer.user_role === "teacher" ? "👨‍🏫" : peer.username.charAt(0).toUpperCase()}
                         </div>
 
                         {/* Details */}
                         <div className="space-y-1 flex-1 min-w-0 text-right">
-                          <h4 className="font-bold text-slate-100 text-xs truncate">
+                          <h4 className={`font-extrabold text-xs truncate ${
+                            siteTheme === "sudanese" ? "text-mud font-black" : "text-slate-100"
+                          }`}>
                             {peer.username}
                           </h4>
-                          <span className="block text-5xs font-semibold text-slate-400">
+                          <span className={`block text-5xs font-bold ${
+                            siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"
+                          }`}>
                             {peer.grade_name || "صف دراسي غير محدد"} ( {getStageLabel(peerStage)} )
                           </span>
 
-                          <div className="pt-2">
+                          <div className="pt-2 flex flex-wrap gap-1.5 items-center">{isFriend && <button onClick={() => { setActiveChatWith(peer); setActiveCategoryTab("chat"); setTimeout(() => scrollToBottom("smooth"), 120); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-5xs font-black cursor-pointer select-none active:scale-95 duration-150 transition-all ${siteTheme === "sudanese" ? "bg-mud hover:bg-mud/90 hover:scale-105 text-[#FDFBF7]" : "bg-indigo-650 hover:bg-indigo-505 hover:scale-105 text-[#F1F5F9]"}`}><MessageSquare className="w-2.5 h-2.5" /><span>{currentLang === "ar" ? "دردشة خاصة 💬" : "Direct DM 💬"}</span></button>}
                             {/* Actions / Status pills */}
                              {isFriend ? (
                                <div className="flex items-center gap-2 flex-wrap">
