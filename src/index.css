@@ -1,4 +1,12 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;750;900&display=swap');
+
+@theme {
+  --color-mud: #5C2C16;
+  --color-earthgold: #D4AF37;
+  --color-cream: #FDFBF7;
+  --font-sans: "Cairo", "Inter", ui-sans-serif, system-ui, sans-serif;
+}
 
 @keyframes custom-ripple-effect {
   0% {

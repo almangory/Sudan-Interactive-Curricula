@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   GraduationCap, Award, Compass, BookOpen, Clock, Heart, 
@@ -19,6 +19,16 @@ import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSup
 import { stageAndGradeTranslations, uiTranslations } from "./lib/translations";
 
 export default function App() {
+  const [siteTheme, setSiteTheme] = useState<"sudanese" | "legacy">(() => {
+    return (localStorage.getItem("sudan_site_theme") as "sudanese" | "legacy") || "sudanese";
+  });
+
+  const toggleSiteTheme = () => {
+    const nextTheme = siteTheme === "sudanese" ? "legacy" : "sudanese";
+    setSiteTheme(nextTheme);
+    localStorage.setItem("sudan_site_theme", nextTheme);
+  };
+
   // Curriculum data is retrieved directly from the server-side compiled curriculum.ts (stagesData)
   // We use local storage fallback for cross-environment consistency (e.g. on Vercel)
   const [curriculumData, setCurriculumData] = useState<Stage[]>(() => {
@@ -103,6 +113,24 @@ export default function App() {
 
   // 🔔 Notification States & Realtime counters
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
+  const notificationDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        notificationDropdownRef.current && 
+        !notificationDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowNotificationsDropdown(false);
+      }
+    }
+    if (showNotificationsDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showNotificationsDropdown]);
   const [pendingFriendRequests, setPendingFriendRequests] = useState<any[]>([]);
   const [recentChatMessages, setRecentChatMessages] = useState<any[]>([]);
   const [siteUpdates, setSiteUpdates] = useState<any[]>([]);
@@ -1694,7 +1722,11 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-600 selection:text-white pb-16" dir={currentLang === "ar" ? "rtl" : "ltr"}>
+    <div className={`min-h-screen font-sans pb-16 transition-all duration-300 ${
+      siteTheme === "sudanese" 
+        ? "bg-cream text-mud selection:bg-earthgold/20 selection:text-mud" 
+        : "bg-slate-950 text-slate-100 selection:bg-emerald-600 selection:text-white"
+    }`} dir={currentLang === "ar" ? "rtl" : "ltr"}>
       {/* Upper Flag Trim (Sudan Flag Colors: Red, White, Black, Green) */}
       <div 
         onClick={handleTrimClick}
@@ -1783,12 +1815,16 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
       )}
 
       {/* Top Header Bar for Admin Portal */}
-      <div className="bg-slate-900/90 border-b border-slate-800/60 px-6 py-2.5 relative z-50">
+      <div className={`transition-all duration-300 border-b px-6 py-2.5 relative z-50 ${
+        siteTheme === "sudanese"
+          ? "bg-white shadow-sm shadow-[#5C2C16]/5 border-mud/10 text-mud"
+          : "bg-slate-900/90 border-slate-800/60 text-slate-100"
+      }`}>
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap text-right">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-1.5">
               <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-ping' : 'bg-amber-500 animate-pulse'}`}></span>
-              <span className="text-3xs md:text-2xs text-slate-400 font-bold">{t("tagline")}</span>
+              <span className={`text-3xs md:text-2xs font-bold ${siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"}`}>{t("tagline")}</span>
             </div>
             
             {/* Elegant Offline Indicator Badge */}
@@ -1815,6 +1851,27 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 relative">
+            {/* Theme Switcher Button */}
+            <button
+              onClick={toggleSiteTheme}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
+                siteTheme === "sudanese"
+                  ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-earthgold/60"
+                  : "bg-slate-950/60 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/60 text-slate-200"
+              }`}
+              title={currentLang === "ar" ? "تغيير المظهر (التصميم السوداني التقليدي / المظهر الداكن)" : "Switch Theme (Traditional Sudanese / Legacy Dark)"}
+            >
+              <span className="text-[14px]">🎨</span>
+              <span className="hidden xs:inline">
+                {currentLang === "ar" 
+                  ? (siteTheme === "sudanese" ? "التصميم السوداني 🇸🇩" : "التصميم الداكن 🌙") 
+                  : (siteTheme === "sudanese" ? "Sudanese Style 🇸🇩" : "Dark Legacy 🌙")}
+              </span>
+              <span className="xs:hidden">
+                {siteTheme === "sudanese" ? "سوداني 🇸🇩" : "داكن 🌙"}
+              </span>
+            </button>
+
             {/* Language Toggle Button */}
             <button
               onClick={() => {
@@ -1822,10 +1879,14 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 setCurrentLang(nextLang);
                 localStorage.setItem("sudan_edu_lang", nextLang);
               }}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-950/60 hover:bg-slate-900 border border-slate-800 hover:border-emerald-500/60 text-slate-200 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans"
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
+                siteTheme === "sudanese"
+                  ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-earthgold/60"
+                  : "bg-slate-950/60 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/60 text-slate-200"
+              }`}
               title={currentLang === "ar" ? "Switch to English" : "التحويل للغة العربية"}
             >
-              <Globe className="w-3.5 h-3.5 text-emerald-400" />
+              <Globe className={`w-3.5 h-3.5 ${siteTheme === "sudanese" ? "text-earthgold" : "text-emerald-400"}`} />
               <span className="hidden xs:inline">{currentLang === "ar" ? "English" : "العربية"}</span>
               <span className="xs:hidden">{currentLang === "ar" ? "EN" : "عربي"}</span>
             </button>
@@ -1886,7 +1947,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             </button>
 
             {/* Notification Bell Dropdown Component */}
-            <div className="relative">
+            <div className="relative" ref={notificationDropdownRef}>
               <button
                 onClick={() => {
                   setShowNotificationsDropdown(prev => !prev);
@@ -2213,7 +2274,8 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         {/* Main interactive curriculum workspace column */}
         <div className="flex-1 min-w-0">
           {/* Embedded Sudan Cultural and Academic Hero Banner */}
-          <header className="relative py-12 md:py-16 px-6 overflow-hidden">
+          {siteTheme === "legacy" && (
+            <header className="relative py-12 md:py-16 px-6 overflow-hidden">
         {/* Abstract Geometrics */}
         <div className="absolute inset-x-0 bottom-0 top-0 bg-gradient-to-b from-emerald-950/20 via-slate-950/30 to-slate-950 pointer-events-none" />
         <div className="absolute -left-36 top-12 w-96 h-96 bg-emerald-700/10 rounded-full blur-3xl pointer-events-none" />
@@ -2318,12 +2380,13 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           </div>
         </div>
       </header>
+          )}
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-6 space-y-12">
         
         {/* Recent History Section */}
-        {recentSubjects.length > 0 && (
+        {siteTheme === "legacy" && recentSubjects.length > 0 && (
           <section className="space-y-3 relative overflow-hidden bg-slate-900/40 border border-slate-800 p-4 rounded-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
               <div className="flex items-center gap-2">
@@ -2387,7 +2450,553 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
 
         {/* Stage selection selector tabs */}
-        <section className="space-y-4 relative overflow-hidden p-1 rounded-2xl">
+        {siteTheme === "sudanese" ? (
+          // Beautiful Traditional Sudanese Traditional clay architecture layout!
+          <div className="flex flex-col lg:flex-row gap-8 mt-5 items-start">
+             {/* Sidebar (Right/Left Column depending on dir, takes 1/4) */}
+             <aside className="w-full lg:w-1/4 bg-white/95 rounded-3xl p-6 shadow-sm border border-mud/10 space-y-5 h-fit select-text z-10 text-right" dir="rtl">
+                <div className="space-y-1">
+                   <h4 className="text-[#5C2C16] font-bold text-sm flex items-center gap-1.5 border-b border-mud/10 pb-2">
+                     <span>🔍</span>
+                     <span>{currentLang === "ar" ? "البحث السريع والترشيح" : "Quick Search & Filter"}</span>
+                   </h4>
+                   <p className="text-3xs text-mud/60 leading-normal">{currentLang === "ar" ? "ابحث عن أي مادة أو كتاب أو ملخص بسهولة فورية" : "Search any interactive textbook or video course in Sudan"}</p>
+                </div>
+
+                {/* Search Text Input */}
+                <div className="space-y-1 pt-1">
+                   <label className="text-mud text-xs font-bold block mb-1">
+                     {currentLang === "ar" ? "عبارة البحث" : "Search Phrase"}
+                   </label>
+                   <div className="relative flex items-center bg-[#FDFBF7] rounded-xl p-3 border border-mud/15 shadow-inner">
+                     <Search className="w-4 h-4 text-mud/50 shrink-0 select-none ml-2" />
+                     <input
+                       type="text"
+                       value={searchQuery}
+                       onChange={(e) => setSearchQuery(e.target.value)}
+                       placeholder={currentLang === "ar" ? "اكتب اسم المادة..." : "Type subject..."}
+                       className="bg-transparent w-full outline-none text-mud text-xs font-semibold placeholder-mud/35"
+                     />
+                   </div>
+                </div>
+
+                {/* Grade Dropdown Selector */}
+                <div className="space-y-1">
+                   <label className="text-mud text-xs font-bold block mb-1">
+                     {currentLang === "ar" ? "المرحلة الدراسية" : "Educational Level"}
+                   </label>
+                   <div className="relative flex items-center bg-[#FDFBF7] rounded-xl p-3 border border-mud/15 shadow-inner">
+                     <select
+                       value={selectedStage ? selectedStage.id : ""}
+                       onChange={(e) => {
+                         const stageId = e.target.value;
+                         if (stageId === "") {
+                           setSelectedStage(null);
+                           setActiveGrade(null);
+                         } else {
+                           const stg = curriculumData.find(s => s.id === stageId);
+                           if (stg) {
+                             setSelectedStage(stg);
+                             setActiveGrade(null);
+                             setShowOnlyFavorites(false);
+                             setShowStudyCamp(false);
+                             setShowEducationalMindMap(false);
+                           }
+                         }
+                       }}
+                       className="w-full bg-transparent outline-none appearance-none text-mud text-xs font-bold cursor-pointer"
+                     >
+                       <option value="" className="text-slate-850">{currentLang === "ar" ? "جميع المراحل التعليمية" : "All Stages"}</option>
+                       {curriculumData.map(st => (
+                         <option key={st.id} value={st.id} className="text-slate-850">
+                           {st.name}
+                         </option>
+                       ))}
+                     </select>
+                     <ChevronDown className="absolute left-3 w-4 h-4 text-mud/60 pointer-events-none" />
+                   </div>
+                </div>
+
+                {/* Sub-Grade Selector */}
+                <div className="space-y-1">
+                   <label className="text-mud text-xs font-bold block mb-1">
+                     {currentLang === "ar" ? "الصف الدراسي" : "Class / Grade"}
+                   </label>
+                   <div className="relative flex items-center bg-[#FDFBF7] rounded-xl p-3 border border-mud/15 shadow-inner">
+                     <select
+                       value={activeGrade ? activeGrade.id : ""}
+                       onChange={(e) => {
+                         const gradeId = e.target.value;
+                         if (gradeId === "") {
+                           setActiveGrade(null);
+                         } else {
+                           if (selectedStage) {
+                             const gr = selectedStage.grades.find(g => g.id === gradeId);
+                             if (gr) {
+                               setActiveGrade(gr);
+                             }
+                           } else {
+                             let fs = null;
+                             let fg = null;
+                             curriculumData.forEach(st => {
+                               const gr = st.grades.find(g => g.id === gradeId);
+                               if (gr) {
+                                 fs = st;
+                                 fg = gr;
+                               }
+                             });
+                             if (fs && fg) {
+                               setSelectedStage(fs);
+                               setActiveGrade(fg);
+                             }
+                           }
+                         }
+                       }}
+                       className="w-full bg-transparent outline-none appearance-none text-mud text-xs font-bold cursor-pointer"
+                     >
+                       <option value="" className="text-slate-855">{currentLang === "ar" ? "اختر الصف الدراسي..." : "Select Class..."}</option>
+                       {(selectedStage ? selectedStage.grades : curriculumData.flatMap(st => st.grades)).map(gr => (
+                         <option key={gr.id} value={gr.id} className="text-slate-855">
+                           {gr.name}
+                         </option>
+                       ))}
+                     </select>
+                     <ChevronDown className="absolute left-3 w-4 h-4 text-mud/60 pointer-events-none" />
+                   </div>
+                </div>
+
+                {/* Direct Subject Selector */}
+                <div className="space-y-1">
+                   <label className="text-mud text-xs font-bold block mb-1">
+                     {currentLang === "ar" ? "قائمة المواد" : "Subject Filter"}
+                   </label>
+                   <div className="relative flex items-center bg-[#FDFBF7] rounded-xl p-3 border border-mud/15 shadow-inner">
+                     <select
+                       value={activeSubject ? activeSubject.id : ""}
+                       onChange={(e) => {
+                         const subId = e.target.value;
+                         if (subId) {
+                           let foundSub = null;
+                           curriculumData.forEach(st => {
+                             st.grades.forEach(g => {
+                               const sub = g.subjects.find(s => s.id === subId);
+                               if (sub) foundSub = sub;
+                             });
+                           });
+                           if (foundSub) handleOpenSubject(foundSub);
+                         }
+                       }}
+                       className="w-full bg-transparent outline-none appearance-none text-mud text-xs font-bold cursor-pointer"
+                     >
+                       <option value="" className="text-slate-855">{currentLang === "ar" ? "تصفح المواد..." : "Go to Subject..."}</option>
+                       {(activeGrade ? activeGrade.subjects : curriculumData.flatMap(st => st.grades.flatMap(g => g.subjects))).map(s => (
+                         <option key={s.id} value={s.id} className="text-slate-855">
+                           {s.name}
+                         </option>
+                       ))}
+                     </select>
+                     <ChevronDown className="absolute left-3 w-4 h-4 text-mud/60 pointer-events-none" />
+                   </div>
+                </div>
+
+                {/* Quick actions indicator */}
+                <div className="pt-3 border-t border-mud/10 space-y-2">
+                   <button
+                     onClick={() => {
+                       setShowStudyCamp(prev => !prev);
+                       setSelectedStage(null);
+                       setActiveGrade(null);
+                       setShowEducationalMindMap(false);
+                       setShowOnlyFavorites(false);
+                     }}
+                     className={`w-full py-2.5 px-3 rounded-xl border text-2xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                       showStudyCamp
+                         ? "bg-earthgold text-white border-earthgold shadow-sm"
+                         : "bg-[#FDFBF7] text-mud border-mud/15 hover:bg-cream"
+                     }`}
+                   >
+                     <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                     <span>{currentLang === "ar" ? "نشاط مخيم المذاكرة ⚡" : "Study Camp Activities ⚡"}</span>
+                   </button>
+
+                   <button
+                     onClick={() => {
+                       setShowEducationalMindMap(prev => !prev);
+                       setSelectedStage(null);
+                       setActiveGrade(null);
+                       setShowStudyCamp(false);
+                       setShowOnlyFavorites(false);
+                     }}
+                     className={`w-full py-2.5 px-3 rounded-xl border text-2xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                       showEducationalMindMap
+                         ? "bg-earthgold text-white border-earthgold shadow-sm"
+                         : "bg-[#FDFBF7] text-mud border-mud/15 hover:bg-cream"
+                      }`}
+                    >
+                      <Network className="w-3.5 h-3.5 shrink-0" />
+                      <span>{currentLang === "ar" ? "خرائط المسارات التعليمية 🗺️" : "Curriculum Mind Maps 🗺️"}</span>
+                    </button>
+                 </div>
+              </aside>
+
+              {/* Core Content Layout (Takes 3/4) */}
+              <div className="w-full lg:w-3/4 space-y-8 z-10 text-right" dir="rtl">
+                 {/* Visual Sudanese Heritage Gottia Pattern Backdrop Hero */}
+                 <div className="relative bg-gradient-to-br from-[#FAF5EC]/90 via-[#FDFBF7] to-[#F1ECE3] rounded-3xl p-6 sm:p-10 border border-mud/15 overflow-hidden shadow-inner flex flex-col md:flex-row items-center gap-8 group">
+                    <div className="absolute inset-0 pointer-events-none opacity-10 bg-[radial-gradient(#5C2C16_1px,transparent_1px)] [background-size:16px_16px]"></div>
+                    
+                    <div className="flex-1 space-y-4 text-right">
+                       <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-earthgold/30 rounded-full text-[10px] md:text-3xs font-extrabold text-mud uppercase tracking-wider shadow-sm select-none">
+                         <Sparkles className="w-3 h-3 text-earthgold" />
+                         <span>منصة المناهج السودانية المطورة 🇸🇩</span>
+                       </div>
+                       <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-mud leading-snug">
+                          {currentLang === "ar" ? "أهلاً بك في البوابة التعليمية التفاعلية الموحدة" : "Interactive Gateway to Sudanese Unified Curricula"}
+                       </h2>
+                       <p className="text-xs text-mud/85 leading-relaxed max-w-lg font-sans">
+                          {currentLang === "ar" 
+                            ? "نهدف لتوفير وصول دائم ومجاني لجميع المناهج الدراسية، الكتب، المذكرات التلخيصية، الشروحات التفاعلية، ومعامل الذكاء الاصطناعي المساندة للتعليم في السودان." 
+                            : "Dedicated to providing free interactive school books, summaries, simulations, and virtual assistance for teachers and students."}
+                       </p>
+
+                       {/* Beautiful Traditional Sudanese Stats/Favorites/Admin Counters */}
+                       <div className="flex flex-wrap gap-2.5 pt-2 font-sans">
+                          <button 
+                             onClick={() => {
+                                setShowOnlyFavorites(prev => !prev);
+                                setShowStudyCamp(false);
+                                setShowEducationalMindMap(false);
+                                setShowStudentChat(false);
+                                setShowAdminDashboard(false);
+                                setSelectedStage(null);
+                                setActiveGrade(null);
+                             }}
+                             className={`flex items-center gap-2 px-4 py-2 rounded-2xl border text-2xs font-bold transition-all duration-300 cursor-pointer select-none shadow-xs ${
+                                showOnlyFavorites 
+                                  ? "bg-[#D4AF37] text-white border-[#D4AF37] ring-4 ring-[#D4AF37]/20" 
+                                  : "bg-white hover:bg-cream border-mud/15 text-mud"
+                             }`}
+                          >
+                             <Star className={`w-3.5 h-3.5 shrink-0 ${showOnlyFavorites ? "fill-white text-white" : "text-amber-500 fill-[#D4AF37]"}`} />
+                             <span className="font-extrabold">{favoriteSubjects.length}</span>
+                             <span>
+                                {showOnlyFavorites ? (currentLang === "ar" ? "تصفح جميع المناهج 📋" : "Browse All Curricula 📋") : (currentLang === "ar" ? "المواد المفضلة ⭐" : "My Favorites ⭐")}
+                             </span>
+                          </button>
+
+                          <div className="flex items-center gap-2 px-4 py-2 rounded-2xl border border-mud/10 bg-white/70 text-mud text-2xs font-bold select-none shadow-xs">
+                             <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                             <span className="font-extrabold">{completedLessons.length}</span>
+                             <span>{currentLang === "ar" ? "تمارين مكتملة" : "Completed Exercises"}</span>
+                          </div>
+                          
+                          {(isAdminLoggedIn || showHiddenAdminGate) && (
+                            <button 
+                               onClick={() => {
+                                  if (isAdminLoggedIn) {
+                                     setShowAdminDashboard(prev => !prev);
+                                     setSelectedStage(null);
+                                     setActiveGrade(null);
+                                     setShowStudyCamp(false);
+                                     setShowEducationalMindMap(false);
+                                     setShowStudentChat(false);
+                                     setShowOnlyFavorites(false);
+                                  } else {
+                                     setShowAdminLogin(true);
+                                     setAdminLoginError("");
+                                     setAdminUsername("");
+                                     setAdminPassword("");
+                                  }
+                               }}
+                               className={`flex items-center gap-2 px-4 py-2 rounded-2xl border text-2xs font-bold transition-all duration-300 cursor-pointer select-none shadow-xs ${
+                                  showAdminDashboard 
+                                    ? "bg-emerald-700 text-white border-emerald-700 ring-4 ring-emerald-700/20" 
+                                    : "bg-white hover:bg-cream border-mud/15 text-mud"
+                               }`}
+                            >
+                               <Lock className={`w-3.5 h-3.5 shrink-0 ${showAdminDashboard ? "text-white" : "text-mud/60"}`} />
+                               <span>
+                                  {isAdminLoggedIn ? (currentLang === "ar" ? "لوحة التحكم" : "Admin Dashboard") : (currentLang === "ar" ? "بوابة الإدارة" : "Admin Gate")}
+                               </span>
+                            </button>
+                          )}
+                       </div>
+                    </div>
+
+                    {/* SVG Sudanese Traditional Gottia/Mud Architecture Scene Illustration */}
+                    <div className="w-48 h-36 shrink-0 relative bg-white/20 rounded-2xl border border-mud/10 flex items-center justify-center shadow-inner overflow-hidden select-none">
+                       <svg viewBox="0 0 200 150" className="w-full h-full object-cover">
+                          {/* Sky Sand Gradients */}
+                          <defs>
+                             <linearGradient id="sandSky" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#FDFBF7" />
+                                <stop offset="100%" stopColor="#FAF5EC" />
+                             </linearGradient>
+                          </defs>
+                          <rect width="200" height="150" fill="url(#sandSky)" />
+                          
+                          {/* Golden Sun */}
+                          <circle cx="160" cy="50" r="18" fill="#D4AF37" opacity="0.35" className="animate-pulse" />
+                          <circle cx="160" cy="50" r="12" fill="#D4AF37" opacity="0.8" />
+
+                          {/* Desert sand dune */}
+                          <path d="M 0 135 Q 60 115, 120 125 T 200 120 L 200 150 L 0 150 Z" fill="#E8DFCF" />
+                          <path d="M 0 142 Q 80 132, 160 138 T 200 130 L 200 150 L 0 150 Z" fill="#FAF5EC" />
+
+                          {/* gottia 1 */}
+                          <g transform="translate(45, 80)">
+                             {/* Gottia straw cone roof */}
+                             <polygon points="25,0 0,35 50,35" fill="#D4AF37" stroke="#5C2C16" strokeWidth="1" />
+                             {/* Gottia mud wall */}
+                             <rect x="5" y="34" width="40" height="25" fill="#C57530" stroke="#5C2C16" strokeWidth="1" rx="2" />
+                             {/* gottia door */}
+                             <path d="M 20 45 A 5 5 0 0 1 30 45 L 30 59 L 20 59 Z" fill="#5C2C16" />
+                          </g>
+
+                          {/* gottia 2 */}
+                          <g transform="translate(100, 88)">
+                             {/* Gottia straw cone roof */}
+                             <polygon points="20,0 0,28 40,28" fill="#5C2C16" opacity="0.85" />
+                             {/* Gottia mud wall */}
+                             <rect x="4" y="27" width="32" height="22" fill="#E4A054" stroke="#5C2C16" strokeWidth="1" rx="1" />
+                             {/* gottia door */}
+                             <path d="M 16 38 A 4 4 0 0 1 24 38 L 24 49 L 16 49 Z" fill="#5C2C16" />
+                          </g>
+
+                          {/* Palm tree */}
+                          <g transform="translate(145, 85)">
+                             <path d="M 10 0 Q 3 -25, -10 -40 Q 3 -15, 10 0 Z" fill="#C57530" />
+                             {/* Palm leaves */}
+                             <path d="M -10 -40 Q -25 -52, -35 -40" stroke="#D4AF37" strokeWidth="2" fill="none" />
+                             <path d="M -10 -40 Q -20 -58, -5 -55" stroke="#D4AF37" strokeWidth="2.5" fill="none" />
+                             <path d="M -10 -40 Q 5 -55, 12 -45" stroke="#D4AF37" strokeWidth="2" fill="none" />
+                             <path d="M -10 -40 Q -15 -32, -22 -28" stroke="#D4AF37" strokeWidth="1.5" fill="none" />
+                          </g>
+
+                          {/* Floating educational gears/symbols */}
+                          <text x="25" y="45" fontFamily="sans-serif" fontSize="11" fill="#D4AF37" className="animate-bounce">📖</text>
+                          <text x="80" y="35" fontFamily="sans-serif" fontSize="10" fill="#5C2C16" opacity="0.6">✍️</text>
+                          <text x="135" y="65" fontFamily="sans-serif" fontSize="12" fill="#D4AF37">⭐</text>
+                       </svg>
+                    </div>
+                  </div>
+
+                 {/* Grade Cards Grid (Screenshot 9) */}
+                 <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-mud/10 pb-3">
+                       <div>
+                          <h3 className="font-bold text-[#5C2C16] text-base">{currentLang === "ar" ? "المراحل التعليمية المتاحة" : "Available Educational Stages"}</h3>
+                          <p className="text-3xs text-mud/60">{currentLang === "ar" ? "اختر المرحلة لعرض الصفوف والمقررات التفاعلية" : "Select a stage to view school levels and interactive books"}</p>
+                       </div>
+                       <span className="text-3xs font-extrabold bg-[#D4AF37]/10 text-mud px-2.5 py-1 rounded-lg border border-[#D4AF37]/20">
+                          {curriculumData.length} {currentLang === "ar" ? "مراحل مضافة" : "Stages Available"}
+                       </span>
+                    </div>
+
+                    {/* Elegant Cards Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
+                       {displayedStages.map((stage) => {
+                          const isSelected = selectedStage?.id === stage.id && !showOnlyFavorites && !showStudyCamp && !showEducationalMindMap && !showStudentChat;
+                          const totalSubjects = stage.grades.reduce((sum, g) => sum + g.subjects.length, 0);
+                          
+                          return (
+                             <div
+                               key={stage.id}
+                               onClick={() => {
+                                  if (isSelected) {
+                                     setSelectedStage(null);
+                                     setActiveGrade(null);
+                                  } else {
+                                     setSelectedStage(stage);
+                                     setActiveGrade(null);
+                                     setShowOnlyFavorites(false);
+                                     setShowStudyCamp(false);
+                                     setShowEducationalMindMap(false);
+                                     setShowStudentChat(false);
+                                  }
+                               }}
+                               className={`group relative p-4 rounded-2xl flex flex-col items-center text-center transition-all duration-300 cursor-pointer transform select-none ${
+                                  isSelected
+                                    ? "bg-white border-2 border-earthgold shadow-lg scale-[1.01]"
+                                    : "bg-white border border-mud/15 hover:border-earthgold/50 shadow-sm hover:translate-y-[-2px] hover:shadow-md"
+                               }`}
+                             >
+                                {/* Circle Portrait Badge representing stage */}
+                                <div className="w-14 h-14 rounded-full flex items-center justify-center bg-[#FDFBF7] border border-mud/10 shrink-0 mb-3 text-2xl shadow-inner group-hover:scale-105 transition-transform">
+                                   {stage.id === "kindergarten" ? "🧸" : stage.id === "primary" ? "🎒" : stage.id === "middle" ? "📚" : "🎓"}
+                                 </div>
+
+                                <h3 className="text-mud font-black text-xs md:text-sm line-clamp-1">{t(stage.name)}</h3>
+                                <p className="text-4xs text-mud/60 mt-1 leading-relaxed line-clamp-2 px-1">
+                                   {stage.description}
+                                 </p>
+
+                                 <div className="mt-3 flex items-center gap-1 text-[9px] bg-[#FDFBF7] px-2 py-0.5 rounded-full border border-mud/5 text-mud/85 font-extrabold">
+                                    <span>📚</span>
+                                    <span>{currentLang === "ar" ? `المواد: ${totalSubjects}` : `Subjects: ${totalSubjects}`}</span>
+                                 </div>
+
+                                 <button
+                                    className={`w-full mt-4 py-2 rounded-xl text-3xs font-extrabold transition-all duration-155 [font-family:inherit] cursor-pointer flex items-center justify-center gap-1 border ${
+                                       isSelected
+                                         ? "bg-earthgold text-white border-earthgold shadow-md shadow-earthgold/10"
+                                         : "bg-white border-mud/20 text-mud hover:bg-cream"
+                                    }`}
+                                 >
+                                    <span>{isSelected ? "📋" : "🔍"}</span>
+                                    <span>{isSelected ? (currentLang === "ar" ? "الصف مفتوح" : "Opened") : (currentLang === "ar" ? "تصفح الكتب" : "Browse")}</span>
+                                 </button>
+                             </div>
+                          );
+                       })}
+                    </div>
+                 </div>
+
+                 {/* Custom Section for Selected Stage expanded lists below the grid! */}
+                   {selectedStage && !showOnlyFavorites && !showStudyCamp && !showEducationalMindMap && !showStudentChat && (() => {
+                      const renderedGrades = currentUser && currentUser.user_role === "student" && currentUser.grade_id
+                        ? selectedStage.grades.filter(g => g.id === currentUser.grade_id)
+                        : selectedStage.grades;
+
+                      return (
+                         <div className="bg-white/95 rounded-3xl p-6 border border-mud/15 shadow-md mt-6 animate-fadeIn space-y-6 select-text text-right" dir="rtl">
+                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-mud/10 pb-4">
+                              <div className="space-y-1 text-center sm:text-right">
+                                 <span className="text-[10px] text-earthgold font-black uppercase tracking-widest block">{t("gradesLevels")}</span>
+                                 <h4 className="text-base font-black text-mud flex items-center justify-center sm:justify-start gap-1.5">
+                                    <span>{selectedStage.id === "kindergarten" ? "🧸" : selectedStage.id === "primary" ? "🎒" : selectedStage.id === "middle" ? "📚" : "🎓"}</span>
+                                    <span>{currentLang === "ar" ? `مناهج تفصيلية: ${selectedStage.name}` : `${t(selectedStage.name)} Detailed Curriculae`}</span>
+                                 </h4>
+                              </div>
+
+                              <div className="text-3xs text-mud bg-[#FDFBF7] px-3.5 py-1.5 rounded-xl border border-mud/10 font-bold flex items-center gap-1">
+                                 <CheckCircle className="w-3.5 h-3.5 text-earthgold animate-pulse" />
+                                 {currentLang === "ar" ? (
+                                   <span>الصفوف: {renderedGrades.length} ({renderedGrades.reduce((sum, g) => sum + g.subjects.length, 0)} مادة دراسية متاحة)</span>
+                                 ) : (
+                                   <span>Levels: {renderedGrades.length} ({renderedGrades.reduce((sum, g) => sum + g.subjects.length, 0)} interactive classes)</span>
+                                 )}
+                              </div>
+                            </div>
+
+                            {/* List of Grades (Accordion) with light beautiful cream boxes */}
+                            <div className="space-y-4">
+                               {renderedGrades.map((grade) => {
+                                  const isGradeExpanded = activeGrade?.id === grade.id;
+
+                                  const filteredSubjects = grade.subjects.filter(subj => {
+                                     if (subj.hidden && !isAdminLoggedIn) return false;
+                                     const matchesSearch = !searchQuery || 
+                                       subj.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                       subj.curriculumSummary.toLowerCase().includes(searchQuery.toLowerCase());
+                                     
+                                     if (!matchesSearch) return false;
+
+                                     if (categoryFilter === "books") {
+                                       return !!subj.pdfUrl || !!subj.memoPdfUrl;
+                                     }
+                                     if (categoryFilter === "videos") {
+                                       return !!subj.videoUrl;
+                                     }
+                                     if (categoryFilter === "interactive") {
+                                       return !!subj.interactiveUrl;
+                                     }
+                                     return true;
+                                  });
+
+                                  if (searchQuery && filteredSubjects.length === 0) return null;
+
+                                  return (
+                                     <div key={grade.id} className="bg-[#FDFBF7] border border-mud/10 rounded-2xl overflow-hidden shadow-2xs text-right">
+                                        <button
+                                          onClick={() => {
+                                             if (isGradeExpanded) {
+                                                setActiveGrade(null);
+                                             } else {
+                                                setActiveGrade(grade);
+                                             }
+                                          }}
+                                          className="w-full px-5 py-4 flex items-center justify-between hover:bg-cream/40 text-right cursor-pointer group"
+                                        >
+                                           <div className="flex items-center gap-3">
+                                              <div className="w-9 h-9 rounded-xl bg-white border border-mud/15 flex items-center justify-center text-mud font-extrabold shadow-sm">
+                                                 {grade.subjects.length}
+                                              </div>
+                                              <div>
+                                                 <h5 className="font-extrabold text-mud text-xs sm:text-sm group-hover:text-earthgold transition-colors">{grade.name}</h5>
+                                                 <p className="text-4xs text-mud/60 mt-0.5">{currentLang === "ar" ? "اضغط لعرض الكتب والمذكرات والروابط التفاعلية" : "Click to view textbooks, cheat sheets & courses"}</p>
+                                              </div>
+                                           </div>
+                                           <ChevronDown className={`w-4 h-4 text-mud/65 transform transition-transform ${isGradeExpanded ? 'rotate-180' : ''}`} />
+                                        </button>
+
+                                        {isGradeExpanded && (
+                                           <div className="border-t border-mud/5 p-5 bg-white space-y-4">
+                                              {/* Categorizer tabs */}
+                                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-[#FDFBF7] p-2.5 rounded-2xl border border-mud/5">
+                                                 <span className="text-4xs font-bold text-mud/70 pr-1">{currentLang === "ar" ? "تصفية المحتويات:" : "Content filters:"}</span>
+                                                 <div className="flex flex-wrap gap-1">
+                                                    <button onClick={() => setCategoryFilter("all")} className={`px-2.5 py-1 rounded-lg text-4xs font-extrabold cursor-pointer ${categoryFilter === "all" ? "bg-earthgold text-white" : "bg-white text-mud/60 border border-mud/10"}`}>الكل</button>
+                                                    <button onClick={() => setCategoryFilter("books")} className={`px-2.5 py-1 rounded-lg text-4xs font-extrabold cursor-pointer ${categoryFilter === "books" ? "bg-earthgold text-white" : "bg-white text-mud/60 border border-mud/10"}`}>📚 كتب الدراسية</button>
+                                                    <button onClick={() => setCategoryFilter("videos")} className={`px-2.5 py-1 rounded-lg text-4xs font-extrabold cursor-pointer ${categoryFilter === "videos" ? "bg-earthgold text-white" : "bg-white text-mud/60 border border-mud/10"}`}>🎥 شروحات الفيديو</button>
+                                                    <button onClick={() => setCategoryFilter("interactive")} className={`px-2.5 py-1 rounded-lg text-4xs font-extrabold cursor-pointer ${categoryFilter === "interactive" ? "bg-earthgold text-white" : "bg-white text-mud/60 border border-mud/10"}`}>🔬 معامل تفاعلية</button>
+                                                 </div>
+                                              </div>
+
+                                              {/* Grid of Subject items */}
+                                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                 {filteredSubjects.map((subject) => {
+                                                    const isFav = favoriteSubjects.includes(subject.id);
+                                                    const isDone = completedLessons.includes(subject.id);
+
+                                                    return (
+                                                       <div
+                                                         key={subject.id}
+                                                         onClick={() => handleOpenSubject(subject as any)}
+                                                         className="relative p-4 bg-[#FDFBF7] hover:bg-white border border-mud/10 hover:border-earthgold rounded-xl transition-all duration-150 cursor-pointer flex flex-col justify-between group shadow-2xs hover:shadow-sm"
+                                                       >
+                                                          {/* Star / Done checklists */}
+                                                          <div className="flex justify-between items-start gap-2 mb-3">
+                                                             <div className="p-2 bg-white rounded-lg border border-mud/5 text-base shadow-sm">
+                                                                🌱
+                                                             </div>
+                                                             <div className="flex gap-1">
+                                                                <button onClick={(e) => toggleFavorite(subject.id, e)} className={`p-1 bg-white rounded border cursor-pointer text-3xs ${isFav ? 'text-amber-500 border-amber-400' : 'text-mud/40 border-mud/10'}`}>⭐</button>
+                                                                <button onClick={(e) => toggleLessonComplete(subject.id, e)} className={`p-1 bg-white rounded border cursor-pointer text-3xs ${isDone ? 'text-emerald-500 border-emerald-400' : 'text-mud/40 border-mud/10'}`}>✓</button>
+                                                             </div>
+                                                          </div>
+
+                                                          <div className="space-y-1">
+                                                             <h6 className="font-bold text-mud text-xs group-hover:text-earthgold truncate">{subject.name}</h6>
+                                                             <p className="text-[10px] text-mud/70 leading-relaxed line-clamp-2">{subject.curriculumSummary}</p>
+                                                          </div>
+
+                                                          <div className="mt-4 pt-2 border-t border-mud/5 flex items-center justify-between text-4xs text-[#C57530] font-medium">
+                                                             <span className="flex items-center gap-1">
+                                                                ✨ {currentLang === "ar" ? "المنهج التفاعلي" : "Interactive Class"}
+                                                             </span>
+                                                             <span className="group-hover:text-mud font-semibold flex items-center gap-0.5">
+                                                                {currentLang === "ar" ? "تصفح" : "Open"} 
+                                                             </span>
+                                                          </div>
+                                                       </div>
+                                                    );
+                                                 })}
+                                              </div>
+                                           </div>
+                                        )}
+                                     </div>
+                                  );
+                               })}
+                            </div>
+                         </div>
+                      );
+                   })()}
+                </div>
+             </div>
+        ) : (
+          // Stage selection selector tabs
+          <section className="space-y-4 relative overflow-hidden p-1 rounded-2xl">
           {/* Ambient kid-friendly background sparkles or clouds */}
           {isKidModeActive && (
             <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30 select-none z-0">
@@ -3059,6 +3668,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             {/* Interactive Student Chat Room Card Activator is now moved to the top header nav */}
           </div>
         </section>
+      )}
 
         {/* Render Admin Dashboard, Favorited Subjects when filtered, otherwise Stage Exploration */}
         {showAdminDashboard ? (
@@ -3086,32 +3696,48 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <div className="flex flex-col sm:flex-row items-center justify-between bg-gradient-to-br from-slate-900 via-slate-900 to-yellow-950/10 p-6 md:p-8 rounded-3xl border border-slate-800/85 gap-6 shadow-xl">
+            <div className={`flex flex-col sm:flex-row items-center justify-between p-6 md:p-8 rounded-3xl gap-6 shadow-md border ${
+              siteTheme === "sudanese"
+                ? "bg-white border-mud/15 text-mud"
+                : "bg-gradient-to-br from-slate-900 via-slate-900 to-yellow-950/10 border-slate-800/85 text-slate-100 shadow-xl"
+            }`}>
               <div className="space-y-2 text-center sm:text-right">
-                <span className="text-xs text-amber-400 font-mono font-black uppercase tracking-widest">تصفح قائمتك الخاصة:</span>
+                <span className={`text-xs font-bold uppercase tracking-widest ${siteTheme === "sudanese" ? "text-earthgold" : "text-amber-400"}`}>تصفح قائمتك الخاصة:</span>
                 <div className="flex items-center justify-center sm:justify-start gap-2 text-yellow-500">
                   <Star className="w-5 h-5 fill-current" />
-                  <h3 className="text-xl md:text-2xl font-black text-slate-100 animate-pulse">المواد المفضلة لديك ⭐</h3>
+                  <h3 className={`text-xl md:text-2xl font-black ${siteTheme === "sudanese" ? "text-[#5C2C16]" : "text-slate-100 animate-pulse"}`}>المواد المفضلة لديك ⭐</h3>
                 </div>
-                <p className="text-xs text-slate-400">لقد قمت بإضافة {favoritedSubjectsList.length} مادة للمفضلة لتسهيل مراجعتها والمتابعة السريعة للفيديوهات والمعامل التفاعلية.</p>
+                <p className={`text-xs ${siteTheme === "sudanese" ? "text-mud/80" : "text-slate-400"}`}>لقد قمت بإضافة {favoritedSubjectsList.length} مادة للمفضلة لتسهيل مراجعتها والمتابعة السريعة للفيديوهات والمعامل التفاعلية.</p>
               </div>
               
               <button
                 onClick={() => setShowOnlyFavorites(false)}
-                className="px-5 py-2 text-xs font-bold text-slate-200 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800 hover:border-slate-700 cursor-pointer transition-all shadow-md shrink-0"
+                className={`px-5 py-2.5 text-xs font-bold rounded-xl border cursor-pointer transition-all shadow-md shrink-0 ${
+                  siteTheme === "sudanese"
+                    ? "bg-[#5C2C16] text-[#FDFBF7] hover:bg-[#4A200B] border-[#4A200B]"
+                    : "bg-slate-900 hover:bg-slate-800 border-slate-800 hover:border-slate-700 text-slate-200"
+                }`}
               >
                 العودة للمنهج السوداني الكامل 🇸🇩
               </button>
             </div>
 
             {favoritedSubjectsList.length === 0 ? (
-              <div className="text-center py-20 bg-slate-900/40 rounded-3xl border border-slate-800/60 border-dashed space-y-4 max-w-2xl mx-auto">
-                <div className="p-4 bg-yellow-500/5 text-yellow-500 rounded-full w-16 h-16 flex items-center justify-center mx-auto border border-yellow-500/10">
+              <div className={`text-center py-20 rounded-3xl border border-dashed space-y-4 max-w-2xl mx-auto ${
+                siteTheme === "sudanese"
+                  ? "bg-white border-mud/20 text-mud"
+                  : "bg-slate-900/40 border-slate-800/60 text-slate-200"
+              }`}>
+                <div className={`p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto border ${
+                  siteTheme === "sudanese"
+                    ? "bg-earthgold/5 text-earthgold border-earthgold/10"
+                    : "bg-yellow-500/5 text-yellow-500 border-yellow-500/10"
+                }`}>
                   <Star className="w-8 h-8 fill-current" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-bold text-slate-200">لا توجد مواد مفضلة حتى الآن</p>
-                  <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                  <p className={`text-sm font-bold ${siteTheme === "sudanese" ? "text-mud" : "text-slate-200"}`}>لا توجد مواد مفضلة حتى الآن</p>
+                  <p className={`text-xs max-w-md mx-auto leading-relaxed ${siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"}`}>
                     لتسهيل المذاكرة والمتابعة السريعة، تصفح المراحل التعليمية واضغط على علامة النجمة (⭐) الموجودة على أي مادة دراسية لتظهر هنا تلقائياً لسهولة تصفحها.
                   </p>
                 </div>
@@ -3132,7 +3758,11 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       <div
                         key={subject.id}
                         onClick={() => handleOpenSubject({ ...subject } as any)}
-                        className="relative p-5 bg-slate-900 border border-slate-800 rounded-2xl transition-all duration-200 hover:border-emerald-600 hover:translate-y-[-2px] hover:shadow-xl hover:shadow-slate-950/60 cursor-pointer flex flex-col justify-between"
+                        className={`relative p-5 rounded-2xl transition-all duration-200 cursor-pointer flex flex-col justify-between border ${
+                          siteTheme === "sudanese"
+                            ? "bg-white hover:bg-cream/20 border-mud/10 hover:border-earthgold hover:shadow-md"
+                            : "bg-slate-900 border-slate-800 hover:border-emerald-600 hover:translate-y-[-2px] hover:shadow-xl hover:shadow-slate-950/60"
+                        }`}
                       >
                         {/* Action buttons (Favorites, studied toggle) */}
                         <div className="absolute top-4 left-4 flex gap-1.5">
@@ -3141,7 +3771,9 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                             className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                               isFavorite 
                                 ? 'bg-yellow-900/20 text-yellow-500 border-yellow-800/40' 
-                                : 'bg-slate-800 text-slate-500 hover:text-slate-200 border-slate-700'
+                                : siteTheme === "sudanese"
+                                  ? 'bg-[#FDFBF7] text-mud/40 hover:text-mud border-mud/10'
+                                  : 'bg-slate-800 text-slate-500 hover:text-slate-200 border-slate-700'
                             }`}
                             title="المفضلة"
                           >
@@ -3152,7 +3784,9 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                             className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                               isLessonComplete 
                                 ? 'bg-emerald-950/40 text-emerald-400 border-emerald-900/50' 
-                                : 'bg-slate-800 text-slate-500 hover:text-slate-200 border-slate-700'
+                                : siteTheme === "sudanese"
+                                  ? 'bg-[#FDFBF7] text-mud/40 hover:text-mud border-mud/10'
+                                  : 'bg-slate-800 text-slate-500 hover:text-slate-200 border-slate-700'
                             }`}
                             title="تميز بالاكتمال"
                           >
@@ -3167,27 +3801,35 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                               <DynamicIcon name={subject.iconName} className="w-5 h-5" />
                             </div>
                             <div className="space-y-0.5 max-w-[70%]">
-                              <h6 className="font-extrabold text-[#ffffff] text-sm truncate">{subject.name}</h6>
-                              <span className="text-3xs text-emerald-400 font-bold block truncate">
+                              <h6 className={`font-extrabold text-sm truncate ${
+                                siteTheme === "sudanese" ? "text-mud" : "text-white"
+                              }`}>{subject.name}</h6>
+                              <span className="text-3xs text-emerald-450 font-bold block truncate">
                                 {subject.stageName} • {subject.gradeName}
                               </span>
                             </div>
                           </div>
 
                           {/* Abstract brief summary of curriculum */}
-                          <p className="text-2xs text-slate-400 leading-relaxed line-clamp-3">
+                          <p className={`text-2xs leading-relaxed line-clamp-3 ${
+                            siteTheme === "sudanese" ? "text-mud/85" : "text-slate-400"
+                          }`}>
                             {subject.curriculumSummary}
                           </p>
                         </div>
 
                         {/* Footer: entering triggers interaction */}
-                        <div className="mt-5 pt-3.5 border-t border-slate-800/50 flex items-center justify-between text-2xs">
-                          <span className="text-emerald-400 font-bold flex items-center gap-1">
+                        <div className={`mt-5 pt-3.5 border-t flex items-center justify-between text-2xs ${
+                          siteTheme === "sudanese" ? "border-mud/10" : "border-slate-800/50"
+                        }`}>
+                          <span className="text-emerald-455 font-bold flex items-center gap-1">
                             <Sparkles className="w-3 h-3 text-amber-400" />
-                            بوابة المدرس والمناهج التفاعلية
+                            {currentLang === "ar" ? "بوابة المدرس والمناهج التفاعلية" : "Interactive Portal"}
                           </span>
-                          <span className="text-slate-400 font-medium group-hover:text-slate-200 flex items-center gap-0.5">
-                            دخول
+                          <span className={`font-medium flex items-center gap-0.5 ${
+                            siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"
+                          }`}>
+                            {currentLang === "ar" ? "دخول" : "Open"}
                             <ChevronLeft className="w-3 h-3" />
                           </span>
                         </div>
@@ -3570,26 +4212,51 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         {/* Sidebar Vertical Chat Space */}
         <AnimatePresence>
           {showStudentChat && (
-            <motion.div
-              initial={{ opacity: 0, x: currentLang === "ar" ? -50 : 50, width: 0 }}
-              animate={{ opacity: 1, x: 0, width: "auto" }}
-              exit={{ opacity: 0, x: currentLang === "ar" ? -50 : 50, width: 0 }}
-              transition={{ type: "spring", damping: 28, stiffness: 140 }}
-              className="w-full lg:w-[480px] shrink-0 border-t lg:border-t-0 lg:border-s border-slate-800/60 bg-slate-950/20 z-40 relative flex flex-col"
-            >
-              <div className="lg:h-[calc(100vh-100px)] lg:sticky lg:top-4 lg:overflow-y-auto p-4 lg:p-6 w-full">
-                <StudentChatRoom 
-                  currentUser={currentUser}
-                  currentLang={currentLang}
-                  isAdminLoggedIn={isAdminLoggedIn}
-                  onTriggerAuth={() => {
-                    setShowUserModal(true);
-                    setUserModalTab("login");
-                  }}
-                  onClose={() => setShowStudentChat(false)}
-                />
-              </div>
-            </motion.div>
+            <>
+              {/* Mobile/Tablet Backdrop Overlay */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.5 }}
+                exit={{ opacity: 0 }}
+                className="lg:hidden fixed inset-0 bg-black/70 z-45"
+                onClick={() => setShowStudentChat(false)}
+              />
+
+              <motion.div
+                initial={{ opacity: 0, x: currentLang === "ar" ? 120 : -120 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: currentLang === "ar" ? 120 : -120 }}
+                transition={{ type: "spring", damping: 28, stiffness: 140 }}
+                className="fixed lg:static inset-y-0 right-0 lg:inset-auto z-50 lg:z-40 w-full max-w-[460px] lg:w-[480px] shrink-0 border-s border-slate-800/60 bg-slate-950/95 lg:bg-slate-950/20 shadow-2xl lg:shadow-none flex flex-col"
+              >
+                <div className="h-full lg:h-[calc(100vh-100px)] lg:sticky lg:top-4 overflow-y-auto p-4 lg:p-6 w-full flex flex-col justify-between">
+                  {/* Drawer Header for Mobile */}
+                  <div className="lg:hidden flex items-center justify-between pb-3 mb-2 border-b border-slate-800/60">
+                    <span className="font-extrabold text-xs text-slate-200">
+                      {currentLang === "ar" ? "غرفة نقاش ومذاكرة الطلاب 🤝" : "Student Discussion Room 🤝"}
+                    </span>
+                    <button 
+                      onClick={() => setShowStudentChat(false)}
+                      className="p-1 px-3 text-2xs font-extrabold text-rose-400 bg-rose-950/30 border border-rose-900/40 rounded-lg active:scale-95 transition-all cursor-pointer"
+                    >
+                      {currentLang === "ar" ? "إغلاق" : "Close"}
+                    </button>
+                  </div>
+                  <div className="flex-1 flex flex-col min-h-0">
+                    <StudentChatRoom 
+                      currentUser={currentUser}
+                      currentLang={currentLang}
+                      isAdminLoggedIn={isAdminLoggedIn}
+                      onTriggerAuth={() => {
+                        setShowUserModal(true);
+                        setUserModalTab("login");
+                      }}
+                      onClose={() => setShowStudentChat(false)}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </div>
@@ -3608,6 +4275,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             onDeleteSubject={deleteSubject}
             isAdminActive={hasEditPermissions}
             currentLang={currentLang}
+            siteTheme={siteTheme}
           />
         )}
       </AnimatePresence>
@@ -3623,6 +4291,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             onAddSubject={addSubject}
             isAdminActive={hasEditPermissions}
             currentLang={currentLang}
+            siteTheme={siteTheme}
           />
         )}
       </AnimatePresence>

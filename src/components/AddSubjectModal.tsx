@@ -16,6 +16,7 @@ interface AddSubjectModalProps {
   onAddSubject: (stageId: string, gradeId: string, newSubject: Subject) => void;
   isAdminActive?: boolean;
   currentLang?: "ar" | "en";
+  siteTheme?: string;
 }
 
 const AVAILABLE_ICONS = [
@@ -46,7 +47,7 @@ const AVAILABLE_COLORS = [
   { value: "bg-pink-900/20 text-pink-400 border-pink-855", label: "وردي زاهي" }
 ];
 
-export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, onAddSubject, isAdminActive, currentLang = "ar" }: AddSubjectModalProps) {
+export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, onAddSubject, isAdminActive, currentLang = "ar", siteTheme }: AddSubjectModalProps) {
   const t = (key: string): string => {
     if (uiTranslations[currentLang] && (uiTranslations[currentLang] as any)[key]) {
       return (uiTranslations[currentLang] as any)[key];

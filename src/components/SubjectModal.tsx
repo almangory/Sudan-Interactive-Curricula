@@ -70,12 +70,15 @@ interface SubjectModalProps {
   onDeleteSubject?: (stageId: string, gradeId: string, subjectId: string) => void;
   isAdminActive?: boolean;
   currentLang?: "ar" | "en";
+  siteTheme?: "sudanese" | "legacy";
 }
 
-export default function SubjectModal({ stageId, stageName, gradeId, gradeName, subject, onClose, onUpdateSubject, onDeleteSubject, isAdminActive, currentLang: passedLang }: SubjectModalProps) {
+export default function SubjectModal({ stageId, stageName, gradeId, gradeName, subject, onClose, onUpdateSubject, onDeleteSubject, isAdminActive, currentLang: passedLang, siteTheme = "legacy" }: SubjectModalProps) {
   const [showTutor, setShowTutor] = useState(false);
 
   const currentLang = passedLang || (localStorage.getItem("sudan_edu_lang") as "ar" | "en") || "ar";
+  const embedInfo = getVideoEmbedUrl(subject.videoUrl);
+  const hasInteractiveLink = !!subject.interactiveUrl;
   const t = (key: string): string => {
     if (uiTranslations[currentLang] && (uiTranslations[currentLang] as any)[key]) {
       return (uiTranslations[currentLang] as any)[key];
@@ -293,45 +296,66 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
     if (window.confirm(confirmMsg)) {
       if (onDeleteSubject) {
         onDeleteSubject(stageId, gradeId, subject.id);
+        onClose();
       }
-      onClose();
     }
   };
 
-  // Check if interactiveUrl exists and is not empty
-  const hasInteractiveLink = subject.interactiveUrl && subject.interactiveUrl.trim() !== "";
-
-  const embedInfo = subject.videoUrl ? getVideoEmbedUrl(subject.videoUrl) : null;
-
   if (isStudyMode) {
     return (
-      <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-2 sm:p-4 bg-slate-950/95 backdrop-blur-md transition-all font-sans" dir={currentLang === "ar" ? "rtl" : "ltr"}>
+      <div className={`fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-2 sm:p-4 backdrop-blur-md transition-all font-sans ${
+        siteTheme === "sudanese" ? "bg-mud/40" : "bg-slate-950/95"
+      }`} dir={currentLang === "ar" ? "rtl" : "ltr"}>
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-5xl h-full max-h-[96vh] flex flex-col justify-between overflow-hidden shadow-2xl relative"
+          className={`w-full max-w-5xl h-full max-h-[96vh] flex flex-col justify-between overflow-hidden relative ${
+            siteTheme === "sudanese" 
+              ? "bg-[#FAF5EC] border border-mud/15 rounded-3xl shadow-xl text-mud" 
+              : "bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl"
+          }`}
         >
           {/* Top Panel: Header with live Timer, pause, and exit controls */}
-          <div className="p-4 sm:px-6 bg-slate-950 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-shrink-0">
+          <div className={`p-4 sm:px-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-shrink-0 ${
+            siteTheme === "sudanese"
+              ? "bg-cream border-mud/15 text-mud"
+              : "bg-slate-955 border-slate-800"
+          }`}>
             <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl ${subject.colorClass} border animate-pulse`}>
+              <div className={`p-2.5 rounded-xl border animate-pulse ${
+                siteTheme === "sudanese"
+                  ? "bg-earthgold/10 text-mud border-earthgold"
+                  : subject.colorClass
+              }`}>
                 <BookOpen className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-3xs text-emerald-400 font-bold block">{t(gradeName)} • {t(stageName)}</span>
-                <h3 className="text-sm sm:text-base font-black text-slate-100 flex items-center gap-1">
+                <span className={`text-3xs font-bold block ${
+                  siteTheme === "sudanese" ? "text-mud/60" : "text-emerald-400"
+                }`}>{t(gradeName)} • {t(stageName)}</span>
+                <h3 className={`text-sm sm:text-base font-black flex items-center gap-1 ${
+                  siteTheme === "sudanese" ? "text-mud" : "text-slate-100"
+                }`}>
                   <span>{t("وضع المذاكرة والتركيز:")}</span>
-                  <span className="text-indigo-400">{t(subject.name)}</span>
+                  <span className={siteTheme === "sudanese" ? "text-earthgold" : "text-indigo-400"}>{t(subject.name)}</span>
                 </h3>
               </div>
             </div>
 
             {/* LIVE TIMER AND CONTROLS */}
-            <div className="flex items-center gap-3 bg-slate-900/90 py-1.5 px-3 rounded-2xl border border-slate-800 w-full sm:w-auto justify-between sm:justify-start">
+            <div className={`flex items-center gap-3 py-1.5 px-3 rounded-2xl border w-full sm:w-auto justify-between sm:justify-start ${
+              siteTheme === "sudanese"
+                ? "bg-white border-mud/15"
+                : "bg-slate-900/90 border-slate-800"
+            }`}>
               <div className="flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-indigo-400 animate-spin" style={{ animationDuration: '4s' }} />
-                <span className="text-xs text-slate-400 font-bold">{t("وقت المذاكرة:")}</span>
-                <span className="font-mono text-sm sm:text-base font-black text-white bg-slate-950 px-2.5 py-0.5 rounded-lg border border-indigo-950 text-center select-none tracking-widest min-w-[75px]">
+                <Clock className={`w-4 h-4 animate-spin ${siteTheme === "sudanese" ? "text-earthgold" : "text-indigo-400"}`} style={{ animationDuration: '4s' }} />
+                <span className={`text-xs font-bold ${siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"}`}>{t("وقت المذاكرة:")}</span>
+                <span className={`font-mono text-sm sm:text-base font-black px-2.5 py-0.5 rounded-lg border text-center select-none tracking-widest min-w-[75px] ${
+                  siteTheme === "sudanese"
+                    ? "bg-[#FAF5EC] border-mud/20 text-mud"
+                    : "bg-slate-950 border-indigo-950 text-white"
+                }`}>
                   {formatStudyTime(studySeconds)}
                 </span>
               </div>
@@ -340,21 +364,33 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                 {isTimerActive ? (
                   <button
                     onClick={pauseStudyTimer}
-                    className="p-1 px-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg text-3xs font-black transition-all cursor-pointer"
+                    className={`p-1 px-2.5 border rounded-lg text-3xs font-black transition-all cursor-pointer ${
+                      siteTheme === "sudanese"
+                        ? "bg-amber-100 hover:bg-amber-150 text-amber-800 border-amber-300"
+                        : "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30"
+                    }`}
                   >
                     {t("إيقاف مؤقت ⏸️")}
                   </button>
                 ) : (
                   <button
                     onClick={startStudyTimer}
-                    className="p-1 px-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-3xs font-black transition-all cursor-pointer"
+                    className={`p-1 px-2.5 border rounded-lg text-3xs font-black transition-all cursor-pointer ${
+                      siteTheme === "sudanese"
+                        ? "bg-emerald-100 hover:bg-emerald-150 text-emerald-800 border-emerald-300"
+                        : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                    }`}
                   >
                     {t("استئناف ▶️")}
                   </button>
                 )}
                 <button
                   onClick={resetStudyTimer}
-                  className="p-1 px-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-3xs font-black transition-all cursor-pointer"
+                  className={`p-1 px-2.5 border rounded-lg text-3xs font-black transition-all cursor-pointer ${
+                    siteTheme === "sudanese"
+                      ? "bg-cream hover:bg-white text-mud border-mud/15"
+                      : "bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700"
+                  }`}
                 >
                   {t("إعادة 🔄")}
                 </button>
@@ -364,19 +400,27 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
             {/* Exit button */}
             <button
               onClick={exitStudyMode}
-              className="px-4 py-2 bg-red-650 hover:bg-red-600 text-white text-xs font-black rounded-xl transition-all shadow-md cursor-pointer flex items-center gap-1 sm:self-center"
+              className={`px-4 py-2 text-xs font-black rounded-xl transition-all shadow-md cursor-pointer flex items-center gap-1 sm:self-center ${
+                siteTheme === "sudanese"
+                  ? "bg-mud hover:bg-[#4A2312] text-cream"
+                  : "bg-red-650 hover:bg-red-600 text-white"
+              }`}
             >
               <span>{t("إنهاء جلسة المذاكرة 🚪")}</span>
             </button>
           </div>
 
           {/* Central Workspace Canvas: Prominent Book PDF / Video / Focus Material */}
-          <div className="flex-1 p-4 sm:p-6 overflow-y-auto bg-slate-950/10 space-y-6">
+          <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6">
             
             {/* Ambient motivational tip dashboard */}
-            <div className="bg-indigo-950/20 border border-indigo-900/30 p-3 rounded-2xl flex items-center gap-2.5 text-right">
-              <Sparkles className="w-4 h-4 text-indigo-400 flex-shrink-0 animate-bounce" />
-              <p className="text-3xs sm:text-2xs text-indigo-300 font-bold leading-normal">
+            <div className={`p-3 rounded-2xl flex items-center gap-2.5 text-right border ${
+              siteTheme === "sudanese"
+                ? "bg-[#FAF5EC]/85 border-mud/10 text-mud"
+                : "bg-indigo-950/20 border-indigo-900/30 text-indigo-300"
+            }`}>
+              <Sparkles className={`w-4 h-4 flex-shrink-0 animate-bounce ${siteTheme === "sudanese" ? "text-earthgold" : "text-indigo-400"}`} />
+              <p className={`text-3xs sm:text-2xs font-bold leading-normal ${siteTheme === "sudanese" ? "text-mud/85" : "text-indigo-300"}`}>
                 {currentLang === "ar" ? (
                   <span>🧠 **نصيحة بومودورو التعليمية**: المذاكرة لمدة ٢٥ دقيقة مركزة تليها ٥ دقائق استراحة هي أفضل طريقة للاحتفاظ بالمعلومات في الذاكرة مستديمة الأجل وحماية نشاط المخ!</span>
                 ) : (
@@ -390,20 +434,28 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
               {/* Center Screen: Book or PDF / Video Stream (fills 2 cols on wide, full width on small) */}
               <div className="lg:col-span-2 space-y-4">
                 {subject.videoUrl || subject.pdfUrl ? (
-                  <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-3 sm:p-4 space-y-3 shadow-xl">
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                      <h4 className="text-xs font-black text-slate-300 flex items-center gap-1.5">
-                        <Compass className="w-4 h-4 text-indigo-400" />
+                  <div className={`p-3 sm:p-4 space-y-3 shadow-xl border rounded-2xl ${
+                    siteTheme === "sudanese"
+                      ? "bg-white border-mud/10 text-mud"
+                      : "bg-slate-900 border-slate-800/80 text-slate-300"
+                  }`}>
+                    <div className={`flex items-center justify-between border-b pb-2.5 ${
+                      siteTheme === "sudanese" ? "border-mud/5" : "border-slate-800"
+                    }`}>
+                      <h4 className="text-xs font-black flex items-center gap-1.5">
+                        <Compass className={`w-4 h-4 ${siteTheme === "sudanese" ? "text-earthgold" : "text-indigo-400"}`} />
                         <span>{t("مادة العرض النشطة والدروس:")}</span>
                       </h4>
-                      <span className="text-3xs text-yellow-400 font-black">{t("جاهز للدراسة 📖")}</span>
+                      <span className={`text-3xs font-black ${siteTheme === "sudanese" ? "text-earthgold" : "text-yellow-400"}`}>{t("جاهز للدراسة 📖")}</span>
                     </div>
 
                     {/* Book or Video Frame */}
                     {subject.videoUrl && embedInfo ? (
                       <div className="space-y-3">
-                        <span className="text-3xs text-rose-400 font-bold flex items-center gap-1">🔴 {t("دروس الفيديو والشرح")}:</span>
-                        <div className="aspect-video w-full rounded-xl overflow-hidden border border-slate-955 bg-black shadow-lg">
+                        <span className={`text-3xs font-bold flex items-center gap-1 ${siteTheme === "sudanese" ? "text-mud" : "text-rose-400"}`}>🔴 {t("دروس الفيديو والشرح")}:</span>
+                        <div className={`aspect-video w-full rounded-xl overflow-hidden border bg-black shadow-lg ${
+                          siteTheme === "sudanese" ? "border-mud/15" : "border-slate-955"
+                        }`}>
                           <iframe
                             src={embedInfo.url}
                             title={`شرح ${t(subject.name)}`}
@@ -415,12 +467,14 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                       </div>
                     ) : subject.pdfUrl ? (
                       <div className="space-y-3">
-                        <span className="text-3xs text-emerald-400 font-bold flex items-center gap-1">🟢 {currentLang === "ar" ? "تصفح الكتاب الدراسي الرسمي:" : "Browse Official Textbook:"}</span>
-                        <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 text-center space-y-4 shadow-inner">
-                          <FileText className="w-12 h-12 text-emerald-500 mx-auto animate-pulse" />
+                        <span className={`text-3xs font-bold flex items-center gap-1 ${siteTheme === "sudanese" ? "text-mud" : "text-emerald-400"}`}>🟢 {currentLang === "ar" ? "تصفح الكتاب الدراسي الرسمي:" : "Browse Official Textbook:"}</span>
+                        <div className={`p-6 rounded-xl border text-center space-y-4 shadow-inner ${
+                          siteTheme === "sudanese" ? "bg-cream border-mud/10" : "bg-slate-950 border-slate-800"
+                        }`}>
+                          <FileText className={`w-12 h-12 mx-auto animate-pulse ${siteTheme === "sudanese" ? "text-mud" : "text-emerald-400"}`} />
                           <div className="space-y-1">
-                            <h5 className="text-xs font-bold text-slate-200">{currentLang === "ar" ? `كتاب مقرر ${t(subject.name)} متاح للدراسة` : `${t(subject.name)} textbook is ready to study`}</h5>
-                            <p className="text-3xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                            <h5 className={`text-xs font-bold ${siteTheme === "sudanese" ? "text-mud" : "text-slate-205"}`}>{currentLang === "ar" ? `كتاب مقرر ${t(subject.name)} متاح للدراسة` : `${t(subject.name)} textbook is ready to study`}</h5>
+                            <p className={`text-3xs max-w-md mx-auto leading-relaxed ${siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"}`}>
                               {currentLang === "ar" ? "افتح الكتاب الرقمي المنهجي بصيغة PDF بجوار الشاشة أو قم بتنزيله لدراسة فصوله وعقد المقارنات البينية بأريحية كاملة." : "Open the official digital PDF textbook on your device or download it to study syllabus chapters seamlessly."}
                             </p>
                           </div>
@@ -428,7 +482,9 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                             href={subject.pdfUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-555 text-white text-2xs font-bold rounded-xl transition-all shadow-md cursor-pointer"
+                            className={`inline-flex items-center gap-2 px-5 py-2.5 text-white text-2xs font-bold rounded-xl transition-all shadow-md cursor-pointer ${
+                              siteTheme === "sudanese" ? "bg-mud hover:bg-[#4A2312]" : "bg-emerald-600 hover:bg-emerald-555"
+                            }`}
                           >
                             <Download className="w-3.5 h-3.5" />
                             <span>{currentLang === "ar" ? "فتح / تنزيل كتاب المقرر PDF التفاعلي" : "Open / Download Interactive Textbook PDF"}</span>
@@ -436,68 +492,78 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                         </div>
                       </div>
                     ) : (
-                      <div className="bg-slate-950 p-10 rounded-xl border border-slate-800 text-center space-y-2">
+                      <div className={`p-10 rounded-xl border text-center space-y-2 ${
+                        siteTheme === "sudanese" ? "bg-cream border-mud/10" : "bg-slate-950 border-slate-800"
+                      }`}>
                         <FileText className="w-10 h-10 text-slate-600 mx-auto" />
-                        <p className="text-xs text-slate-400">لا يوجد كتاب PDF أو دروس فيديو متوفرة لهذه المادة حالياً.</p>
+                        <p className={`text-xs ${siteTheme === "sudanese" ? "text-mud/50" : "text-slate-400"}`}>لا يوجد كتاب PDF أو دروس فيديو متوفرة لهذه المادة حالياً.</p>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center space-y-4">
-                    <BookOpen className="w-12 h-12 text-indigo-400 mx-auto animate-bounce" />
-                    <h4 className="text-sm font-bold text-slate-200">لقد دخلت مساحة المذاكرة التفاعلية!</h4>
-                    <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-                      اقرأ ملخص المنهج ومحتويات الأقسام واطلب من المعلم الذكي توفير تدريبات واختبارات لترسيخ المفهوم في ذهنك بالكامل.
+                  <div className={`border rounded-2xl p-8 text-center space-y-4 ${
+                    siteTheme === "sudanese" ? "bg-white border-mud/10 text-mud" : "bg-slate-900 border-slate-850"
+                  }`}>
+                    <BookOpen className={`w-12 h-12 mx-auto animate-bounce ${siteTheme === "sudanese" ? "text-earthgold" : "text-indigo-400"}`} />
+                    <h4 className={`text-sm font-bold ${siteTheme === "sudanese" ? "text-mud font-black" : "text-slate-200"}`}>لقد دخلت مساحة المذاكرة التفاعلية!</h4>
+                    <p className={`text-xs max-w-md mx-auto leading-relaxed ${siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"}`}>
+                      اقرأ ملخص المنهج ومحتويات الأقسام واطلب من المعلم الذكي توفير تدريبات واختيبارات لترسيخ المفهوم في ذهنك بالكامل.
                     </p>
                   </div>
                 )}
               </div>
 
-              {/* Sidebar Screen: Summary text & prompt tips list */}
+              {/* Sidebar Screen: Summary text & checklist list */}
               <div className="space-y-4">
                 {/* Summary card */}
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-xl">
-                  <h4 className="text-xs font-black text-slate-300 border-b border-slate-800 pb-2 flex items-center gap-1.5">
-                    <FileText className="w-4 h-4 text-emerald-400" />
-                    <span>خلاصة خطة المنهج الدراسي للمذاكرة:</span>
+                <div className={`border rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-xl ${
+                  siteTheme === "sudanese" ? "bg-white border-mud/10 text-mud" : "bg-slate-900 border-slate-800"
+                }`}>
+                  <h4 className="text-xs font-black border-b pb-2 flex items-center gap-1.5 font-sans">
+                    <FileText className={`w-4 h-4 ${siteTheme === "sudanese" ? "text-mud" : "text-emerald-400"}`} />
+                    <span>{currentLang === "ar" ? "خلاصة خطة المنهج الدراسي للمذاكرة:" : "Curriculum Plan Summary:"}</span>
                   </h4>
-                  <p className="text-2xs text-slate-350 leading-relaxed max-h-[160px] overflow-y-auto">
+                  <p className={`text-2xs leading-relaxed max-h-[160px] overflow-y-auto ${siteTheme === "sudanese" ? "text-mud/85" : "text-slate-350"}`}>
                     {subject.curriculumSummary}
                   </p>
                 </div>
 
                 {/* Self-Study Checklist */}
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3 shadow-xl">
-                  <h4 className="text-xs font-black text-slate-300 border-b border-slate-800 pb-2 flex items-center gap-1.5">
-                    <Check className="w-4 h-4 text-amber-400" />
-                    <span>{currentLang === "ar" ? `خطوات إتقان درس ${subject.name}:` : `Steps to master ${t(subject.name)}:`}</span>
+                <div className={`border rounded-2xl p-4 sm:p-5 space-y-3 shadow-xl ${
+                  siteTheme === "sudanese" ? "bg-white border-mud/10 text-mud" : "bg-slate-900 border-slate-800"
+                }`}>
+                  <h4 className="text-xs font-black border-b pb-2 flex items-center gap-1.5 font-sans">
+                    <Check className={`w-4 h-4 ${siteTheme === "sudanese" ? "text-mud" : "text-indigo-400"}`} />
+                    <span>{currentLang === "ar" ? "خطوات التحصيل الدراسي المقترحة:" : "Suggested Self-Study Checklist:"}</span>
                   </h4>
-                  <ul className="space-y-2 text-3xs text-slate-400 font-medium font-sans">
-                    <li className="flex items-start gap-1.5">
-                      <span className="text-indigo-400 font-extrabold font-mono">1.</span>
-                      <span>{currentLang === "ar" ? "اقرأ الملخص العام للمادة في السودان لتفهم الهيكل المعرفي." : "Read the general outline of the subject to understand the layout."}</span>
+                  <ul className="space-y-2 text-2xs leading-relaxed">
+                    <li className="flex items-start gap-1.5 font-sans">
+                      <span className={`font-extrabold font-mono ${siteTheme === "sudanese" ? "text-earthgold" : "text-indigo-400"}`}>1.</span>
+                      <span>{currentLang === "ar" ? "اقرأ خلاصة خطة المنهج أعلاه بدقة لفهم المادة." : "Read the curriculum plan summary carefully to understand the material."}</span>
                     </li>
-                    <li className="flex items-start gap-1.5">
-                      <span className="text-indigo-400 font-extrabold font-mono">2.</span>
-                      <span>{currentLang === "ar" ? "شاهد دروس الفيديو المعتمدة لتبسيط التعقيدات العلمية." : "Watch the official video playlist to clarify complex topics."}</span>
+                    <li className="flex items-start gap-1.5 font-sans">
+                      <span className={`font-extrabold font-mono ${siteTheme === "sudanese" ? "text-earthgold" : "text-indigo-400"}`}>2.</span>
+                      <span>{currentLang === "ar" ? "شاهد دروس الفيديو المتاحة وتصفح كتاب المنهج بدقة." : "Watch available video lessons and browse the curriculum textbook carefully."}</span>
                     </li>
-                    <li className="flex items-start gap-1.5">
-                      <span className="text-indigo-400 font-extrabold font-mono">3.</span>
-                      <span>{currentLang === "ar" ? "قم بحل الأسئلة التدريبية بالتعاون مع معلم الذكاء الاصطناعي." : "Solve exercises with the guidance of our custom AI teacher."}</span>
-                    </li>
-                    <li className="flex items-start gap-1.5">
-                      <span className="text-indigo-400 font-extrabold font-mono">4.</span>
-                      <span>{currentLang === "ar" ? "اختبر مستواك في مخيم المذاكرة للتأكد من جاهزيتك للاختبارات الوزارية." : "Test your level in the Study Camp to prepare for national examinations."}</span>
+                    <li className="flex items-start gap-1.5 font-sans">
+                      <span className={`font-extrabold font-mono ${siteTheme === "sudanese" ? "text-earthgold" : "text-indigo-400"}`}>3.</span>
+                      <span>{currentLang === "ar" ? "تواصل مع المعلم الذكي لحل التمارين وتوضيح النقاط الصعبة." : "Ask the Sudanese Smart Tutor for quizzes, practice, and help on tough spots."}</span>
                     </li>
                   </ul>
-                </div>                 {/* AI Tutor Chat Access */}
-                <div className="bg-gradient-to-br from-indigo-950/20 to-slate-900/40 border border-indigo-900/30 p-4 rounded-2xl text-center space-y-3.5 shadow-xl">
-                  <Sparkles className="w-8 h-8 text-amber-300 mx-auto animate-bounce" />
+                </div>
+
+                {/* AI Tutor Chat Access */}
+                <div className={`border p-4 rounded-2xl text-center space-y-3.5 shadow-xl ${
+                  siteTheme === "sudanese"
+                    ? "bg-[#FAF5EC] border-mud/10 text-mud"
+                    : "bg-gradient-to-br from-indigo-950/20 to-slate-900/40 border-indigo-900/30"
+                }`}>
+                  <Sparkles className={`w-8 h-8 mx-auto animate-bounce ${siteTheme === "sudanese" ? "text-earthgold" : "text-amber-300"}`} />
                   <div className="space-y-1">
-                    <h5 className="text-xs font-black text-indigo-300">
+                    <h5 className={`text-xs font-black ${siteTheme === "sudanese" ? "text-mud" : "text-indigo-300"}`}>
                       {currentLang === "ar" ? "هل تحتاج لشرح نقطة غير مفهومة؟" : "Do you need clarification on any topic?"}
                     </h5>
-                    <p className="text-3xs text-slate-400 leading-relaxed">
+                    <p className={`text-3xs leading-relaxed ${siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"}`}>
                       {currentLang === "ar" ? "الأستاذ السوداني متوفر طوال الوقت، اضغط أدناه للتحدث وطرح الأسئلة المباشرة." : "The virtual Sudanese tutor is available 24/7 to answer your direct questions immediately."}
                     </p>
                   </div>
@@ -506,7 +572,11 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                       setIsStudyMode(false);
                       setShowTutor(true);
                     }}
-                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-550 text-white text-xs font-black rounded-xl transition-all shadow-md cursor-pointer text-center"
+                    className={`w-full py-2 text-xs font-black rounded-xl transition-all shadow-md cursor-pointer text-center ${
+                      siteTheme === "sudanese"
+                        ? "bg-mud hover:bg-[#4A2312] text-cream"
+                        : "bg-indigo-600 hover:bg-indigo-550 text-white"
+                    }`}
                   >
                     {currentLang === "ar" ? "💬 التحدث مع المعلم الذكي الآن" : "💬 Chat with Smart Tutor Now"}
                   </button>
@@ -519,7 +589,11 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
           </div>
 
           {/* Bottom Panel */}
-          <div className="p-3 bg-slate-950 border-t border-slate-850 flex items-center justify-between text-3xs text-slate-500 flex-shrink-0">
+          <div className={`p-3 border-t flex items-center justify-between text-3xs flex-shrink-0 ${
+            siteTheme === "sudanese"
+              ? "bg-cream border-mud/10 text-mud/50"
+              : "bg-slate-955 border-slate-850 text-slate-500"
+          }`}>
             <span>{currentLang === "ar" ? "منصة المذاكرة الذكية ودراسة المناهج السودانية 🇸🇩" : "Smart Study Room & Sudanese Curriculum Directory 🇸🇩"}</span>
             <span className="font-mono">Focused Study Session Tracker v3</span>
           </div>
@@ -530,23 +604,35 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm transition-opacity" dir={currentLang === "ar" ? "rtl" : "ltr"}>
+    <div className={`fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 backdrop-blur-sm transition-opacity ${
+      siteTheme === "sudanese" ? "bg-mud/40" : "bg-slate-950/80"
+    }`} dir={currentLang === "ar" ? "rtl" : "ltr"}>
       <motion.div 
         initial={{ scale: 0.93, opacity: 0, y: 15 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.93, opacity: 0, y: 15 }}
-        className="relative bg-slate-900 border border-slate-800 rounded-2xl md:rounded-3xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col md:flex-row h-auto md:h-[650px] max-h-[92vh] md:max-h-[650px] text-right animate-fadeIn"
+        className={`relative border rounded-2xl md:rounded-3xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col md:flex-row h-auto md:h-[650px] max-h-[92vh] md:max-h-[650px] text-right animate-fadeIn ${
+          siteTheme === "sudanese"
+            ? "bg-[#FAF5EC] border-mud/10 text-mud"
+            : "bg-slate-900 border-slate-800 text-slate-100"
+        }`}
       >
         
         {/* Left pane: Details (Hidden if Tutor is fullscreen on mobile, but side-by-side on desktop) */}
         <div className={`p-5 md:p-8 flex-1 flex flex-col justify-between overflow-y-auto ${showTutor ? 'hidden md:flex md:w-[45%]' : 'w-full'} max-h-[92vh] md:max-h-full`}>
           
           {/* Header Close button */}
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-5 border-b border-slate-800/40 pb-4">
+          <div className={`flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-5 border-b pb-4 ${
+            siteTheme === "sudanese" ? "border-mud/10" : "border-slate-800/40"
+          }`}>
             <div className="flex items-center justify-between w-full sm:w-auto">
               <button 
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
+                className={`p-2 rounded-full transition-colors cursor-pointer ${
+                  siteTheme === "sudanese" 
+                    ? "text-mud/70 hover:text-mud bg-mud/5 hover:bg-mud/15" 
+                    : "text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-800"
+                }`}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -744,8 +830,12 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   <DynamicIcon name={subject.iconName} className="w-8 h-8" />
                 </div>
                 <div className="space-y-1">
-                  <span className="text-xs text-emerald-400 font-mono font-semibold">{t(stageName)}</span>
-                  <h2 className="text-xl md:text-2xl font-black text-slate-100">{t(subject.name)}</h2>
+                  <span className={`text-xs font-mono font-semibold ${
+                    siteTheme === "sudanese" ? "text-earthgold-700" : "text-emerald-400"
+                  }`}>{t(stageName)}</span>
+                  <h2 className={`text-xl md:text-2xl font-black ${
+                    siteTheme === "sudanese" ? "text-mud" : "text-slate-100"
+                  }`}>{t(subject.name)}</h2>
                 </div>
               </div>
 
@@ -780,25 +870,47 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
               )}
 
               {/* Curriculum Summary Card */}
-              <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80 space-y-3">
-                <h4 className="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-emerald-400" />
+              <div className={`p-5 rounded-2xl border space-y-3 ${
+                siteTheme === "sudanese" 
+                  ? "bg-[#FCFAF3] border-mud/10" 
+                  : "bg-slate-950/60 border-slate-800/80"
+              }`}>
+                <h4 className={`text-sm font-bold flex items-center gap-2 ${
+                  siteTheme === "sudanese" ? "text-mud" : "text-slate-200"
+                }`}>
+                  <BookOpen className={`w-4 h-4 ${
+                    siteTheme === "sudanese" ? "text-earthgold-700" : "text-emerald-400"
+                  }`} />
                   <span>{t("المنهج السوداني المقرر للمادة:")}</span>
                 </h4>
-                <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
+                <p className={`text-xs md:text-sm leading-relaxed ${
+                  siteTheme === "sudanese" ? "text-mud/80" : "text-slate-300"
+                }`}>
                   {subject.curriculumSummary}
                 </p>
               </div>
 
               {/* Interactive Website (Al-Manhaf) */}
-              <div className="bg-gradient-to-br from-emerald-950/30 via-slate-900 to-slate-950/55 p-5 rounded-2xl border border-emerald-900/35 space-y-4">
+              <div className={`p-5 rounded-2xl border space-y-4 ${
+                siteTheme === "sudanese"
+                  ? "bg-[#F3FAF5] border-emerald-900/15"
+                  : "bg-gradient-to-br from-emerald-950/30 via-slate-900 to-slate-950/55 border-emerald-900/35"
+              }`}>
                 <div className="space-y-1.5">
-                  <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block">{t("بوابة المعامل والألعاب التفاعلية المقترحة")}</span>
-                  <h4 className="text-sm font-bold text-slate-205 flex items-center gap-2">
-                    <Compass className="w-4 h-4 text-emerald-400" />
+                  <span className={`text-[10px] uppercase tracking-wider block font-bold ${
+                    siteTheme === "sudanese" ? "text-emerald-700" : "text-emerald-400"
+                  }`}>{t("بوابة المعامل والألعاب التفاعلية المقترحة")}</span>
+                  <h4 className={`text-sm font-bold flex items-center gap-2 ${
+                    siteTheme === "sudanese" ? "text-mud" : "text-slate-205"
+                  }`}>
+                    <Compass className={`w-4 h-4 ${
+                      siteTheme === "sudanese" ? "text-emerald-700" : "text-emerald-400"
+                    }`} />
                     <span>{t("محاكاة ومواقع عالمية تفاعلية:")}</span>
                   </h4>
-                  <p className="text-xs text-slate-400 leading-relaxed">
+                  <p className={`text-xs leading-relaxed ${
+                    siteTheme === "sudanese" ? "text-mud/75" : "text-slate-400"
+                  }`}>
                     {hasInteractiveLink
                       ? (currentLang === "ar" ? "هذا الرابط المعتمد ينقلك مباشرة لمنصة تفاعلية مخصصة لتجربة المفاهيم عملياً بالرسوم والتحريك التفاعلي." : "This certified link directs you to an interactive platform to experience concepts hands-on with digital animations.")
                       : (currentLang === "ar" ? "البوابة التفاعلية غير نشطة حالياً لهذا المقرر (لم يتم تزويد الرابط بعد من قبل المعلم)." : "The interactive portal is currently offline for this subject (no link has been added by your teacher yet).")}
@@ -819,9 +931,13 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   ) : (
                     <button 
                       disabled
-                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-slate-500 rounded-xl text-xs font-bold transition-all border border-slate-700/60 cursor-not-allowed opacity-60"
+                      className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border cursor-not-allowed opacity-60 ${
+                        siteTheme === "sudanese"
+                          ? "bg-mud/5 text-mud/40 border-mud/10"
+                          : "bg-slate-800 text-slate-500 border-slate-700/60"
+                      }`}
                     >
-                      <X className="w-3.5 h-3.5 text-slate-500" />
+                      <X className={`w-3.5 h-3.5 ${siteTheme === "sudanese" ? "text-mud/40" : "text-slate-500"}`} />
                       <span>{t("البوابة غير نشطة (الرابط غير متوفر حالياً)")}</span>
                     </button>
                   )}
@@ -831,11 +947,17 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
               {/* E-Book, PDF Memo, and Video Showcase Card */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* E-Book Card */}
-                <div className="p-4 rounded-2xl bg-slate-950/40 border border-slate-800/80 flex flex-col justify-between space-y-3">
+                <div className={`p-4 rounded-2xl flex flex-col justify-between space-y-3 border ${
+                  siteTheme === "sudanese"
+                    ? "bg-[#FCFAF3] border-mud/10 text-mud"
+                    : "bg-slate-950/40 border-slate-800/80 text-slate-100"
+                }`}>
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between gap-2 text-slate-200">
+                    <div className={`flex items-center justify-between gap-2 ${
+                      siteTheme === "sudanese" ? "text-mud font-extrabold" : "text-slate-200"
+                    }`}>
                       <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-emerald-400" />
+                        <FileText className={`w-4 h-4 ${siteTheme === 'sudanese' ? 'text-earthgold-700' : 'text-emerald-400'}`} />
                         <h5 className="text-xs font-bold">{t("الكتاب الإلكتروني للمقرر")}</h5>
                       </div>
                       
@@ -843,7 +965,9 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                         <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
                           cachedUrls.includes(subject.pdfUrl) 
                             ? "bg-emerald-950/40 text-emerald-400 border border-emerald-900/40"
-                            : "bg-slate-900/60 text-slate-400 border border-slate-800"
+                            : siteTheme === "sudanese" 
+                              ? "bg-mud/5 text-mud/60 border border-mud/10"
+                              : "bg-slate-900/60 text-slate-400 border border-slate-800"
                         }`}>
                           {cachedUrls.includes(subject.pdfUrl) 
                             ? (currentLang === "ar" ? "متاح أوفلاين ✦" : "Offline Ready ✦")
@@ -851,7 +975,9 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <p className={`text-[11px] leading-relaxed ${
+                      siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"
+                    }`}>
                       {subject.pdfUrl 
                         ? (currentLang === "ar" ? "اضغط أدناه لتحميل النسخة الرسمية للمقرر بصيغة PDF مباشرة للدراسة والاستخدام الرقمي." : "Click below to read and download the official curriculum textbook in PDF format.")
                         : (currentLang === "ar" ? "رابط تنزيل كتاب المنهج السوداني الرسمي بصيغة PDF للهواتف والأجهزة اللوحية." : "Download link for the official Sudanese curriculum textbook PDF for phones and tablets.")}
@@ -902,11 +1028,17 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                 </div>
 
                 {/* PDF Memorandum Card */}
-                <div className="p-4 rounded-2xl bg-slate-950/40 border border-slate-800/80 flex flex-col justify-between space-y-3">
+                <div className={`p-4 rounded-2xl flex flex-col justify-between space-y-3 border ${
+                  siteTheme === "sudanese"
+                    ? "bg-[#FCFAF3] border-mud/10 text-mud"
+                    : "bg-slate-950/40 border-slate-800/80 text-slate-100"
+                }`}>
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between gap-2 text-slate-200">
+                    <div className={`flex items-center justify-between gap-2 ${
+                      siteTheme === "sudanese" ? "text-mud font-extrabold" : "text-slate-200"
+                    }`}>
                       <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-amber-400" />
+                        <FileText className={`w-4 h-4 ${siteTheme === 'sudanese' ? 'text-earthgold-700' : 'text-amber-400'}`} />
                         <h5 className="text-xs font-bold font-sans">{t("ملخص ومذكرة المادة PDF")}</h5>
                       </div>
 
@@ -914,7 +1046,9 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                         <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
                           cachedUrls.includes(subject.memoPdfUrl) 
                             ? "bg-amber-955/30 text-amber-400 border border-amber-900/40"
-                            : "bg-slate-900/60 text-slate-400 border border-slate-800"
+                            : siteTheme === "sudanese"
+                              ? "bg-mud/5 text-mud/65 border border-mud/10"
+                              : "bg-slate-900/60 text-slate-400 border border-slate-800"
                         }`}>
                           {cachedUrls.includes(subject.memoPdfUrl) 
                             ? (currentLang === "ar" ? "متاح أوفلاين ✦" : "Offline Ready ✦")
@@ -922,7 +1056,9 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <p className={`text-[11px] leading-relaxed ${
+                      siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"
+                    }`}>
                       {subject.memoPdfUrl 
                         ? (currentLang === "ar" ? "اضغط أدناه لتنزيل ملخص ومذكرة الشرح الشاملة من قبل معلم المادة مباشرة." : "Click below to download the comprehensive course study guide compiled by your teacher.")
                         : (currentLang === "ar" ? "رابط تنزيل مذكرة الشرح والملخصات لتبسيط المذاكرة للطلاب وأولياء الأمور." : "Download link for reference notes and summaries to simplify revision for students.")}
@@ -975,11 +1111,17 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
 
 
                 {/* Video Card */}
-                <div className={`p-4 rounded-2xl bg-slate-950/40 border border-slate-800/80 flex flex-col justify-between space-y-3 ${subject.videoUrl ? "col-span-1 sm:col-span-2" : ""}`}>
+                <div className={`p-4 rounded-2xl flex flex-col justify-between space-y-3 border ${
+                  siteTheme === "sudanese"
+                    ? "bg-[#FCFAF3] border-mud/10 text-mud"
+                    : "bg-slate-950/40 border-slate-800/80 text-slate-100"
+                } ${subject.videoUrl ? "col-span-1 sm:col-span-2" : ""}`}>
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-slate-200">
+                    <div className={`flex items-center gap-2 ${
+                      siteTheme === "sudanese" ? "text-mud font-extrabold" : "text-slate-200"
+                    }`}>
                       {embedInfo?.isDrive ? (
-                        <Video className="w-4 h-4 text-emerald-400" />
+                        <Video className={`w-4 h-4 ${siteTheme === 'sudanese' ? 'text-earthgold-700' : 'text-emerald-400'}`} />
                       ) : (
                         <Youtube className="w-4 h-4 text-rose-500" />
                       )}
@@ -989,7 +1131,9 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                           : (currentLang === "ar" ? "شرح المادة بالفيديو التفاعلي" : "Course Video Lecture Series")}
                       </h5>
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <p className={`text-[11px] leading-relaxed ${
+                      siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"
+                    }`}>
                       {subject.videoUrl
                         ? (currentLang === "ar" ? "دُمجت الدروس بنجاح! شاهد الشرح التعليمي بالفيديو مباشرة وبصورة تلقائية أدناه." : "Lessons integrated successfully! Watch the video explanations directly below.")
                         : (currentLang === "ar" ? "فيديوهات شرح دروس المادة من القناة التعليمية لتيسير الفهم للطلاب وأولياء الأمور." : "Video lectures for course lessons to simplify comprehension.")}

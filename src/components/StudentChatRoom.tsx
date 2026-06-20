@@ -29,6 +29,7 @@ interface StudentChatRoomProps {
   isAdminLoggedIn: boolean;
   onTriggerAuth: () => void;
   onClose?: () => void;
+  siteTheme?: "sudanese" | "legacy";
 }
 
 export default function StudentChatRoom({ 
@@ -36,8 +37,10 @@ export default function StudentChatRoom({
   currentLang, 
   isAdminLoggedIn, 
   onTriggerAuth,
-  onClose
+  onClose,
+  siteTheme: passedSiteTheme
 }: StudentChatRoomProps) {
+  const siteTheme = passedSiteTheme || (localStorage.getItem("sudan_site_theme") as "sudanese" | "legacy") || "sudanese";
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -673,17 +676,29 @@ export default function StudentChatRoom({
     return (
       <div 
         id="chat-visitor-blocked"
-        className="max-w-3xl mx-auto p-12 rounded-3xl bg-slate-900/40 border border-slate-800/80 shadow-2xl text-center space-y-6 select-none"
+        className={`max-w-3xl mx-auto p-12 rounded-3xl border shadow-2xl text-center space-y-6 select-none ${
+          siteTheme === "sudanese"
+            ? "bg-cream/95 border-mud/15 text-mud"
+            : "bg-slate-900/40 border-slate-800/80 text-slate-100"
+        }`}
       >
-        <div className="w-20 h-20 bg-emerald-950/20 border border-emerald-800/30 text-emerald-400 rounded-3xl flex items-center justify-center mx-auto shadow-lg">
+        <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto shadow-lg border ${
+          siteTheme === "sudanese"
+            ? "bg-[#FAF5EC] border-mud/10 text-mud"
+            : "bg-emerald-955/20 border-emerald-800/30 text-emerald-400"
+        }`}>
           <Lock className="w-10 h-10 animate-pulse" />
         </div>
         
         <div className="space-y-3">
-          <h2 className="text-2xl font-black font-sans text-slate-100">
+          <h2 className={`text-2xl font-black font-sans ${
+             siteTheme === "sudanese" ? "text-[#5C2C16]" : "text-slate-100"
+          }`}>
             {currentLang === "ar" ? "يرجى تسجيل الدخول أولاً لتتمكن من استخدام الدردشة 🔐" : "Please login first to use the Chat 🔐"}
           </h2>
-          <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+          <p className={`text-xs max-w-md mx-auto leading-relaxed ${
+             siteTheme === "sudanese" ? "text-mud/80" : "text-slate-400"
+          }`}>
             {t.notLoggedInDesc}
           </p>
         </div>
@@ -692,7 +707,11 @@ export default function StudentChatRoom({
           <button
             id="chat-trigger-login-btn"
             onClick={onTriggerAuth}
-            className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-650 text-slate-50 font-extrabold text-sm rounded-2xl cursor-pointer transition-all duration-350 shadow-md shadow-emerald-900/20 active:scale-95 flex items-center gap-2 mx-auto"
+            className={`px-8 py-4 font-extrabold text-sm rounded-2xl cursor-pointer transition-all duration-350 shadow-md active:scale-95 flex items-center gap-2 mx-auto ${
+              siteTheme === "sudanese"
+                ? "bg-earthgold hover:bg-earthgold/90 text-white shadow-sm"
+                : "bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-650 text-slate-50 shadow-emerald-900/20"
+            }`}
           >
             <Users className="w-4 h-4" />
             <span>{t.loginBtn}</span>
@@ -727,54 +746,94 @@ export default function StudentChatRoom({
   return (
     <div 
       id="friends-chat-dashboard"
-      className="max-w-5xl mx-auto border border-slate-800/60 rounded-3xl bg-slate-950 shadow-2xl overflow-hidden min-h-[580px]"
+      className={`max-w-5xl mx-auto border rounded-3xl overflow-hidden min-h-[580px] ${
+        siteTheme === "sudanese"
+          ? "bg-cream border-mud/15 text-mud shadow-xl"
+          : "bg-slate-950 border-slate-800/60 shadow-2xl"
+      }`}
     >
       {/* Dynamic Hub Banner Header */}
-      <span className="h-1 bg-gradient-to-r from-indigo-500 via-emerald-500 to-indigo-700 block" />
-      <header className="p-4 sm:p-5 border-b border-snug bg-slate-900/80 flex flex-col md:flex-row items-center justify-between gap-4 select-none relative">
+      <span className={`h-1 block ${
+        siteTheme === "sudanese"
+          ? "bg-gradient-to-r from-mud via-earthgold to-mud"
+          : "bg-gradient-to-r from-indigo-500 via-emerald-500 to-indigo-700"
+      }`} />
+      <header className={`p-4 sm:p-5 border-b flex flex-col md:flex-row items-center justify-between gap-4 select-none relative ${
+        siteTheme === "sudanese"
+          ? "bg-[#FAF5EC] border-mud/10 text-mud"
+          : "bg-slate-900/80 border-snug text-slate-100"
+      }`}>
         {onClose && (
           <button 
             onClick={onClose}
-            className="absolute top-3.5 end-3.5 p-1.5 rounded-full bg-slate-950/80 border border-slate-800 hover:border-red-500/40 hover:bg-slate-900 text-slate-400 hover:text-red-400 cursor-pointer transition-all z-20"
+            className={`absolute top-3.5 end-3.5 p-1.5 rounded-full border cursor-pointer transition-all z-20 ${
+              siteTheme === "sudanese"
+                ? "bg-cream border-mud/15 hover:border-red-500/40 hover:bg-[#FAF5EC] text-mud/75 hover:text-red-650"
+                : "bg-slate-950/80 border-slate-800 hover:border-red-500/40 hover:bg-slate-900 text-slate-400 hover:text-red-400"
+            }`}
             title={currentLang === "ar" ? "إغلاق الدردشة" : "Close Chat"}
           >
             <X className="w-3.5 h-3.5" />
           </button>
         )}
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-indigo-600/15 border border-indigo-800/35 text-indigo-400 rounded-2xl shadow-inner">
-            <MessageSquare className="w-6 h-6 text-indigo-400 animate-pulse" />
+          <div className={`p-3 rounded-2xl shadow-inner border ${
+            siteTheme === "sudanese"
+              ? "bg-earthgold/10 border-earthgold/30 text-mud"
+              : "bg-indigo-600/15 border-indigo-800/35 text-indigo-400"
+          }`}>
+            <MessageSquare className="w-6 h-6 animate-pulse" />
           </div>
           <div className="space-y-1 text-center md:text-right">
-            <h3 className="font-extrabold text-slate-100 text-sm sm:text-base font-sans leading-tight">
+            <h3 className={`font-extrabold text-sm sm:text-base font-sans leading-tight ${
+              siteTheme === "sudanese" ? "text-mud font-black" : "text-slate-100"
+            }`}>
               {t.chatTitle}
             </h3>
-            <p className="text-4xs sm:text-3xs text-slate-400 font-medium">
+            <p className={`text-4xs sm:text-3xs font-medium ${
+              siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"
+            }`}>
               {t.subTitle}
             </p>
           </div>
         </div>
 
         {/* Current logged student's active stage details badge info */}
-        <div className="text-center md:text-left bg-indigo-950/20 px-3.5 py-1.5 rounded-2xl border border-indigo-900/40 select-none">
-          <span className="text-4xs text-slate-400 block font-bold">
+        <div className={`text-center md:text-left px-3.5 py-1.5 rounded-2xl border select-none ${
+          siteTheme === "sudanese"
+            ? "bg-earthgold/10 border-earthgold/30 text-mud"
+            : "bg-indigo-950/20 border-indigo-900/40 text-slate-400"
+        }`}>
+          <span className={`text-4xs block font-bold ${
+            siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"
+          }`}>
             {t.yourStageMsg}
           </span>
-          <span className="text-3xs font-black text-indigo-400 block">
+          <span className={`text-3xs font-black block ${
+            siteTheme === "sudanese" ? "text-mud" : "text-indigo-400"
+          }`}>
             🎓 {getStageLabel(myStageId)} ({currentUser.grade_name || "عام"})
           </span>
         </div>
       </header>
 
       {/* Segmented Controls Interface Tabs */}
-      <div className="flex justify-between items-center bg-slate-900/40 border-b border-slate-800/60 p-2 text-xs font-bold gap-2">
+      <div className={`flex justify-between items-center border-b p-2 text-xs font-bold gap-2 ${
+        siteTheme === "sudanese"
+          ? "bg-[#FAF5EC] border-mud/10"
+          : "bg-slate-900/40 border-slate-800/60"
+      }`}>
         <div className="grid grid-cols-3 gap-2 w-full md:max-w-md">
           <button
             onClick={() => setActiveCategoryTab("chat")}
             className={`p-2.5 rounded-xl cursor-pointer text-center duration-300 transition-all ${
               activeCategoryTab === "chat"
-                ? "bg-indigo-650 text-slate-50 shadow-md font-black"
-                : "text-slate-400 hover:text-slate-100 bg-slate-900/30"
+                ? siteTheme === "sudanese"
+                  ? "bg-mud text-cream shadow-md font-black"
+                  : "bg-indigo-650 text-slate-50 shadow-md font-black"
+                : siteTheme === "sudanese"
+                  ? "text-mud/60 hover:text-mud bg-mud/5 hover:bg-mud/10"
+                  : "text-slate-400 hover:text-slate-100 bg-slate-900/30"
             }`}
           >
             {t.tabChat} ({activeFriendIds.size})
@@ -783,8 +842,12 @@ export default function StudentChatRoom({
             onClick={() => setActiveCategoryTab("directory")}
             className={`p-2.5 rounded-xl cursor-pointer text-center duration-300 transition-all ${
               activeCategoryTab === "directory"
-                ? "bg-indigo-650 text-slate-50 shadow-md font-black"
-                : "text-slate-400 hover:text-slate-100 bg-slate-900/30"
+                ? siteTheme === "sudanese"
+                  ? "bg-mud text-cream shadow-md font-black"
+                  : "bg-indigo-650 text-slate-50 shadow-md font-black"
+                : siteTheme === "sudanese"
+                  ? "text-mud/60 hover:text-mud bg-mud/5 hover:bg-mud/10"
+                  : "text-slate-400 hover:text-slate-100 bg-slate-900/30"
             }`}
           >
             {t.tabDirectory}
@@ -793,71 +856,73 @@ export default function StudentChatRoom({
             onClick={() => setActiveCategoryTab("requests")}
             className={`p-2.5 rounded-xl cursor-pointer text-center duration-300 transition-all relative ${
               activeCategoryTab === "requests"
-                ? "bg-indigo-650 text-slate-50 shadow-md font-black"
-                : "text-slate-400 hover:text-slate-100 bg-slate-900/30"
+                ? siteTheme === "sudanese"
+                  ? "bg-mud text-cream shadow-md font-black"
+                  : "bg-indigo-650 text-slate-50 shadow-md font-black"
+                : siteTheme === "sudanese"
+                  ? "text-mud/60 hover:text-mud bg-mud/5 hover:bg-mud/10"
+                  : "text-slate-400 hover:text-slate-100 bg-slate-900/30"
             }`}
           >
             <span>{t.tabRequests}</span>
             {pendingIncoming.length > 0 && (
-              <span className="absolute -top-1.5 -left-1.5 bg-rose-600 border border-slate-950 text-slate-100 px-1.5 py-0.5 rounded-full text-4xs min-w-[18px] text-center font-bold animate-bounce">
+              <span className={`absolute -top-1.5 -left-1.5 border px-1.5 py-0.5 rounded-full text-4xs min-w-[18px] text-center font-bold animate-bounce ${
+                siteTheme === "sudanese"
+                  ? "bg-earthgold text-mud border-mud/20"
+                  : "bg-[#4F46E5] text-slate-50 border-indigo-500"
+              }`}>
                 {pendingIncoming.length}
               </span>
             )}
           </button>
         </div>
-
-        {/* Dynamic status presence helper line */}
-        <div className="hidden md:flex items-center gap-2 pr-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse animate-duration-2000" />
-          <span className="text-4xs font-bold text-slate-400">
-            {activeFriendIds.size + 1} {currentLang === "ar" ? "أصدقاء متصلين بالمنطقة" : "friends online"}
-          </span>
-        </div>
       </div>
-
-      {/* Safety Policy Tip Banner */}
-      <div className="bg-slate-900/20 p-3 px-4 text-slate-400 border-b border-slate-800/40 select-none flex items-start gap-2.5">
-        <ShieldAlert className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-        <div className="space-y-0.5">
-          <span className="text-4xs font-black text-indigo-400 block">
-            🔒 {t.stageRestricted}
-          </span>
-          <span className="text-5xs text-slate-400 block leading-normal">
-            {t.stageRestrictedDesc}
-          </span>
-        </div>
-      </div>
-
-      {/* MAIN VIEW AREA BY ACTIVE TAB */}
-      <div className="flex-1 select-none min-h-[420px] bg-slate-950 relative">
-
-        {/* TAB 1: SECURE FRIENDS CHAT ROOM */}
         {activeCategoryTab === "chat" && (
           <div className="grid grid-cols-1 md:grid-cols-4 min-h-[420px]">
             {/* Left sidebar listing of current friends inside chat tab */}
-            <div className="hidden md:block col-span-1 border-l border-slate-900 bg-slate-900/20 p-4 space-y-5">
+            <div className={`hidden md:block col-span-1 border-l p-4 space-y-5 ${
+              siteTheme === "sudanese"
+                ? "border-mud/10 bg-cream/30"
+                : "border-slate-900 bg-slate-900/20"
+            }`}>
               <div className="space-y-3">
-                <h4 className="text-3xs font-black text-indigo-400 uppercase tracking-wider">
+                <h4 className={`text-3xs font-black uppercase tracking-wider ${
+                  siteTheme === "sudanese" ? "text-mud/80" : "text-indigo-400"
+                }`}>
                   {currentLang === "ar" ? "أصدقاؤك المقبولين 🟢" : "My Friends 🟢"}
                 </h4>
                 <div className="space-y-2 max-h-[190px] overflow-y-auto">
                   {allUsers.filter(u => activeFriendIds.has(u.id)).length === 0 ? (
-                    <p className="text-5xs text-slate-500 italic leading-relaxed">
+                    <p className={`text-5xs italic leading-relaxed ${
+                      siteTheme === "sudanese" ? "text-mud/50" : "text-slate-500"
+                    }`}>
                       {currentLang === "ar" ? "لا يوجد أصدقاء بعد. تصفح دليل الطلاب وأرسل لهم طلبات صداقة!" : "No friends added. Use Finder to add peers!"}
                     </p>
                   ) : (
                     allUsers.filter(u => activeFriendIds.has(u.id)).map(friend => (
                       <div 
                         key={friend.id}
-                        className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between gap-1.5 text-3xs font-bold text-slate-305 group relative"
+                        className={`p-2.5 rounded-xl border flex items-center justify-between gap-1.5 text-3xs font-bold group relative ${
+                          siteTheme === "sudanese"
+                            ? "bg-cream border-mud/10 text-mud"
+                            : "bg-slate-900/60 border border-slate-800 text-slate-350"
+                        }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-6 h-6 rounded-lg bg-indigo-950/40 text-indigo-400 flex items-center justify-center font-black shrink-0">
+                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center font-black shrink-0 ${
+                            siteTheme === "sudanese"
+                              ? "bg-earthgold/10 text-mud border border-mud/10"
+                              : "bg-indigo-950/40 text-indigo-400"
+                          }`}>
                             {friend.username.charAt(0).toUpperCase()}
                           </div>
-                          <div className="min-w-0">
-                            <span className="block text-slate-205 truncate text-4xs">{friend.username}</span>
-                            <span className="block text-5xs text-slate-500 font-medium">{friend.grade_name || "عام"}</span>
+                          <div className="min-w-0 text-right">
+                            <span className={`block truncate text-4xs ${
+                              siteTheme === "sudanese" ? "text-mud font-black" : "text-slate-205"
+                            }`}>{friend.username}</span>
+                            <span className={`block text-5xs font-medium ${
+                              siteTheme === "sudanese" ? "text-mud/60" : "text-slate-500"
+                            }`}>{friend.grade_name || "عام"}</span>
                           </div>
                         </div>
                         <button
@@ -874,7 +939,11 @@ export default function StudentChatRoom({
                               }
                             }
                           }}
-                          className="w-5 h-5 rounded-md hover:bg-rose-950/40 text-slate-500 hover:text-rose-400 flex items-center justify-center transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0"
+                          className={`w-5 h-5 rounded-md flex items-center justify-center transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 ${
+                            siteTheme === "sudanese"
+                              ? "hover:bg-mud/10 text-mud/60 hover:text-red-650"
+                              : "hover:bg-rose-950/40 text-slate-500 hover:text-rose-400"
+                          }`}
                           title={currentLang === "ar" ? "إلغاء الصداقة" : "Unfriend"}
                         >
                           <X className="w-2.5 h-2.5" />
@@ -887,8 +956,12 @@ export default function StudentChatRoom({
 
               {/* Incoming Friend Requests Side Panel with direct Accept/Decline Actions */}
               {pendingIncoming.length > 0 && (
-                <div className="space-y-3 pt-3 border-t border-slate-900/60">
-                  <h4 className="text-3xs font-black text-amber-500 uppercase tracking-wider flex items-center gap-1.5 select-none">
+                <div className={`space-y-3 pt-3 border-t ${
+                  siteTheme === "sudanese" ? "border-mud/10" : "border-slate-900/60"
+                }`}>
+                  <h4 className={`text-3xs font-black uppercase tracking-wider flex items-center gap-1.5 select-none ${
+                    siteTheme === "sudanese" ? "text-[#C57530]" : "text-amber-500"
+                  }`}>
                     <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
                     <span>{currentLang === "ar" ? "طلبات معلقة 🔔" : "Pending Requests 🔔"}</span>
                   </h4>
@@ -897,23 +970,33 @@ export default function StudentChatRoom({
                       const sender = allUsers.find(u => String(u.id) === String(req.sender_id));
                       if (!sender) return null;
                       return (
-                        <div key={req.id} className="p-2 rounded-xl bg-slate-950/85 border border-slate-850/80 space-y-2">
+                        <div key={req.id} className={`p-2 rounded-xl border space-y-2 ${
+                          siteTheme === "sudanese" ? "bg-cream border-mud/10" : "bg-slate-955/85 border border-slate-850/80"
+                        }`}>
                           <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded-md bg-indigo-950/50 text-indigo-405 flex items-center justify-center font-black text-4xs">
+                            <div className={`w-5 h-5 rounded-md flex items-center justify-center font-black text-4xs ${
+                              siteTheme === "sudanese" ? "bg-earthgold/10 text-mud" : "bg-indigo-950/50 text-indigo-405"
+                            }`}>
                               {sender.username.charAt(0).toUpperCase()}
                             </div>
-                            <span className="text-4xs font-bold text-slate-200 truncate block max-w-[100px]">{sender.username}</span>
+                            <span className={`text-4xs font-bold truncate block max-w-[100px] ${
+                              siteTheme === "sudanese" ? "text-mud" : "text-slate-200"
+                            }`}>{sender.username}</span>
                           </div>
                           <div className="flex gap-1">
                             <button
                               onClick={() => handleAcceptFriend(req.id, sender)}
-                              className="flex-1 py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-100 rounded text-5xs font-black cursor-pointer text-center select-none active:scale-95 transition-all outline-none"
+                              className="flex-1 py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-100 rounded text-[9px] font-black cursor-pointer text-center select-none active:scale-95 transition-all outline-none"
                             >
                               {t.acceptBtn}
                             </button>
                             <button
                               onClick={() => handleDeclineFriend(req.id)}
-                              className="flex-1 py-1 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-900/20 text-rose-405 rounded text-5xs font-black cursor-pointer text-center select-none active:scale-95 transition-all outline-none"
+                              className={`flex-1 py-1 rounded text-[9px] font-black cursor-pointer text-center select-none active:scale-95 transition-all outline-none border ${
+                                siteTheme === "sudanese"
+                                  ? "bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
+                                  : "bg-rose-955/40 hover:bg-rose-900/40 border-rose-900/20 text-rose-405"
+                              }`}
                             >
                               {t.declineBtn}
                             </button>
@@ -931,16 +1014,20 @@ export default function StudentChatRoom({
               {censorshipWarning && (
                 <div 
                   id="chat-censor-banner"
-                  className="bg-amber-950/40 border-b border-amber-800/35 p-3 px-4 flex items-start gap-3 absolute top-0 left-0 right-0 z-10 animated-fade-in"
+                  className={`border-b p-3 px-4 flex items-start gap-3 absolute top-0 left-0 right-0 z-10 animated-fade-in ${
+                    siteTheme === "sudanese"
+                      ? "bg-amber-100/40 border-amber-250 text-mud"
+                      : "bg-amber-955/40 border-amber-805 text-slate-200"
+                  }`}
                 >
-                  <div className="p-1.5 rounded-lg bg-amber-600/10 text-amber-400">
+                  <div className={`p-1.5 rounded-lg ${siteTheme === "sudanese" ? "bg-amber-100 text-[#C57530]" : "bg-amber-600/10 text-amber-400"}`}>
                     <ShieldAlert className="w-4 h-4 animate-bounce" />
                   </div>
-                  <div className="space-y-0.5">
-                    <h4 className="text-3xs font-extrabold text-amber-300">
+                  <div className="space-y-0.5 text-right">
+                    <h4 className={`text-3xs font-extrabold ${siteTheme === "sudanese" ? "text-mud" : "text-amber-300"}`}>
                       {t.warningTitle}
                     </h4>
-                    <p className="text-4xs text-slate-350 leading-relaxed">
+                    <p className={`text-4xs leading-relaxed ${siteTheme === "sudanese" ? "text-mud/85" : "text-slate-350"}`}>
                       {t.warningDesc}
                     </p>
                   </div>
@@ -950,18 +1037,28 @@ export default function StudentChatRoom({
               <div 
                 ref={chatContainerRef}
                 onScroll={handleScroll}
-                className="flex-1 p-4 sm:p-5 space-y-4 max-h-[380px] overflow-y-auto overflow-x-hidden pt-14 min-h-[320px] bg-sky-950/5 relative scrollbar-thin scrollbar-thumb-slate-800 scroll-smooth"
+                className={`flex-1 p-4 sm:p-5 space-y-4 max-h-[380px] overflow-y-auto overflow-x-hidden pt-14 min-h-[320px] relative scrollbar-thin scroll-smooth ${
+                  siteTheme === "sudanese"
+                    ? "bg-cream/10 scrollbar-thumb-mud/20"
+                    : "bg-sky-950/5 scrollbar-thumb-slate-800"
+                }`}
               >
                 {isLoading ? (
-                  <div className="absolute inset-0 flex items-center justify-center bg-slate-950/30">
-                    <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                  <div className={`absolute inset-0 flex items-center justify-center ${siteTheme === "sudanese" ? "bg-cream/40" : "bg-slate-955/30"}`}>
+                    <div className={`w-10 h-10 border-4 border-t-transparent rounded-full animate-spin ${
+                      siteTheme === "sudanese" ? "border-earthgold" : "border-indigo-600"
+                    }`} />
                   </div>
                 ) : messages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center space-y-3 p-8">
-                    <div className="w-16 h-16 rounded-full bg-slate-900 border border-slate-800/80 flex items-center justify-center text-indigo-400">
-                      <Sparkles className="w-8 h-8 opacity-60 animate-pulse text-indigo-400" />
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center border ${
+                      siteTheme === "sudanese" ? "bg-[#FAF5EC] border-mud/10 text-earthgold" : "bg-slate-900 border-slate-800/80 text-indigo-405"
+                    }`}>
+                      <Sparkles className="w-8 h-8 opacity-60 animate-pulse" />
                     </div>
-                    <p className="text-3xs text-slate-400 font-bold max-w-sm leading-relaxed text-slate-305">
+                    <p className={`text-3xs font-bold max-w-sm leading-relaxed ${
+                      siteTheme === "sudanese" ? "text-mud" : "text-slate-400"
+                    }`}>
                       {t.noMessagesYet}
                     </p>
                   </div>
@@ -980,11 +1077,15 @@ export default function StudentChatRoom({
                       >
                         <div className={`w-10 h-10 rounded-xl shrink-0 border flex items-center justify-center text-xs font-bold relative ${
                           isMyMsg 
-                            ? "bg-indigo-900/20 text-indigo-350 border-indigo-800" 
+                            ? siteTheme === "sudanese"
+                              ? "bg-earthgold/10 text-mud border-earthgold"
+                              : "bg-indigo-900/20 text-indigo-350 border-indigo-805" 
                             : isMsgAdmin 
                             ? "bg-red-955/20 text-red-400 border-red-900/40"
                             : isMsgTeacher
                             ? "bg-emerald-950/20 text-emerald-400 border-emerald-900/40"
+                            : siteTheme === "sudanese"
+                            ? "bg-[#FAF5EC] border-mud/10 text-mud"
                             : "bg-slate-900 text-slate-300 border-slate-800"
                         }`}
                         title={msg.username}
@@ -994,14 +1095,14 @@ export default function StudentChatRoom({
 
                         <div className="space-y-1 flex-1 min-w-0">
                           <div className={`flex items-center gap-1.5 text-4xs ${
-                            isMyMsg ? "flex-row-reverse" : ""
+                            isMyMsg ? "flex-row-reverse" : "text-right"
                           }`}>
-                            <span className="font-extrabold text-slate-200">
+                            <span className={`font-extrabold ${siteTheme === "sudanese" ? "text-mud" : "text-slate-200"}`}>
                               {msg.username}
                             </span>
 
                             {isMsgAdmin ? (
-                              <span className="px-1.5 py-0.5 rounded-full text-5xs font-bold bg-gradient-to-r from-red-950/40 to-slate-900 text-red-400 border border-red-900/30">
+                              <span className="px-1.5 py-0.5 rounded-full text-5xs font-bold bg-gradient-to-r from-red-955/40 to-slate-900 text-red-400 border border-red-900/30">
                                 {t.adminBadge}
                               </span>
                             ) : isMsgTeacher ? (
@@ -1009,24 +1110,32 @@ export default function StudentChatRoom({
                                 {t.teacherBadge}
                               </span>
                             ) : (
-                              <span className="px-1.5 py-0.5 rounded-full text-5xs font-bold bg-slate-900 text-slate-400 border border-slate-800">
+                              <span className={`px-1.5 py-0.5 rounded-full text-5xs font-bold border ${
+                                siteTheme === "sudanese"
+                                  ? "bg-earthgold/10 text-mud border-earthgold/30"
+                                  : "bg-slate-905 text-slate-400 border-slate-800"
+                              }`}>
                                 {t.studentBadge} {msg.gradeName ? `(${msg.gradeName})` : ""}
                               </span>
                             )}
 
-                            <span className="text-slate-500 font-mono text-5xs">
+                            <span className={`font-mono text-5xs ${siteTheme === "sudanese" ? "text-mud/50" : "text-slate-500"}`}>
                               {formatTime(msg.timestamp)}
                             </span>
                           </div>
 
-                          <div className={`p-3.5 rounded-2xl break-words text-xs leading-relaxed font-semibold select-text ${
+                          <div className={`p-3.5 rounded-2xl break-words text-xs leading-relaxed font-semibold select-text text-right ${
                             isMyMsg 
-                              ? "bg-gradient-to-br from-indigo-900/25 to-slate-900 text-indigo-100 rounded-tl-none border border-indigo-900/50" 
+                              ? siteTheme === "sudanese"
+                                ? "bg-[#5C2C16] text-[#FDFBF7] rounded-tl-none border-[#5C2C16] shadow-sm"
+                                : "bg-gradient-to-br from-indigo-900/25 to-slate-900 text-indigo-100 rounded-tl-none border border-indigo-900/50" 
                               : isMsgAdmin 
-                              ? "bg-slate-900 border border-red-900/40 text-rose-105 rounded-tr-none"
+                              ? "bg-red-50 border border-red-200 text-red-900 rounded-tr-none"
                               : isMsgTeacher
-                              ? "bg-slate-900 border border-emerald-950 text-emerald-100 rounded-tr-none"
-                              : "bg-slate-900/60 border border-slate-800 text-slate-100 rounded-tr-none"
+                              ? "bg-emerald-50 border border-emerald-250 text-emerald-700 rounded-tr-none"
+                              : siteTheme === "sudanese"
+                              ? "bg-white border border-mud/11 text-mud rounded-tr-none shadow-sm font-sans"
+                              : "bg-slate-900/60 border border-slate-800 text-slate-101 rounded-tr-none"
                           }`}>
                             {msg.text}
                           </div>
@@ -1035,7 +1144,7 @@ export default function StudentChatRoom({
                             <div className={`flex ${isMyMsg ? "justify-start" : "justify-end"}`}>
                               <button
                                 onClick={() => handleDeleteMessage(msg.id)}
-                                className="inline-flex items-center gap-1 mt-0.5 text-5xs text-rose-500 hover:text-rose-400 cursor-pointer font-bold bg-rose-950/10 hover:bg-rose-950/30 px-2 py-0.5 rounded"
+                                className="inline-flex items-center gap-1 mt-0.5 text-5xs text-rose-500 hover:text-rose-450 cursor-pointer font-bold bg-rose-95/10 hover:bg-rose-95/30 px-2 py-0.5 rounded"
                               >
                                 <Trash2 className="w-2.5 h-2.5" />
                                 <span>{currentLang === "ar" ? "حذف" : "Remove"}</span>
@@ -1053,14 +1162,20 @@ export default function StudentChatRoom({
               {showScrollBtn && (
                 <button
                   onClick={() => scrollToBottom("smooth")}
-                  className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-slate-900 border border-slate-800 text-slate-200 p-2 rounded-full duration-200 shadow-xl cursor-pointer hover:bg-slate-800 z-20 flex items-center justify-center animate-bounce animate-duration-3000"
+                  className={`absolute bottom-20 left-1/2 transform -translate-x-1/2 border p-2 rounded-full duration-200 shadow-xl cursor-pointer z-20 flex items-center justify-center animate-bounce animate-duration-3000 ${
+                    siteTheme === "sudanese"
+                      ? "bg-cream border-mud/15 text-mud"
+                      : "bg-slate-900 border-slate-805 text-slate-205 hover:bg-slate-800"
+                  }`}
                 >
-                  <ArrowDown className="w-4 h-4 text-indigo-400" />
+                  <ArrowDown className={`w-4 h-4 ${siteTheme === "sudanese" ? "text-mud" : "text-indigo-400"}`} />
                 </button>
               )}
 
               {/* Secure Chat Box Composer Form */}
-              <footer className="p-4 border-t border-slate-900 bg-slate-900/40">
+              <footer className={`p-4 border-t ${
+                siteTheme === "sudanese" ? "border-mud/15 bg-cream/80" : "border-slate-910 bg-slate-900/40"
+              }`}>
                 <form 
                   onSubmit={handleSendMessage}
                   className="flex items-center gap-2"
@@ -1071,7 +1186,11 @@ export default function StudentChatRoom({
                     onChange={(e) => setInputText(e.target.value)}
                     disabled={isSending}
                     maxLength={250}
-                    className="flex-1 bg-slate-950 border border-slate-805 focus:border-indigo-600 p-3 px-4 rounded-xl text-xs text-slate-100 placeholder:text-slate-505 transition-all focus:outline-none"
+                    className={`flex-1 p-3 px-4 rounded-xl text-xs outline-none transition-all focus:outline-none ${
+                      siteTheme === "sudanese"
+                        ? "bg-white border border-mud/20 text-mud placeholder:text-mud/50 focus:border-mud"
+                        : "bg-slate-905 border border-slate-850 text-slate-101 placeholder:text-slate-505 focus:border-indigo-605"
+                    }`}
                     placeholder={t.placeholder}
                   />
                   <button
@@ -1079,8 +1198,12 @@ export default function StudentChatRoom({
                     disabled={!inputText.trim() || isSending}
                     className={`p-3 rounded-xl flex items-center justify-center transition-all ${
                       inputText.trim() && !isSending
-                        ? "bg-indigo-600 hover:bg-indigo-500 text-slate-50 cursor-pointer shadow"
-                        : "bg-slate-900 text-slate-600 cursor-not-allowed"
+                        ? siteTheme === "sudanese"
+                          ? "bg-mud hover:bg-mud/90 text-[#FDFBF7] cursor-pointer shadow-sm"
+                          : "bg-indigo-600 hover:bg-indigo-505 text-slate-50 cursor-pointer shadow"
+                        : siteTheme === "sudanese"
+                          ? "bg-cream text-mud/30 border border-mud/10 cursor-not-allowed"
+                          : "bg-[#1E293B] text-slate-600 cursor-not-allowed"
                     }`}
                   >
                     <SendHorizontal className="w-4.5 h-4.5" />
@@ -1368,8 +1491,7 @@ export default function StudentChatRoom({
         )}
 
       </div>
-    </div>
-  );
+    );
 }
 
 // Inline bad words lists dictionary
