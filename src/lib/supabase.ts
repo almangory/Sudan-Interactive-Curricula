@@ -287,7 +287,6 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<SyncRes
             interactive_label: subj.interactiveLabel || "الموقع التفاعلي",
             curriculum_summary: subj.curriculumSummary || "",
             pdf_url: subj.pdfUrl || "",
-            textbook_url: subj.pdfUrl || "", // mapping fallback fields safely
             memo_pdf_url: subj.memoPdfUrl || "",
             video_url: subj.videoUrl || "",
             updated_at: new Date().toISOString()
