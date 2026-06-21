@@ -178,6 +178,14 @@ export async function fetchCurriculumFromSupabase(): Promise<Stage[] | null> {
       const { stagesData } = await import("../data/curriculum");
       let currentStages = JSON.parse(JSON.stringify(stagesData)) as Stage[];
 
+      // Clear all default subjects first to ensure only stored/approved subjects remain.
+      // This makes sure deletion dynamically reflects in real-time.
+      currentStages.forEach(stg => {
+        stg.grades.forEach(grd => {
+          grd.subjects = [];
+        });
+      });
+
       listData.forEach(row => {
         const stageId = row.stage_id || row.stage || "";
         const gradeId = row.grade_id || row.grade || "";
@@ -344,18 +352,26 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<SyncRes
 
       // Clean up deleted subjects that are no longer in our curriculum tree
       const currentIds = flatRows.map(row => row.id);
-      if (currentIds.length > 0) {
-        try {
+      try {
+        if (currentIds.length > 0) {
           const { error: deleteErr } = await client
             .from("curricula_links")
             .delete()
-            .not("id", "in", `(${currentIds.map(id => `"${id}"`).join(",")})`);
+            .not("id", "in", `(${currentIds.join(",")})`);
           if (deleteErr) {
             console.warn("Could not cleanup deleted rows from Supabase during sync:", deleteErr);
           }
-        } catch (e) {
-          console.warn("Exception during database cleanup in sync:", e);
+        } else {
+          const { error: deleteErr } = await client
+            .from("curricula_links")
+            .delete()
+            .neq("id", "placeholder_never_exists");
+          if (deleteErr) {
+            console.warn("Could not clear curricula_links table during sync:", deleteErr);
+          }
         }
+      } catch (e) {
+        console.warn("Exception during database cleanup in sync:", e);
       }
 
       return {
