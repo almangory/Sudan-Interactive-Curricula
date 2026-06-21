@@ -690,6 +690,22 @@ export default function App() {
             fetchNotificationData();
           }
         )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "curricula_links" },
+          async () => {
+            console.log("⚡ Realtime Update: Curriculum links updated on Supabase, refreshing data...");
+            try {
+              const freshData = await fetchCurriculumFromSupabase();
+              if (freshData && Array.isArray(freshData) && freshData.length > 0) {
+                setCurriculumData(freshData);
+                localStorage.setItem("sudan_custom_curriculum_v3", JSON.stringify(freshData));
+              }
+            } catch (err) {
+              console.warn("Realtime curriculum refresh failed:", err);
+            }
+          }
+        )
         .subscribe();
     }
 

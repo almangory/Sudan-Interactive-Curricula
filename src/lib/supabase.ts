@@ -12,6 +12,7 @@ const STORAGE_KEYS = {
  * Prioritizes production environment variables (like those in Vercel) over local storage so the live app remains stable.
  */
 export function getSupabaseConfig() {
+  // التعديل الهندسي النظيف: الاعتماد الكامل والمباشر على مسميات بيئة Vite المستقرة
   const envUrl = (((import.meta as any).env?.VITE_SUPABASE_URL || "") as string).trim();
   const envKey = (((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || "") as string).trim();
 
@@ -168,7 +169,6 @@ export async function fetchCurriculumFromSupabase(): Promise<Stage[] | null> {
       .select("*");
 
     if (!listError && listData && listData.length > 0) {
-      // Check if they stored the old single-row configuration as a JSON fallback
       const singleRow = listData.find(row => row.id === "curriculum" && (row.stages || row.config));
       if (singleRow) {
         return (singleRow.stages || singleRow.config) as Stage[];
@@ -234,17 +234,6 @@ export async function fetchCurriculumFromSupabase(): Promise<Stage[] | null> {
 
       return currentStages;
     }
-
-    // 2. Fallback to old curriculum_config JSON table if curricula_links didn't respond or is empty
-    const { data: fallbackData, error: fallbackError } = await client
-      .from("curriculum_config")
-      .select("stages")
-      .eq("id", "curriculum")
-      .single();
-
-    if (!fallbackError && fallbackData?.stages) {
-      return fallbackData.stages as Stage[];
-    }
   } catch (err) {
     console.error("Error drawing data from Supabase:", err);
   }
@@ -253,15 +242,14 @@ export async function fetchCurriculumFromSupabase(): Promise<Stage[] | null> {
 
 export interface SyncResult {
   success: boolean;
-  savedTable: "curricula_links" | "curriculum_config" | "none";
-  method: "row_by_row" | "single_json_row" | "none";
+  savedTable: "curricula_links" | "none";
+  method: "row_by_row" | "none";
   rowCount: number;
   errors: string[];
 }
 
 /**
- * Upserts custom curriculum stages to Supabase. Supports both structured rows and single row JSON structures.
- * Returns detailed SyncResult information on which database tables and columns successfully updated.
+ * Upserts custom curriculum stages to Supabase. Supports structured rows mapping onto clean relational fields.
  */
 export async function saveCurriculumToSupabase(stages: Stage[]): Promise<SyncResult> {
   const client = getSupabaseClient();
@@ -278,7 +266,7 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<SyncRes
   const errors: string[] = [];
 
   try {
-    // 1. Flatten nested Stage structure into sequential database rows for structured row-by-row saving
+    // Flatten nested Stage structure into sequential database rows for structured row-by-row saving
     const flatRows: any[] = [];
     stages.forEach(stage => {
       stage.grades.forEach(grade => {
@@ -299,6 +287,7 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<SyncRes
             interactive_label: subj.interactiveLabel || "الموقع التفاعلي",
             curriculum_summary: subj.curriculumSummary || "",
             pdf_url: subj.pdfUrl || "",
+            textbook_url: subj.pdfUrl || "", // mapping fallback fields safely
             memo_pdf_url: subj.memoPdfUrl || "",
             video_url: subj.videoUrl || "",
             updated_at: new Date().toISOString()
@@ -307,113 +296,29 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<SyncRes
       });
     });
 
-    // Attempt 1: Try structured row-by-row insert into curricula_links
-    try {
-      const { error: insertErr } = await client
-        .from("curricula_links")
-        .upsert(flatRows);
+    // Attempt direct relational insertion into curricula_links table
+    const { error: insertErr } = await client
+      .from("curricula_links")
+      .upsert(flatRows);
 
-      if (!insertErr) {
-        console.log("Successfully saved row-by-row into curricula_links!");
-        return {
-          success: true,
-          savedTable: "curricula_links",
-          method: "row_by_row",
-          rowCount: flatRows.length,
-          errors
-        };
-      }
-      errors.push(`[سطور تفصيلية بـ curricula_links] ${insertErr.message} (كود: ${insertErr.code || ''})`);
-      console.warn("Attempt to save row-by-row to curricula_links yielded error, trying fallback:", insertErr);
-    } catch (e: any) {
-      errors.push(`[خطأ اتصال بـ curricula_links] ${e.message || e}`);
-      console.warn("Row-by-row insert failed, trying JSON fallback:", e);
+    if (!insertErr) {
+      console.log("Successfully saved row-by-row into curricula_links!");
+      return {
+        success: true,
+        savedTable: "curricula_links",
+        method: "row_by_row",
+        rowCount: flatRows.length,
+        errors
+      };
     }
-
-    // Attempt 2: Try single-row JSON configuration approach directly on curricula_links (in case they have a combined schema representation)
-    try {
-      const { error: jsonErr } = await client
-        .from("curricula_links")
-        .upsert({
-          id: "curriculum",
-          stages: stages,
-          updated_at: new Date().toISOString()
-        });
-
-      if (!jsonErr) {
-        console.log("Successfully saved single-row JSON to curricula_links!");
-        return {
-          success: true,
-          savedTable: "curricula_links",
-          method: "single_json_row",
-          rowCount: 1,
-          errors
-        };
-      }
-      errors.push(`[مزامنة JSON في curricula_links] ${jsonErr.message}`);
-    } catch (e: any) {
-      console.warn("JSON upsert to curricula_links failed:", e);
-    }
-
-    // Attempt 3: Try legacy curriculum_config table fallback WITHOUT updated_at column
-    // This is crucial to bypass the "Could not find the 'updated_at' column in the schema cache" error
-    try {
-      const { error: fallbackErr } = await client
-        .from("curriculum_config")
-        .upsert({
-          id: "curriculum",
-          stages: stages
-        });
-
-      if (!fallbackErr) {
-        console.log("Successfully saved using legacy curriculum_config (stages only) fallback!");
-        return {
-          success: true,
-          savedTable: "curriculum_config",
-          method: "single_json_row",
-          rowCount: 1,
-          errors
-        };
-      }
-      errors.push(`[الجدول القديم curriculum_config بدون updated_at] ${fallbackErr.message}`);
-    } catch (e: any) {
-      errors.push(`[خطأ الجدول القديم] ${e.message || e}`);
-      console.warn("Legacy save without updated_at error:", e);
-    }
-
-    // Attempt 4: Try legacy curriculum_config table WITH updated_at just in case they have it
-    try {
-      const { error: fallbackErrWithTime } = await client
-        .from("curriculum_config")
-        .upsert({
-          id: "curriculum",
-          stages: stages,
-          updated_at: new Date().toISOString()
-        });
-
-      if (!fallbackErrWithTime) {
-        console.log("Successfully saved using legacy curriculum_config with updated_at!");
-        return {
-          success: true,
-          savedTable: "curriculum_config",
-          method: "single_json_row",
-          rowCount: 1,
-          errors
-        };
-      }
-      errors.push(`[الجدول القديم مع الوقت] ${fallbackErrWithTime.message}`);
-    } catch (e: any) {
-      console.warn("Legacy with time error:", e);
-    }
-
-    // If we came here, all options failed. Give the user an comprehensive overview of why
-    const combinedErrorMessage = errors.join(" \n ");
+    
+    errors.push(`[خطأ بـ curricula_links] ${insertErr.message}`);
     return {
       success: false,
       savedTable: "none",
       method: "none",
       rowCount: 0,
-      errors: [combinedErrorMessage || "فشلت المزامنة على كافة الجداول المتاحة في قاعدة البيانات."]
+      errors
     };
   } catch (err: any) {
     console.error("Error writing data to Supabase:", err);
@@ -443,7 +348,7 @@ export interface AppUser {
 }
 
 /**
- * Registers a new user directly in the database 'users' table, and optionally via Supabase Auth.
+ * Registers a new user directly in the database 'users' table.
  */
 export async function registerUser(
   username: string, 
@@ -465,11 +370,10 @@ export async function registerUser(
     const cleanEmail = email.trim().toLowerCase();
     const cleanUsername = username.trim();
 
-    // 1. Try to register in the custom 'users' table first to satisfy the requirement
     const userDataToInsert = {
       username: cleanUsername,
       email: cleanEmail,
-      password: password || "", // plain password for direct table fallback
+      password: password || "", 
       password_hash: password || "", 
       provider: provider,
       user_role: userRole,
@@ -488,41 +392,7 @@ export async function registerUser(
       .select();
 
     if (insertError) {
-      console.warn("Error inserting to 'users' table with full schema, attempting fallback...", insertError);
-      
-      // Try fallback schema in case user_role or other helper columns are not yet created in the DB table
-      const { data: fallbackData, error: fallbackError } = await client
-        .from("users")
-        .insert([{
-          username: cleanUsername,
-          email: cleanEmail,
-          password: password || "",
-          provider: provider
-        }])
-        .select();
-
-      if (fallbackError) {
-        if (fallbackError.code === "PGRST404") {
-          return {
-            success: false,
-            error: "⚠️ جدول المستخدمين 'users' غير متوفر في سوبابيس حالياً. تفضل بإنشائه من زر الإنشاء في لوحة تحكم الإدارة بالمنهج."
-          };
-        }
-        return { success: false, error: `فشل الحفظ بجدول 'users': ${fallbackError.message}` };
-      }
-
-      const returnedUser = fallbackData?.[0];
-      return {
-        success: true,
-        user: {
-          id: returnedUser?.id || String(Date.now()),
-          username: returnedUser?.username || cleanUsername,
-          email: returnedUser?.email || cleanEmail,
-          provider: returnedUser?.provider || provider,
-          user_role: "student",
-          status: "active"
-        }
-      };
+      return { success: false, error: `فشل الحفظ بجدول 'users': ${insertError.message}` };
     }
 
     const returnedUser = insertData?.[0];
@@ -559,7 +429,6 @@ export async function loginUser(email: string, password?: string): Promise<{ suc
   try {
     const cleanEmail = email.trim().toLowerCase();
 
-    // Query standard custom table
     const { data, error } = await client
       .from("users")
       .select("*")
@@ -575,8 +444,6 @@ export async function loginUser(email: string, password?: string): Promise<{ suc
     }
 
     const userEntry = data[0];
-    
-    // Check password (checking password or password_hash columns)
     const storedPass = userEntry.password || userEntry.password_hash || "";
     if (password && storedPass !== password) {
       return { success: false, error: "كلمة المرور المدخلة غير صحيحة! يرجى إعادة المحاولة." };
@@ -703,7 +570,6 @@ export async function signInWithGoogle(): Promise<{ success: boolean; error?: st
 
 /**
  * Checks if there is a logged in session (e.g. after Google Sign-In redirect)
- * and automatically registers them in the custom 'users' table if they aren't there yet.
  */
 export async function checkAndSyncGoogleSession(): Promise<AppUser | null> {
   const client = getSupabaseClient();
@@ -719,7 +585,6 @@ export async function checkAndSyncGoogleSession(): Promise<AppUser | null> {
 
       if (!email) return null;
 
-      // Check if user is already registered in custom table
       const { data, error } = await client
         .from("users")
         .select("*")
@@ -727,7 +592,6 @@ export async function checkAndSyncGoogleSession(): Promise<AppUser | null> {
         .limit(1);
 
       if (!error && data && data.length > 0) {
-        // Already exists in table, map and return
         const usr = data[0];
         return {
           id: usr.id || gUser.id,
@@ -737,7 +601,6 @@ export async function checkAndSyncGoogleSession(): Promise<AppUser | null> {
         };
       }
 
-      // Automatically register them dynamically into the custom 'users' table
       const reg = await registerUser(username, email, "oauth_google_verified", "google");
       if (reg.success && reg.user) {
         return reg.user;
@@ -757,7 +620,7 @@ export async function checkAndSyncGoogleSession(): Promise<AppUser | null> {
 }
 
 /**
- * Updates the profile of the current user in both Supabase table 'users' and returns the updated AppUser.
+ * Updates the profile of the current user in both Supabase table 'users'.
  */
 export async function updateCurrentUserProfile(
   userId: string,
@@ -798,7 +661,6 @@ export async function updateCurrentUserProfile(
       return { success: false, error: `فشل تعديل البيانات في جدول المستخدمين: ${error.message}` };
     }
 
-    // Fetch the updated entry
     const { data: updatedEntry, error: fetchError } = await client
       .from("users")
       .select("*")
@@ -833,4 +695,3 @@ export async function updateCurrentUserProfile(
     return { success: false, error: err.message || String(err) };
   }
 }
-
