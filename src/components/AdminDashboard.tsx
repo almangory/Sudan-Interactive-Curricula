@@ -485,8 +485,9 @@ CREATE TABLE IF NOT EXISTS curricula_links (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- تمكين الوصول العام للقراءة والكتابة لـ RLS:
+-- تمكين الوصول العام للقراءة والكتابة لـ RLS بشكل آمن وقابل للتكرار:
 ALTER TABLE curricula_links ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow read write for all" ON curricula_links;
 CREATE POLICY "Allow read write for all" ON curricula_links FOR ALL USING (true) WITH CHECK (true);
 
 -- 2. إنشاء جدول المستخدمين للمصادقة
@@ -499,11 +500,13 @@ CREATE TABLE IF NOT EXISTS admin_users (
 );
 
 ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow select for everyone" ON admin_users;
+DROP POLICY IF EXISTS "Allow insert update for all" ON admin_users;
 CREATE POLICY "Allow select for everyone" ON admin_users FOR SELECT USING (true);
 CREATE POLICY "Allow insert update for all" ON admin_users FOR ALL USING (true) WITH CHECK (true);
 
 -- إضافة مستخدم إداري افتراضي:
-INSERT INTO admin_users (username, password) VALUES ('almangory', '20302060') ON CONFLICT DO NOTHING;
+INSERT INTO admin_users (username, password) VALUES ('almangory', '20302060') ON CONFLICT (username) DO NOTHING;
 
 -- 3. إنشاء جدول الطلاب والمستخدمين العامين وتراخيص الأساتذة (users)
 CREATE TABLE IF NOT EXISTS users (
@@ -524,6 +527,8 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow select for everyone on users" ON users;
+DROP POLICY IF EXISTS "Allow insert update for all on users" ON users;
 CREATE POLICY "Allow select for everyone on users" ON users FOR SELECT USING (true);
 CREATE POLICY "Allow insert update for all on users" ON users FOR ALL USING (true) WITH CHECK (true);
 
@@ -539,6 +544,9 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 );
 
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow select for everyone on chat_messages" ON chat_messages;
+DROP POLICY IF EXISTS "Allow insert for everyone on chat_messages" ON chat_messages;
+DROP POLICY IF EXISTS "Allow delete for everyone on chat_messages" ON chat_messages;
 CREATE POLICY "Allow select for everyone on chat_messages" ON chat_messages FOR SELECT USING (true);
 CREATE POLICY "Allow insert for everyone on chat_messages" ON chat_messages FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow delete for everyone on chat_messages" ON chat_messages FOR DELETE USING (true);
@@ -554,6 +562,8 @@ CREATE TABLE IF NOT EXISTS friendships (
 );
 
 ALTER TABLE friendships ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow select for everyone on friendships" ON friendships;
+DROP POLICY IF EXISTS "Allow insert update delete for all on friendships" ON friendships;
 CREATE POLICY "Allow select for everyone on friendships" ON friendships FOR SELECT USING (true);
 CREATE POLICY "Allow insert update delete for all on friendships" ON friendships FOR ALL USING (true) WITH CHECK (true);
 
@@ -569,17 +579,48 @@ CREATE TABLE IF NOT EXISTS site_updates (
 );
 
 ALTER TABLE site_updates ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow select for everyone on site_updates" ON site_updates;
+DROP POLICY IF EXISTS "Allow insert update delete for all on site_updates" ON site_updates;
 CREATE POLICY "Allow select for everyone on site_updates" ON site_updates FOR SELECT USING (true);
 CREATE POLICY "Allow insert update delete for all on site_updates" ON site_updates FOR ALL USING (true) WITH CHECK (true);
 
 -- 7. تفعيل ميزة البث الفوري والتلقائي اللحظي المباشر (Supabase Realtime) لجميع الأجهزة دون الحاجة لأي خوادم وسيطة أو تدخل يدوي:
-begin;
-  -- التحقق من تفعيل النشر وإضافتها لـ supabase_realtime لتلقي التغيرات في نفس اللحظة
-  alter publication supabase_realtime add table curricula_links;
-  alter publication supabase_realtime add table chat_messages;
-  alter publication supabase_realtime add table site_updates;
-  alter publication supabase_realtime add table friendships;
-commit;
+-- التحقق من وجود المنشور أو إنشائه أولاً لضمان عدم توقف الكود:
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    CREATE PUBLICATION supabase_realtime;
+  END IF;
+END $$;
+
+-- إضافة الجداول للبث الفوري بشكل آمن يتلافى مسببات الأخطاء إذا كانت مضافة مسبقاً:
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE curricula_links;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE chat_messages;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE site_updates;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE friendships;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
 
 -- 8. تنشيط ذاكرة الكاش المؤقتة لـ PostgREST لتسريع قراءة وحفظ الأعمدة الجديدة:
 NOTIFY pgrst, 'reload schema';`;
