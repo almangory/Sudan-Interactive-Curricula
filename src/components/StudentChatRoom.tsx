@@ -58,6 +58,7 @@ export default function StudentChatRoom({
   const [friendMessageIdMap, setFriendMessageIdMap] = useState<Set<string>>(new Set());
 
   const [activeChatWith, setActiveChatWith] = useState<AppUser | null>(null);
+  const [selectedPeerDetails, setSelectedPeerDetails] = useState<AppUser | null>(null);
 
   const cleanMessageText = (text: string): string => {
     if (text.startsWith("[DM:")) {
@@ -1372,7 +1373,7 @@ export default function StudentChatRoom({
                 {t.noUsers}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 select-none">
                 {renderedUsers.map(peer => {
                   const peerStage = getStageOfGrade(peer.grade_id);
                   const isSameStage = peerStage === myStageId;
@@ -1383,8 +1384,70 @@ export default function StudentChatRoom({
                   const receivedPending = pendingIncoming.some(f => String(f.sender_id) === String(peer.id));
 
                   return (
-                    <div 
+                    <button 
                       key={peer.id}
+                      onClick={() => setSelectedPeerDetails(peer)}
+                      className={`p-3.5 rounded-2xl border transition-all duration-300 relative select-none w-full flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 group ${
+                        siteTheme === "sudanese"
+                          ? isSameStage 
+                            ? "bg-white border-mud/10 hover:border-mud/30 hover:bg-[#FAF9F5] text-mud shadow-2xs hover:shadow-xs" 
+                            : "bg-[#FAFAF6]/60 border-mud/5 opacity-70 hover:opacity-100"
+                          : isSameStage 
+                            ? "bg-slate-900/55 border-slate-850 hover:border-indigo-500/40 hover:bg-slate-900 text-slate-100 shadow-2xs hover:shadow-lg hover:shadow-indigo-950/15" 
+                            : "bg-slate-925/20 border-slate-900/60 opacity-60 hover:opacity-100 text-slate-400"
+                      }`}
+                    >
+                      {/* Floating status dot representing availability */}
+                      <div className="absolute top-2.5 left-2.5 flex items-center justify-center">
+                        <span 
+                          className={`w-2.5 h-2.5 rounded-full ring-2 shadow-xs ${
+                            siteTheme === "sudanese" ? "ring-[#FAF8F5]" : "ring-slate-950"
+                          } ${
+                            isSameStage 
+                              ? "bg-emerald-500 animate-pulse" 
+                              : "bg-rose-500"
+                          }`}
+                          title={isSameStage 
+                            ? (currentLang === "ar" ? "متاح للإضافة (نفس المرحلة)" : "Available to add (Same stage)")
+                            : (currentLang === "ar" ? "غير متاح (مرحلة دراسية مختلفة)" : "Unavailable (Different stage)")
+                          }
+                        />
+                      </div>
+
+                      {/* Small Avatar Icon */}
+                      <div className={`w-11 h-11 rounded-full shrink-0 border flex items-center justify-center font-black text-sm mb-2.5 transition-transform duration-300 group-hover:scale-108 ${
+                        siteTheme === "sudanese"
+                          ? isSameStage 
+                            ? "bg-mud/10 text-mud border-mud/20" 
+                            : "bg-mud/5 text-mud/40 border-mud/5"
+                          : isSameStage 
+                            ? "bg-indigo-950/40 text-indigo-400 border-indigo-900/30" 
+                            : "bg-slate-900 text-slate-505 border-slate-850"
+                      }`}>
+                        {peer.user_role === "teacher" ? "👨‍🏫" : peer.username.charAt(0).toUpperCase()}
+                      </div>
+
+                      {/* Username Only */}
+                      <h4 className={`font-black text-4xs sm:text-3xs truncate max-w-full px-1 ${
+                        siteTheme === "sudanese" ? "text-mud font-black" : "text-slate-100"
+                      }`}>
+                        {peer.username}
+                      </h4>
+
+                      {/* Small role label inside if teacher */}
+                      {peer.user_role === "teacher" && (
+                        <span className="mt-1 text-[8px] bg-indigo-500/10 text-indigo-400 px-1.5 py-0.2 rounded-full font-bold">
+                          {t.teacherBadge}
+                        </span>
+                      )}
+                    </button>
+                  );
+
+                  if (isFriend || !isFriend) {
+                    // This block bypasses the historical representation
+                    return (
+                      <div 
+                        key={peer.id}
                       className={`p-4 rounded-2xl border transition-all duration-300 relative ${
                         siteTheme === "sudanese"
                           ? isSameStage 
@@ -1522,6 +1585,7 @@ export default function StudentChatRoom({
                       </div>
                     </div>
                   );
+                  }
                 })}
               </div>
             )}
@@ -1632,6 +1696,225 @@ export default function StudentChatRoom({
             </div>
           </div>
         )}
+
+        {/* Selected Student Details Popup Modal */}
+        {selectedPeerDetails && (() => {
+          const isPeerFriend = activeFriendIds.has(String(selectedPeerDetails.id));
+          const sentPeerPending = pendingOutgoing.some(f => String(f.receiver_id) === String(selectedPeerDetails.id));
+          const receivedPeerPending = pendingIncoming.some(f => String(f.sender_id) === String(selectedPeerDetails.id));
+          const peerStageId = getStageOfGrade(selectedPeerDetails.grade_id);
+          const isPeerSameStage = peerStageId === myStageId;
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xs transition-opacity duration-300">
+              <div 
+                className={`w-full max-w-sm rounded-3xl border overflow-hidden p-6 relative shadow-2xl animate-in scale-in duration-200 text-right ${
+                  siteTheme === "sudanese"
+                    ? "bg-[#FCFAF6] border-mud/20 text-mud"
+                    : "bg-slate-925 border-slate-800 text-[#F1F5F9]"
+                }`}
+              >
+                {/* Close Button */}
+                <button 
+                  onClick={() => setSelectedPeerDetails(null)}
+                  className={`absolute top-4 left-4 p-2 rounded-full cursor-pointer hover:scale-110 active:scale-95 duration-150 border ${
+                    siteTheme === "sudanese"
+                      ? "bg-mud/5 hover:bg-mud/10 text-mud/60 border-mud/10"
+                      : "bg-slate-900/50 hover:bg-slate-800 border-slate-800/80 text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+
+                {/* Main Identity Info */}
+                <div className="flex flex-col items-center text-center mt-4 mb-6">
+                  <div className={`w-16 h-16 rounded-full border-2 flex items-center justify-center text-xl font-black mb-3.5 relative ${
+                    siteTheme === "sudanese"
+                      ? "bg-mud/10 border-mud/30 text-mud"
+                      : "bg-indigo-950/40 border-indigo-500/30 text-indigo-400"
+                  }`}>
+                    {selectedPeerDetails.user_role === "teacher" ? "👨‍🏫" : selectedPeerDetails.username.charAt(0).toUpperCase()}
+
+                    <span 
+                      className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 ${
+                        siteTheme === "sudanese" ? "border-[#FCFAF6]" : "border-slate-925"
+                      } ${
+                        isPeerSameStage ? "bg-emerald-500" : "bg-rose-500"
+                      }`}
+                      title={isPeerSameStage 
+                        ? (currentLang === "ar" ? "متاح للإضافة (نفس المرحلة)" : "Available (Same Stage)")
+                        : (currentLang === "ar" ? "غير متاح للإضافة" : "Unavailable (Different Stage)")
+                      }
+                    />
+                  </div>
+
+                  <h3 className={`text-sm font-black mb-1 ${
+                    siteTheme === "sudanese" ? "text-mud font-black" : "text-white"
+                  }`}>
+                    {selectedPeerDetails.username}
+                  </h3>
+
+                  <span className={`text-6xs font-black uppercase px-2.5 py-1 rounded-full ${
+                    siteTheme === "sudanese"
+                      ? "bg-mud/5 text-mud/70"
+                      : "bg-slate-900 text-slate-400"
+                  }`}>
+                    {selectedPeerDetails.grade_name || "صف دراسي غير محدد"} ({getStageLabel(peerStageId)})
+                  </span>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Info Row: Availability Status */}
+                  <div className={`p-3.5 rounded-2xl flex items-center justify-between gap-3 text-2xs ${
+                    siteTheme === "sudanese" ? "bg-mud/5" : "bg-slate-900/40"
+                  }`}>
+                    <span className={`text-5xs font-bold leading-none ${
+                        siteTheme === "sudanese" ? "text-mud/60" : "text-slate-400"
+                      }`}>
+                      {currentLang === "ar" ? "حالة الإضافة" : "Status"}
+                    </span>
+                    <span className="flex items-center gap-1.5 font-bold">
+                      <span className={`w-1.5 h-1.5 rounded-full ${isPeerSameStage ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+                      <span>
+                        {isPeerSameStage 
+                          ? (currentLang === "ar" ? "متاح للإضافة في نفس مرحلتك ✅" : "Available in your stage ✅")
+                          : (currentLang === "ar" ? "غير متاح (مرحلة دراسية مختلفة) ❌" : "Unavailable (Different stage) ❌")
+                        }
+                      </span>
+                    </span>
+                  </div>
+
+                  {/* Actions Block */}
+                  <div className="flex flex-col gap-2 pt-2">
+                    {isPeerFriend ? (
+                      <div className="space-y-2">
+                        <button 
+                          onClick={() => { 
+                            setActiveChatWith(selectedPeerDetails); 
+                            setActiveCategoryTab("chat"); 
+                            setSelectedPeerDetails(null); 
+                            setTimeout(() => scrollToBottom("smooth"), 120); 
+                          }} 
+                          className={`w-full py-2.5 rounded-2xl text-xs font-black cursor-pointer select-none active:scale-95 duration-150 transition-all flex items-center justify-center gap-1.5 ${
+                            siteTheme === "sudanese" 
+                              ? "bg-mud hover:bg-mud/90 text-[#FDFBF7]" 
+                              : "bg-indigo-650 hover:bg-indigo-505 text-[#F1F5F9]"
+                          }`}
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>{currentLang === "ar" ? "بدء دردشة خاصة 💬" : "Send Private Message 💬"}</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            const friendRel = friendships.find(f => 
+                              f.status === "accepted" && (
+                                (String(f.sender_id) === String(currentUser.id) && String(f.receiver_id) === String(selectedPeerDetails.id)) ||
+                                (String(f.sender_id) === String(selectedPeerDetails.id) && String(f.receiver_id) === String(currentUser.id))
+                              )
+                            );
+                            if (friendRel) {
+                              if (window.confirm(currentLang === "ar" ? `هل أنت متأكد من إلغاء الصداقة مع ${selectedPeerDetails.username}؟` : `Are you sure you want to unfriend ${selectedPeerDetails.username}?`)) {
+                                handleDeclineFriend(friendRel.id);
+                                setSelectedPeerDetails(null);
+                              }
+                            }
+                          }}
+                          className="w-full py-2.5 bg-rose-950/20 hover:bg-rose-950/35 border border-rose-900/30 text-rose-400 rounded-2xl text-xs font-black transition-all cursor-pointer select-none active:scale-95 duration-150 flex items-center justify-center gap-1.5"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>{currentLang === "ar" ? "إلغاء الصداقة ❌" : "Unfriend ❌"}</span>
+                        </button>
+                      </div>
+                    ) : sentPeerPending ? (
+                      <div className="space-y-2 text-center">
+                        <div className="py-2 px-3 bg-amber-950/20 border border-amber-900/30 text-amber-405 rounded-2xl text-5xs font-black flex items-center justify-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                          <span>{currentLang === "ar" ? "طلب الصداقة قيد الانتظار..." : "Request is pending..."}</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const friendRel = pendingOutgoing.find(f => String(f.receiver_id) === String(selectedPeerDetails.id));
+                            if (friendRel) {
+                              handleDeclineFriend(friendRel.id);
+                              setSelectedPeerDetails(null);
+                            }
+                          }}
+                          className="w-full py-2 bg-slate-900 hover:bg-slate-800 hover:text-slate-200 border border-slate-800 text-slate-400 rounded-2xl text-5xs font-black transition-all cursor-pointer select-none active:scale-95 duration-150 flex items-center justify-center gap-1"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>{currentLang === "ar" ? "التراجع عن طلب الصداقة" : "Cancel Request"}</span>
+                        </button>
+                      </div>
+                    ) : receivedPeerPending ? (
+                      <div className="space-y-2">
+                        <div className="p-3 bg-indigo-950/10 border border-indigo-900/30 text-indigo-400 rounded-2xl text-5xs font-bold text-center">
+                          {currentLang === "ar" ? "أرسل إليك طلب صداقة 🔔" : "Sent you a friend request 🔔"}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => {
+                              const friendObj = pendingIncoming.find(f => String(f.sender_id) === String(selectedPeerDetails.id));
+                              if (friendObj) {
+                                handleAcceptFriend(friendObj.id, selectedPeerDetails);
+                                setSelectedPeerDetails(null);
+                              }
+                            }}
+                            className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-2xs font-extrabold rounded-2xl cursor-pointer flex items-center justify-center gap-1 select-none active:scale-95 duration-150"
+                          >
+                            <Check className="w-3.5 h-3.5 text-white" />
+                            <span>{t.acceptBtn}</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              const friendObj = pendingIncoming.find(f => String(f.sender_id) === String(selectedPeerDetails.id));
+                              if (friendObj) {
+                                handleDeclineFriend(friendObj.id);
+                                setSelectedPeerDetails(null);
+                              }
+                            }}
+                            className="py-2.5 bg-rose-950/40 hover:bg-rose-900/40 text-rose-400 border border-rose-900/35 text-2xs font-black rounded-2xl cursor-pointer flex items-center justify-center gap-1 select-none active:scale-95 duration-150"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>{t.declineBtn}</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : isPeerSameStage ? (
+                      <div className="space-y-2">
+                        <button
+                          onClick={() => {
+                            handleAddFriend(selectedPeerDetails);
+                            setSelectedPeerDetails(null);
+                          }}
+                          className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-505 text-white text-2xs font-black rounded-2xl cursor-pointer flex items-center justify-center gap-1 select-none active:scale-95 duration-150"
+                        >
+                          <UserPlus className="w-4 h-4 text-white" />
+                          <span>{t.addFriend}</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            handleSimulateIncomingRequest(selectedPeerDetails);
+                            setSelectedPeerDetails(null);
+                          }}
+                          className="w-full py-2 bg-amber-900/10 hover:bg-amber-900/20 border border-amber-900/30 text-amber-400 text-5xs font-black rounded-2xl cursor-pointer flex items-center justify-center gap-1 select-none active:scale-95 duration-150"
+                          title="اضغط لتجربة واستقبال طلب صداقة وهمي من هذا الطالب على حسابك"
+                        >
+                          <span>محاكاة استلام طلب 📥</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-rose-950/10 border border-rose-900/20 text-rose-400 rounded-2xl text-5xs font-black text-center select-none leading-relaxed">
+                        {currentLang === "ar" ? "عذراً، لا يمكنك إضافة طالب من مرحلة دراسية مختلفة لعدم حدوث تشتيت للمناهج." : "Sorry, you cannot add a student from a different educational stage."}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
       </div>
     );
