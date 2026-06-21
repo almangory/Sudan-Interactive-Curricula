@@ -295,13 +295,69 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<SyncRes
       });
     });
 
-    // Attempt direct relational insertion into curricula_links table
-    const { error: insertErr } = await client
-      .from("curricula_links")
-      .upsert(flatRows);
+    // Attempt direct relational insertion with a self-healing retry mechanism for missing columns
+    let attempts = 0;
+    let success = false;
+    let lastError: any = null;
+    let currentFlatRows = [...flatRows];
 
-    if (!insertErr) {
+    while (attempts < 5 && !success) {
+      const { error } = await client
+        .from("curricula_links")
+        .upsert(currentFlatRows);
+
+      if (!error) {
+        success = true;
+        break;
+      }
+
+      lastError = error;
+      const errMsg = error.message || "";
+      console.warn(`Upsert attempt ${attempts + 1} failed: ${errMsg}`);
+
+      // Locate column name in errors like "Could not find the '...' column of 'curricula_links'" or "column '...' does not exist"
+      let missingColumn: string | null = null;
+      const match1 = errMsg.match(/Could not find the '([^']+)' column/i);
+      const match2 = errMsg.match(/column "([^"]+)" of relation .*(?:does not exist|not found)/i);
+      const match3 = errMsg.match(/column ([a-zA-Z0-9_]+) of relation .*(?:does not exist|not found)/i);
+
+      if (match1) missingColumn = match1[1];
+      else if (match2) missingColumn = match2[1];
+      else if (match3) missingColumn = match3[1];
+
+      if (missingColumn) {
+        console.log(`Self-healing active: Removing unsupported column '${missingColumn}' and retrying...`);
+        currentFlatRows = currentFlatRows.map(row => {
+          const newRow = { ...row };
+          delete newRow[missingColumn!];
+          return newRow;
+        });
+        attempts++;
+      } else {
+        // Not a column missing error, break immediately (e.g., RLS, database offline, validation rules)
+        break;
+      }
+    }
+
+    if (success) {
       console.log("Successfully saved row-by-row into curricula_links!");
+
+      // Clean up deleted subjects that are no longer in our curriculum tree
+      const currentIds = flatRows.map(row => row.id);
+      if (currentIds.length > 0) {
+        try {
+          const { error: deleteErr } = await client
+            .from("curricula_links")
+            .delete()
+            .not("id", "in", `(${currentIds.map(id => `"${id}"`).join(",")})`);
+          if (deleteErr) {
+            console.warn("Could not cleanup deleted rows from Supabase during sync:", deleteErr);
+          }
+        } catch (e) {
+          console.warn("Exception during database cleanup in sync:", e);
+        }
+      }
+
       return {
         success: true,
         savedTable: "curricula_links",
@@ -311,7 +367,7 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<SyncRes
       };
     }
     
-    errors.push(`[خطأ بـ curricula_links] ${insertErr.message}`);
+    errors.push(`[خطأ بـ curricula_links] ${lastError?.message || "خطأ غير معروف"}`);
     return {
       success: false,
       savedTable: "none",

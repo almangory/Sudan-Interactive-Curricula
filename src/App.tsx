@@ -1390,13 +1390,14 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         setTimeout(() => setSaveStatus(null), 5000);
       } else {
         console.warn("Background cloud sync errors:", result.errors);
-        setSaveStatus("⚠️ تم الحفظ محلياً وفشلت المزامنة التلقائية مع سوبابيس (يرجى مراجعة إعدادات الجدول أو الـ RLS)");
-        setTimeout(() => setSaveStatus(null), 7000);
+        const errorDetail = result.errors && result.errors.length > 0 ? result.errors.join(" | ") : "خطأ مجهول بالـ RLS أو الصلاحيات";
+        setSaveStatus(`⚠️ فشلت المزامنة التلقائية مع سوبابيس: ${errorDetail}`);
+        setTimeout(() => setSaveStatus(null), 10000);
       }
     } catch (err: any) {
       console.error("Background cloud sync error:", err);
       setSaveStatus(`⚠️ خطأ في المزامنة التلقائية: ${err.message || err}`);
-      setTimeout(() => setSaveStatus(null), 5000);
+      setTimeout(() => setSaveStatus(null), 8000);
     }
   };
 
@@ -4378,10 +4379,22 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-6 left-6 md:left-auto md:right-6 z-[9999] bg-slate-950 border border-emerald-500/60 text-emerald-400 px-5 py-3.5 rounded-2xl flex items-center gap-2.5 shadow-2xl"
+            className={`fixed bottom-6 left-6 md:left-auto md:right-6 z-[9999] bg-slate-950 px-5 py-3.5 rounded-2xl flex items-center gap-2.5 shadow-2xl border ${
+              saveStatus.includes("⚠️") || saveStatus.includes("❌")
+                ? "border-amber-500/60 text-amber-400"
+                : saveStatus.includes("جاري م") || saveStatus.includes("جاري M")
+                ? "border-indigo-500/60 text-indigo-400"
+                : "border-emerald-500/60 text-emerald-400"
+            }`}
           >
-            <CheckCircle className="w-5 h-5 text-emerald-400 animate-pulse" />
-            <span className="text-xs font-extrabold text-slate-205">{saveStatus}</span>
+            {saveStatus.includes("⚠️") || saveStatus.includes("❌") ? (
+              <ShieldAlert className="w-5 h-5 text-amber-400 animate-bounce" />
+            ) : saveStatus.includes("جاري م") || saveStatus.includes("جاري M") ? (
+              <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <CheckCircle className="w-5 h-5 text-emerald-400 animate-pulse" />
+            )}
+            <span className="text-xs font-extrabold text-slate-200">{saveStatus}</span>
           </motion.div>
         )}
       </AnimatePresence>
