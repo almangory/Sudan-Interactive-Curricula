@@ -1371,50 +1371,9 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
     }
   }, [curriculumData, currentUser, isAdminLoggedIn]);
 
-  // Function to save curriculum data directly on the server filesystem
-  const saveCurriculumToServer = async (newData: Stage[], isSilent = false) => {
-    try {
-      if (!isSilent) {
-        setSaveStatus("جاري حفظ التعديلات على كود ملقم التعليم...");
-      }
-      
-      const response = await fetch("/api/curriculum/save", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          password: "20302060",
-          stages: newData
-        })
-      });
+  // تم الاستغناء بالكامل عن الطريقة القديمة لحفظ الملفات محلياً على السيرفر (والتي كانت تفشل على فيرسل Vercel)
+  // لصالح مزامنة سحابية ديناميكية وتلقائية بالكامل بنسبة 100% تعتمد على سوبابيس (Supabase Realtime Database)
 
-      const contentType = response.headers.get("content-type");
-      let result;
-      if (contentType && contentType.includes("application/json")) {
-        result = await response.json();
-      } else {
-        throw new Error("استجابة الخادم ليست ملف JSON. يرجى العلم أن السيرفرات السحابية المؤقتة والمنصات غير المطورة بالكامل (مثل Vercel) لا تدعم ميزة الكتابة والتعديل المباشر لملفات الكود، ولكن تم حفظ تعديلاتك محلياً في المتصفح بنجاح! 💾");
-      }
-
-      if (response.ok && result.success) {
-        if (!isSilent) {
-          setSaveStatus("تم تحديث كود برنامج المنهج (curriculum.ts) على الخادم بنجاح! 🎉");
-          setTimeout(() => setSaveStatus(null), 5000);
-        } else {
-          console.log("Curriculum successfully synced to server file system on startup.");
-        }
-      } else {
-        throw new Error(result.error || "فشل غير معروف أثناء تحديث ملف الخادم.");
-      }
-    } catch (err: any) {
-      console.error("Server save error:", err);
-      if (!isSilent) {
-        setSaveStatus(`تنبيه: تم الحفظ محلياً وفشل الحفظ على الملقم (${err.message})`);
-        setTimeout(() => setSaveStatus(null), 6000);
-      }
-    }
-  };
 
   const saveCurriculumToCloudAutomatically = async (newData: Stage[]) => {
     const config = getSupabaseConfig();

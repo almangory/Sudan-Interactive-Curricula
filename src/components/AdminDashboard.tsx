@@ -572,7 +572,16 @@ ALTER TABLE site_updates ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow select for everyone on site_updates" ON site_updates FOR SELECT USING (true);
 CREATE POLICY "Allow insert update delete for all on site_updates" ON site_updates FOR ALL USING (true) WITH CHECK (true);
 
--- 7. تنشيط ذاكرة الكاش المؤقتة لـ PostgREST لتسريع قراءة وحفظ الأعمدة الجديدة:
+-- 7. تفعيل ميزة البث الفوري والتلقائي اللحظي المباشر (Supabase Realtime) لجميع الأجهزة دون الحاجة لأي خوادم وسيطة أو تدخل يدوي:
+begin;
+  -- التحقق من تفعيل النشر وإضافتها لـ supabase_realtime لتلقي التغيرات في نفس اللحظة
+  alter publication supabase_realtime add table curricula_links;
+  alter publication supabase_realtime add table chat_messages;
+  alter publication supabase_realtime add table site_updates;
+  alter publication supabase_realtime add table friendships;
+commit;
+
+-- 8. تنشيط ذاكرة الكاش المؤقتة لـ PostgREST لتسريع قراءة وحفظ الأعمدة الجديدة:
 NOTIFY pgrst, 'reload schema';`;
 
   const handleCreateDatabaseTable = async () => {
@@ -1098,15 +1107,22 @@ NOTIFY pgrst, 'reload schema';`;
           </div>
 
           {/* Cloud Sync Operations Box */}
-          <div className="border border-slate-800 rounded-2xl p-5 bg-slate-950/40 space-y-3.5">
-            <div className="flex items-center gap-2 border-b border-slate-800 pb-2.5">
-              <Award className="w-4 h-4 text-amber-500" />
-              <h5 className="text-xs font-black text-slate-200">عمليات المزامنة السحابية للبيانات العامة:</h5>
+          <div className="border border-indigo-900/40 rounded-2xl p-5 bg-indigo-950/10 space-y-3.5">
+            <div className="flex items-center gap-2 border-b border-indigo-900/30 pb-2.5">
+              <Award className="w-4.5 h-4.5 text-emerald-400" />
+              <h5 className="text-xs font-black text-slate-200">الربط التلقائي والبث السحابي الذكي (Realtime Automated Sync):</h5>
             </div>
 
             <p className="text-2xs text-slate-400 leading-relaxed">
-              بمجرد الاتصال وحفظ المفاتيح، يمكنك الضغط على "رفع ومزامنة المناهج الحالية" لإرسال جدول المناهج الحالي من متصفحك إلى قاعدة بيانات سوبابيس (مرة واحدة فقط لتأسيس البيانات)، ثم استخدام "سحب وتحميل المناهج السحابية" لتحميل منهج سوبابيس ديناميكياً دائماً.
+              ⭐ <strong className="text-emerald-400 font-bold">ميزة احترافية جديدة:</strong> المزامنة الآن تعمل <strong className="text-slate-200">تلقائياً بالكامل دون أي تدخل منك!</strong> عند إضافتك أو تعديلك أو حذفك لأي مادة دراسية من تبويب "المناهج"، يتم حفظها وتحديثها سحابياً بالخلفية فوراً. تنعكس التعديلات لحظياً لجميع الطلاب المتصلين مباشرة بفضل بروتوكول البث الذكي <strong className="text-emerald-400">Supabase Realtime</strong> المدمج في الموقع.
             </p>
+
+            <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-xl">
+              <span className="text-3xs text-yellow-500 font-bold block mb-1">🛠️ أدوات التحكم والتشخيص المتقدمة (اختياري):</span>
+              <p className="text-3xs text-slate-400 leading-normal">
+                إذا قمت بتهيئة سوبابيس لأول مرة، يمكنك الانتقال لتأسيس البيانات بنقرة واحدة بالأسفل، أو سحب وإعادة تنزيل النسخة المخزنة مسبقاً لاسترجاعها محلياً:
+              </p>
+            </div>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <button
@@ -1115,7 +1131,7 @@ NOTIFY pgrst, 'reload schema';`;
                 disabled={isSbLoading || !sbUrl || !sbAnonKey}
                 className="px-4 py-2.5 bg-emerald-950/30 hover:bg-emerald-950/60 border border-emerald-900 text-emerald-450 hover:text-emerald-400 font-extrabold text-2xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40"
               >
-                <span>☁️ رفع ومزامنة المناهج الحالية إلى سوبابيس</span>
+                <span>☁️ تأسيس / رفع المناهج الحالية يدوياً إلى سوبابيس</span>
               </button>
 
               <button
