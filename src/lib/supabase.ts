@@ -19,14 +19,18 @@ export function getSupabaseConfig() {
   const localUrl = (localStorage.getItem(STORAGE_KEYS.URL) || "").trim();
   const localKey = (localStorage.getItem(STORAGE_KEYS.ANON_KEY) || "").trim();
 
-  const activeUrl = envUrl || localUrl || "";
-  const activeKey = envKey || localKey || "";
+  // قيم افتراضية آمنة ومحدثة بناءً على طلب المستخدم
+  const fallbackUrl = "https://ecgqrdkiybhhncdrtlea.supabase.co";
+  const fallbackKey = "sb_publishable_BrL53NclB-jnltLj2Hcv5w_ovYsdzF9";
+
+  const activeUrl = envUrl || localUrl || fallbackUrl;
+  const activeKey = envKey || localKey || fallbackKey;
 
   return {
     url: activeUrl,
     anonKey: activeKey,
     isConfigured: !!activeUrl && !!activeKey,
-    source: (envUrl && envKey) ? "env" : (localUrl && localKey) ? "localStorage" : "none",
+    source: (envUrl && envKey) ? "env" : (localUrl && localKey) ? "localStorage" : "defaults",
   };
 }
 
