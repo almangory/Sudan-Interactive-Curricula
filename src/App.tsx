@@ -1252,12 +1252,19 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
     });
   };
 
-  const resetCurriculumToDefault = () => {
+  const resetCurriculumToDefault = async () => {
     if (window.confirm("هل أنت متأكد من رغبتك في استعادة المنهج الدراسي الافتراضي الأصلي وحذف كل التعديلات المحلية الحالية؟")) {
       localStorage.removeItem("sudan_custom_curriculum_v3");
       setCurriculumData(stagesData);
-      setSaveStatus("تمت استعادة المنهج الدراسي الافتراضي بنجاح! 🔄");
-      setTimeout(() => setSaveStatus(null), 4000);
+      setSaveStatus("🔄 جاري استعادة المنهج الدراسي الافتراضي وتحديث السحابة...");
+      try {
+        await saveCurriculumToCloudAutomatically(stagesData);
+        setSaveStatus("✅ تمت استعادة المنهج الدراسي بنجاح ومزامنته سحابياً! 🔄");
+      } catch (err) {
+        console.error("Failed to sync default curriculum reset to Supabase:", err);
+        setSaveStatus("🔄 تم الحفظ محلياً وفشلت المزامنة التلقائية مع سوبابيس");
+      }
+      setTimeout(() => setSaveStatus(null), 5000);
     }
   };
 

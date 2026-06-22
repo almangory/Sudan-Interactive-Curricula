@@ -350,28 +350,33 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<SyncRes
     if (success) {
       console.log("Successfully saved row-by-row into curricula_links!");
 
-      // Clean up deleted subjects that are no longer in our curriculum tree
+      // Clean up deleted subjects that are no longer in our curriculum tree safely via diffing
       const currentIds = flatRows.map(row => row.id);
       try {
-        if (currentIds.length > 0) {
-          const { error: deleteErr } = await client
-            .from("curricula_links")
-            .delete()
-            .not("id", "in", `(${currentIds.join(",")})`);
-          if (deleteErr) {
-            console.warn("Could not cleanup deleted rows from Supabase during sync:", deleteErr);
-          }
-        } else {
-          const { error: deleteErr } = await client
-            .from("curricula_links")
-            .delete()
-            .neq("id", "placeholder_never_exists");
-          if (deleteErr) {
-            console.warn("Could not clear curricula_links table during sync:", deleteErr);
+        const { data: dbRows, error: fetchErr } = await client
+          .from("curricula_links")
+          .select("id");
+
+        if (!fetchErr && dbRows) {
+          const dbIds = dbRows.map((r: any) => r.id);
+          const idsToDelete = dbIds.filter((id: string) => id !== "curriculum" && !currentIds.includes(id));
+          
+          if (idsToDelete.length > 0) {
+            console.log("Safely deleting obsolete subject IDs from Supabase:", idsToDelete);
+            const { error: deleteErr } = await client
+              .from("curricula_links")
+              .delete()
+              .in("id", idsToDelete);
+
+            if (deleteErr) {
+              console.warn("Could not delete removed subject rows from Supabase during sync:", deleteErr);
+            } else {
+              console.log(`Successfully deleted ${idsToDelete.length} obsolete subjects from database.`);
+            }
           }
         }
       } catch (e) {
-        console.warn("Exception during database cleanup in sync:", e);
+        console.warn("Exception during safe database cleanup in sync:", e);
       }
 
       return {
