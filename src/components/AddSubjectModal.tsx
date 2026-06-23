@@ -15,6 +15,7 @@ interface AddSubjectModalProps {
   onClose: () => void;
   onAddSubject: (stageId: string, gradeId: string, newSubject: Subject) => void;
   isAdminActive?: boolean;
+  isAdminLoggedIn?: boolean;
   currentLang?: "ar" | "en";
   siteTheme?: string;
 }
@@ -47,7 +48,7 @@ const AVAILABLE_COLORS = [
   { value: "bg-pink-900/20 text-pink-400 border-pink-855", label: "وردي زاهي" }
 ];
 
-export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, onAddSubject, isAdminActive, currentLang = "ar", siteTheme }: AddSubjectModalProps) {
+export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, onAddSubject, isAdminActive, isAdminLoggedIn, currentLang = "ar", siteTheme }: AddSubjectModalProps) {
   const t = (key: string): string => {
     if (uiTranslations[currentLang] && (uiTranslations[currentLang] as any)[key]) {
       return (uiTranslations[currentLang] as any)[key];
@@ -59,7 +60,7 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
   };
 
   // Authentication states
-  const [isAuthenticated, setIsAuthenticated] = useState(isAdminActive || false);
+  const [isAuthenticated, setIsAuthenticated] = useState(isAdminLoggedIn || false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
@@ -142,44 +143,24 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
         <div className="p-6 md:p-8 overflow-y-auto flex-1 space-y-6">
           {!isAuthenticated ? (
             <div className="max-w-md mx-auto w-full my-6 space-y-5 bg-slate-950/40 p-6 rounded-2xl border border-slate-800">
-              <div className="flex items-center gap-2.5 text-amber-400">
+              <div className="flex items-center gap-2.5 text-red-400">
                 <Lock className="w-5 h-5" />
-                <h4 className="text-sm font-bold">{currentLang === "ar" ? "إضافة مادة - مطلوب كلمة مرور المعلم" : "Add Subject - Teacher Password Required"}</h4>
+                <h4 className="text-sm font-bold">{currentLang === "ar" ? "خاص بحساب الإدارة فقط" : "Admin Only Feature"}</h4>
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs text-slate-400 leading-relaxed text-center py-2">
                 {currentLang === "ar" 
-                  ? "يرجى إدخال كلمة المرور الخاصة بالإدارة لحماية تعديل أسماء المواد، روابط الكتب الإلكترونية التفاعلية، وروابط شروحات الفيديو." 
-                  : "Please enter the administrative password to protect official subject names, interactive portals, and video reference links."}
+                  ? "عذراً، إضافة المواد الدراسية مخصصة ومتاحة فقط عند تسجيل الدخول بحساب مسؤول النظام (لوحة التحكم الخاصة بالإدارة)." 
+                  : "Sorry, adding new subjects is restricted to logged-in administrative accounts."}
               </p>
-              <form onSubmit={handlePasswordSubmit} className="space-y-4">
-                <input
-                  type="password"
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder={currentLang === "ar" ? "أدخل كلمة مرور الإدارة" : "Enter administrative password"}
-                  className="w-full bg-slate-900 border border-slate-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl py-2 px-3 text-xs text-slate-100 outline-none transition-all text-center tracking-widest"
-                  autoFocus
-                />
-                {passwordError && (
-                  <p className="text-2xs text-red-500 text-center font-bold">{passwordError}</p>
-                )}
-                <div className="flex items-center gap-2 justify-end pt-2">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="px-4 py-2 text-xs text-slate-400 bg-slate-800 hover:bg-slate-755 hover:text-white rounded-xl transition-all cursor-pointer"
-                  >
-                    {currentLang === "ar" ? "إلغاء" : "Cancel"}
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Unlock className="w-3.5 h-3.5" />
-                    <span>{currentLang === "ar" ? "تأكيد الصلاحية" : "Confirm Pin"}</span>
-                  </button>
-                </div>
-              </form>
+              <div className="flex items-center gap-2 justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 text-xs text-slate-400 bg-slate-800 hover:bg-slate-755 hover:text-white rounded-xl transition-all cursor-pointer w-full text-center font-bold"
+                >
+                  {currentLang === "ar" ? "إغلاق" : "Close"}
+                </button>
+              </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">

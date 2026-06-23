@@ -4,12 +4,13 @@ import {
   X, ExternalLink, Sparkles, BookOpen, Clock, Users, ShieldAlert,
   ChevronRight, Award, Compass, Heart, HelpCircle, Download, Video,
   FileText, Youtube, Lock, Unlock, Save, Edit, Share2, Check, Star, Trash2,
-  Wifi, WifiOff
+  Wifi, WifiOff, Plus
 } from "lucide-react";
 import { Subject } from "../data/curriculum";
 import DynamicIcon from "./DynamicIcon";
 import AITutor from "./AITutor";
 import { stageAndGradeTranslations, uiTranslations } from "../lib/translations";
+import { saveLiveLessonToSupabase, deleteLiveLessonFromSupabase } from "../lib/supabase";
 
 function getVideoEmbedUrl(url: string): { url: string; isYouTube: boolean; isDrive: boolean } | null {
   if (!url) return null;
@@ -69,12 +70,35 @@ interface SubjectModalProps {
   onUpdateSubject?: (stageId: string, gradeId: string, subjectId: string, updatedFields: Partial<Subject>) => void;
   onDeleteSubject?: (stageId: string, gradeId: string, subjectId: string) => void;
   isAdminActive?: boolean;
+  isAdminLoggedIn?: boolean;
   currentLang?: "ar" | "en";
   siteTheme?: "sudanese" | "legacy";
+  liveLessons?: any[];
+  onRefreshLiveLessons?: () => void;
 }
 
-export default function SubjectModal({ stageId, stageName, gradeId, gradeName, subject, onClose, onUpdateSubject, onDeleteSubject, isAdminActive, currentLang: passedLang, siteTheme = "legacy" }: SubjectModalProps) {
+export default function SubjectModal({ 
+  stageId, 
+  stageName, 
+  gradeId, 
+  gradeName, 
+  subject, 
+  onClose, 
+  onUpdateSubject, 
+  onDeleteSubject, 
+  isAdminActive, 
+  isAdminLoggedIn, 
+  currentLang: passedLang, 
+  siteTheme = "legacy",
+  liveLessons = [],
+  onRefreshLiveLessons
+}: SubjectModalProps) {
   const [showTutor, setShowTutor] = useState(false);
+
+  const subjectLiveLessons = liveLessons.filter(
+    (lesson) => lesson.subjectId === subject.id || (lesson.subjectName === subject.name && lesson.gradeId === gradeId)
+  );
+  const isLiveLessonAvailable = subjectLiveLessons.length > 0;
 
   const currentLang = passedLang || (localStorage.getItem("sudan_edu_lang") as "ar" | "en") || "ar";
   const embedInfo = getVideoEmbedUrl(subject.videoUrl);
@@ -91,6 +115,60 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
 
   // Study Mode state variables
   const [isStudyMode, setIsStudyMode] = useState(false);
+  
+  // Live lesson management states inside SubjectModal
+  const [showAddLessonForm, setShowAddLessonForm] = useState(false);
+  const [newLessonTitle, setNewLessonTitle] = useState("");
+  const [newLessonTeacher, setNewLessonTeacher] = useState("");
+  const [newLessonTime, setNewLessonTime] = useState("");
+  const [newLessonDuration, setNewLessonDuration] = useState(45);
+  const [newLessonPlatform, setNewLessonPlatform] = useState<"google_meet" | "zoom" | "other">("google_meet");
+  const [newLessonUrl, setNewLessonUrl] = useState("");
+  const [newLessonNotes, setNewLessonNotes] = useState("");
+  const [subjectFeedback, setSubjectFeedback] = useState<string | null>(null);
+
+  const handleSubjectLiveLessonSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLessonTitle.trim() || !newLessonTeacher.trim() || !newLessonTime || !newLessonUrl.trim()) {
+      setSubjectFeedback("⚠️ يرجى ملء جميع الحقول الإلزامية.");
+      return;
+    }
+
+    setSubjectFeedback("⏳ جاري جدولة وحفظ الحصة المباشرة...");
+    const res = await saveLiveLessonToSupabase({
+      id: "live-" + Math.random().toString(36).substring(2, 11),
+      title: newLessonTitle.trim(),
+      stageId: stageId,
+      gradeId: gradeId,
+      subjectId: subject.id,
+      subjectName: subject.name,
+      teacherName: newLessonTeacher.trim(),
+      meetingPlatform: newLessonPlatform,
+      meetingUrl: newLessonUrl.trim(),
+      scheduledTime: newLessonTime,
+      duration: newLessonDuration,
+      notes: newLessonNotes.trim() || undefined
+    });
+
+    if (res.success) {
+      setSubjectFeedback("✅ تم جدولة وإتاحة الحصة المباشرة بنجاح!");
+      setNewLessonTitle("");
+      setNewLessonTeacher("");
+      setNewLessonTime("");
+      setNewLessonDuration(45);
+      setNewLessonUrl("");
+      setNewLessonNotes("");
+      setShowAddLessonForm(false);
+      
+      setTimeout(() => setSubjectFeedback(null), 3000);
+
+      if (onRefreshLiveLessons) {
+        onRefreshLiveLessons();
+      }
+    } else {
+      setSubjectFeedback("❌ فشل جدولة الحصة: " + res.error);
+    }
+  };
   const [studySeconds, setStudySeconds] = useState(0);
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [studySessionCompleted, setStudySessionCompleted] = useState<string | null>(null);
@@ -249,12 +327,10 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
       setEditVideoUrl(subject.videoUrl || "");
       setEditCurriculumSummary(subject.curriculumSummary || "");
     } else {
-      if (isAdminActive) {
+      if (isAdminLoggedIn) {
         setIsEditing(true);
       } else {
-        setShowPasswordPrompt(true);
-        setPasswordInput("");
-        setPasswordError("");
+        alert(currentLang === "ar" ? "⚠️ عذراً، لا يمكن تعديل المادة إلا من خلال تسجيل الدخول بحساب الإدارة فقط." : "⚠️ Sorry, editing subjects is restricted to logged-in administrator accounts only.");
       }
     }
   };
@@ -651,7 +727,7 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                 {isCopied ? <Check className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
                 <span>{isCopied ? t("تم النسخ!") : t("مشاركة المادة")}</span>
               </button>
-              {isAdminActive && (
+              {isAdminLoggedIn && (
                 <>
                   <button 
                     onClick={handleEditClick}
@@ -868,6 +944,236 @@ export default function SubjectModal({ stageId, stageName, gradeId, gradeName, s
                   <button type="button" onClick={() => setStudySessionCompleted(null)} className="text-indigo-400 hover:text-white p-1 text-xs cursor-pointer">✕</button>
                 </div>
               )}
+
+              {/* Live Lesson Status indicator */}
+              <div className={`p-4 rounded-2xl border mb-4 ${
+                isLiveLessonAvailable
+                  ? "bg-emerald-950/15 border-emerald-550/35 text-emerald-300"
+                  : siteTheme === "sudanese"
+                    ? "bg-[#FCFAF3] border-mud/10 text-mud/85"
+                    : "bg-slate-950/30 border-slate-800/80 text-slate-400"
+              }`}>
+                <div className="flex items-center justify-between flex-wrap gap-2 mb-2 pb-2 border-b border-white/5">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5">
+                      {isLiveLessonAvailable ? (
+                        <>
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+                        </>
+                      ) : (
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-slate-550"></span>
+                      )}
+                    </span>
+                    <span className="text-xs font-extrabold">
+                      {isLiveLessonAvailable 
+                        ? (currentLang === "ar" ? "🎥 الحصص المباشرة للمادة: متوفرة حالياً" : "🎥 Subject Live Lessons: Available Now")
+                        : (currentLang === "ar" ? "⚪ الحصص المباشرة للمادة: غير متوفرة حالياً" : "⚪ Subject Live Lessons: Currently Unavailable")
+                      }
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 opacity-80">
+                    {currentLang === "ar" ? "تحديد حسب جدول الأستاذ" : "Scheduled by Teacher"}
+                  </span>
+                </div>
+
+                {isLiveLessonAvailable ? (
+                  <div className="space-y-3">
+                    {subjectLiveLessons.map((lesson) => {
+                      const isActiveNow = new Date(lesson.scheduledTime).getTime() <= Date.now();
+                      return (
+                        <div key={lesson.id} className="p-3 rounded-xl bg-slate-950/40 border border-emerald-800/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <div className="space-y-1 text-right">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold ${isActiveNow ? 'bg-emerald-600 text-[#ffffff]' : 'bg-slate-800 text-slate-300 border border-slate-700'}`}>
+                                {isActiveNow ? "🔴 جارية الآن" : "📅 مجدولة قريباً"}
+                              </span>
+                              <span className="text-xs font-black text-slate-200">{lesson.title}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 flex flex-wrap gap-x-3 gap-y-1">
+                              <span>👤 المعلم: {lesson.teacherName}</span>
+                              <span>⏱️ المدة: {lesson.duration} دقيقة</span>
+                              <span>📅 الموعد: {new Date(lesson.scheduledTime).toLocaleString("ar-SD", { hour12: true })}</span>
+                            </div>
+                            {lesson.notes && (
+                              <p className="text-[10px] text-slate-400 italic mt-1 font-sans">📝 ملاحظة: {lesson.notes}</p>
+                            )}
+                          </div>
+                          
+                          <a
+                            href={lesson.meetingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-555 text-[#ffffff] text-xs font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 cursor-pointer"
+                          >
+                            <Video className="w-3.5 h-3.5" />
+                            <span>{currentLang === "ar" ? "انضمام للبث المباشر" : "Join Live Class"}</span>
+                          </a>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[11px] leading-relaxed opacity-80 text-right">
+                    {currentLang === "ar" 
+                      ? "لا توجد حصص بث مباشر مجدولة لهذه المادة حالياً من قبل أستاذ المادة. سيتم تحديث هذه اللوحة فور قيام المعلم بجدولة أي بث جديد."
+                      : "There are no live lessons scheduled for this subject at the moment by the teacher. This board will update automatically once a live broadcast is scheduled."
+                    }
+                  </p>
+                )}
+
+                {/* If user is teacher/admin, allow adding a live lesson for this specific subject right here! */}
+                {isAdminActive && (
+                  <div className="mt-4 pt-3 border-t border-slate-850">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddLessonForm(!showAddLessonForm)}
+                      className="px-3 py-1.5 bg-sky-900/30 hover:bg-sky-900/40 border border-sky-850 text-sky-400 hover:text-sky-350 rounded-xl text-3xs font-extrabold transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-sky-400" />
+                      <span>{showAddLessonForm ? (currentLang === "ar" ? "إغلاق نافذة الجدولة" : "Close Scheduler") : (currentLang === "ar" ? "➕ جدولة حصة مباشرة جديدة لهذه المادة" : "➕ Schedule New Live Lesson for this Subject")}</span>
+                    </button>
+
+                    {showAddLessonForm && (
+                      <form onSubmit={handleSubjectLiveLessonSubmit} className="mt-3 p-4 rounded-xl bg-slate-950/65 border border-slate-850 space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-300 block">عنوان الحصة: <span className="text-red-500">*</span></label>
+                            <input
+                              type="text"
+                              required
+                              value={newLessonTitle}
+                              onChange={(e) => setNewLessonTitle(e.target.value)}
+                              placeholder="مثال: مراجعة الباب الأول وحل المسائل"
+                              className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-3xs text-slate-200 outline-none focus:border-sky-500 font-bold"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-300 block">اسم المعلم: <span className="text-red-500">*</span></label>
+                            <input
+                              type="text"
+                              required
+                              value={newLessonTeacher}
+                              onChange={(e) => setNewLessonTeacher(e.target.value)}
+                              placeholder="أ. أحمد المصطفى"
+                              className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-3xs text-slate-200 outline-none focus:border-sky-500 font-bold"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-300 block">موعد الحصة: <span className="text-red-500">*</span></label>
+                            <input
+                              type="datetime-local"
+                              required
+                              value={newLessonTime}
+                              onChange={(e) => setNewLessonTime(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-3xs text-slate-200 outline-none focus:border-sky-500 font-bold"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-300 block">المدة (دقائق): <span className="text-red-500">*</span></label>
+                            <input
+                              type="number"
+                              required
+                              value={newLessonDuration}
+                              onChange={(e) => setNewLessonDuration(Number(e.target.value))}
+                              className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-3xs text-slate-200 outline-none focus:border-sky-500 font-bold"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-300 block">المنصة: <span className="text-red-500">*</span></label>
+                            <select
+                              value={newLessonPlatform}
+                              onChange={(e) => setNewLessonPlatform(e.target.value as any)}
+                              className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-3xs text-slate-200 outline-none focus:border-sky-500 font-bold"
+                            >
+                              <option value="google_meet">جوجل ميت Google Meet</option>
+                              <option value="zoom">زووم Zoom</option>
+                              <option value="other">رابط خارجي</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-300 block">رابط الحصة: <span className="text-red-500">*</span></label>
+                          <input
+                            type="url"
+                            required
+                            value={newLessonUrl}
+                            onChange={(e) => setNewLessonUrl(e.target.value)}
+                            placeholder="https://meet.google.com/..."
+                            className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-3xs text-slate-200 outline-none focus:border-sky-500 font-bold text-left"
+                            dir="ltr"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-300 block">ملاحظات إضافية (اختياري):</label>
+                          <textarea
+                            value={newLessonNotes}
+                            onChange={(e) => setNewLessonNotes(e.target.value)}
+                            placeholder="مثال: يرجى تجهيز دفتر الملاحظات وقلم لحل المسائل التفاعلية معاً."
+                            rows={2}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-3xs text-slate-200 outline-none focus:border-sky-500 font-bold"
+                          />
+                        </div>
+
+                        {subjectFeedback && (
+                          <div className={`p-2 rounded-lg text-4xs font-bold text-center ${subjectFeedback.includes("✅") ? "bg-emerald-950/45 text-emerald-400" : "bg-red-955/20 text-red-400"}`}>
+                            {subjectFeedback}
+                          </div>
+                        )}
+
+                        <div className="flex justify-end gap-2 pt-1">
+                          <button
+                            type="submit"
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-555 text-[#ffffff] text-xs font-bold rounded-lg duration-150 cursor-pointer shadow"
+                          >
+                            <span>حفظ وجدولة الحصة 🚀</span>
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    {/* Show scheduled lessons listing for easy management inside modal */}
+                    {subjectLiveLessons.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <div className="text-[10px] text-slate-450 font-extrabold">✏️ إدارة حصص المادة المجدولة حالياً:</div>
+                        {subjectLiveLessons.map((lesson) => (
+                          <div key={lesson.id} className="p-2.5 rounded-xl bg-slate-950/20 border border-slate-850 flex items-center justify-between text-3xs">
+                            <span className="font-bold text-slate-300">📅 {lesson.title} - ({new Date(lesson.scheduledTime).toLocaleDateString()})</span>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (window.confirm(`هل تريد بالتأكيد إلغاء وحفظ حصة "${lesson.title}"؟`)) {
+                                  const res = await deleteLiveLessonFromSupabase(lesson.id);
+                                  if (res.success) {
+                                    setSubjectFeedback("✅ تم إلغاء وحذف الحصة بنجاح!");
+                                    setTimeout(() => setSubjectFeedback(null), 3000);
+                                    if (onRefreshLiveLessons) {
+                                      onRefreshLiveLessons();
+                                    }
+                                  } else {
+                                    setSubjectFeedback("❌ فشل حذف الحصة: " + res.error);
+                                  }
+                                }
+                              }}
+                              className="px-2 py-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded-lg font-bold border border-red-900/20 cursor-pointer"
+                            >
+                              إلغاء الحصة 🗑️
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Curriculum Summary Card */}
               <div className={`p-5 rounded-2xl border space-y-3 ${

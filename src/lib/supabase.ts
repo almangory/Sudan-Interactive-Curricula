@@ -782,6 +782,7 @@ export interface LiveLesson {
   stageId: string;
   gradeId: string;
   subjectId?: string;
+  subjectName?: string;
   teacherName: string;
   meetingPlatform: "zoom" | "google_meet" | "other";
   meetingUrl: string;
@@ -924,5 +925,38 @@ export async function deleteLiveLessonFromSupabase(lessonId: string): Promise<{ 
   } catch (err: any) {
     console.error("Exception deleting live lesson:", err);
     return { success: false, error: err.message || String(err) };
+  }
+}
+
+/**
+ * Checks if a user exists in the database and is active.
+ */
+export async function checkUserExistsAndActive(userId: string): Promise<{ exists: boolean; active: boolean; error?: string }> {
+  const client = getSupabaseClient();
+  if (!client) {
+    // If Supabase is not connected or initialized, assume local status is correct
+    return { exists: true, active: true };
+  }
+
+  try {
+    const { data, error } = await client
+      .from("users")
+      .select("status")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("Error checking user in database:", error.message);
+      return { exists: true, active: true }; // Fallback to avoid false lockouts on temporary DB hiccups
+    }
+
+    if (!data) {
+      return { exists: false, active: false };
+    }
+
+    return { exists: true, active: data.status !== "deleted" && data.status !== "inactive" };
+  } catch (err: any) {
+    console.error("Exception in checkUserExistsAndActive:", err);
+    return { exists: true, active: true };
   }
 }

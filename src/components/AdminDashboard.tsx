@@ -29,6 +29,8 @@ interface AdminDashboardProps {
     textColor: string;
     direction: "rtl" | "ltr";
   }) => void;
+  currentUser?: any;
+  isTeacherOnly?: boolean;
 }
 
 export default function AdminDashboard({ 
@@ -36,9 +38,13 @@ export default function AdminDashboard({
   onUpdateCurriculum, 
   onClose,
   breakingNews,
-  onUpdateBreakingNews
+  onUpdateBreakingNews,
+  currentUser,
+  isTeacherOnly = false
 }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"edit" | "supabase" | "users" | "announcements" | "live_lessons">("edit");
+  const [activeTab, setActiveTab] = useState<"edit" | "supabase" | "users" | "announcements" | "live_lessons">(
+    isTeacherOnly ? "live_lessons" : "edit"
+  );
   
   // Breaking News Ticker States
   const [newsEnabled, setNewsEnabled] = useState(breakingNews?.enabled ?? true);
@@ -795,12 +801,17 @@ NOTIFY pgrst, 'reload schema';`;
           </div>
           <div>
             <h2 className="text-xl font-black text-slate-100 flex items-center gap-2">
-              <span>لوحة تحكم إدارة وتحديث المناهج الدراسية</span>
+              <span>{isTeacherOnly ? "لوحة المعلم لجدولة وبث الحصص التفاعلية" : "لوحة تحكم إدارة وتحديث المناهج الدراسية"}</span>
               <span className="text-3xs uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 font-extrabold border border-emerald-900/45 animate-pulse">
-                لوحة مخفية نشطة 🔒
+                {isTeacherOnly ? "لوحة المعلم 🎓" : "لوحة مخفية نشطة 🔒"}
               </span>
             </h2>
-            <p className="text-xs text-slate-400 mt-1">تعديل المسميات والروابط (كتب، مذكرات، تفاعليات، فيديوهات) والربط مع سوبابيس</p>
+            <p className="text-xs text-slate-400 mt-1">
+              {isTeacherOnly 
+                ? "إضافة وتحديث مواعيد البث المباشر (زووم وجوجل ميت) وتحديد مدى توفر الحصص التفاعلية للمواد"
+                : "تعديل المسميات والروابط (كتب، مذكرات، تفاعليات، فيديوهات) والربط مع سوبابيس"
+              }
+            </p>
           </div>
         </div>
 
@@ -814,58 +825,62 @@ NOTIFY pgrst, 'reload schema';`;
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 py-3 mb-6 relative z-10">
-        <button
-          onClick={() => setActiveTab("edit")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === "edit"
-              ? "bg-emerald-600 text-[#ffffff] shadow-md shadow-emerald-950"
-              : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-          }`}
-        >
-          <LayoutGrid className="w-4 h-4" />
-          <span>إدارة المناهج والروابط الدراسية</span>
-        </button>
+      <div className="flex items-center gap-2 border-b border-slate-800 py-3 mb-6 relative z-10 overflow-x-auto">
+        {!isTeacherOnly && (
+          <>
+            <button
+              onClick={() => setActiveTab("edit")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+                activeTab === "edit"
+                  ? "bg-emerald-600 text-[#ffffff] shadow-md shadow-emerald-950"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span>إدارة المناهج والروابط الدراسية</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab("supabase")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === "supabase"
-              ? "bg-indigo-600 text-[#ffffff] shadow-md shadow-indigo-950"
-              : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-          }`}
-        >
-          <Database className="w-4 h-4" />
-          <span>إعداد ومزامنة سوبابيس (Supabase) ☁️</span>
-        </button>
+            <button
+              onClick={() => setActiveTab("supabase")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+                activeTab === "supabase"
+                  ? "bg-indigo-600 text-[#ffffff] shadow-md shadow-indigo-950"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              }`}
+            >
+              <Database className="w-4 h-4" />
+              <span>إعداد ومزامنة سوبابيس (Supabase) ☁️</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab("users")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === "users"
-              ? "bg-violet-600 text-[#ffffff] shadow-md shadow-violet-950"
-              : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>👤 إدارة الحسابات وصلاحيات المعلمين</span>
-        </button>
+            <button
+              onClick={() => setActiveTab("users")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+                activeTab === "users"
+                  ? "bg-violet-600 text-[#ffffff] shadow-md shadow-violet-950"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>👤 إدارة الحسابات وصلاحيات المعلمين</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab("announcements")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === "announcements"
-              ? "bg-rose-600 text-[#ffffff] shadow-md shadow-rose-950"
-              : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-          }`}
-        >
-          <Bell className="w-4 h-4" />
-          <span>📢 شريط الإعلان العاجل (بث)</span>
-        </button>
+            <button
+              onClick={() => setActiveTab("announcements")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+                activeTab === "announcements"
+                  ? "bg-rose-600 text-[#ffffff] shadow-md shadow-rose-950"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              }`}
+            >
+              <Bell className="w-4 h-4" />
+              <span>📢 شريط الإعلان العاجل (بث)</span>
+            </button>
+          </>
+        )}
 
         <button
           onClick={() => setActiveTab("live_lessons")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
             activeTab === "live_lessons"
               ? "bg-sky-600 text-[#ffffff] shadow-md shadow-sky-950"
               : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"

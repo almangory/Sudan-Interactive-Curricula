@@ -5,7 +5,7 @@ import {
   Map, Sparkles, Star, ChevronLeft, ChevronDown, CheckCircle, 
   Search, ShieldAlert, History, Globe, Plus, FileText, Video, Filter,
   Lock, Network, MessageSquare, X, Bell, MessagesSquare, UserCheck, Check, Link, ArrowLeftRight,
-  User, LogOut, Settings, Wifi, WifiOff
+  User, LogOut, Settings, Wifi, WifiOff, RotateCw
 } from "lucide-react";
 import { stagesData, Stage, Grade, Subject } from "./data/curriculum";
 import SubjectModal from "./components/SubjectModal";
@@ -15,7 +15,7 @@ import StudyCamp from "./components/StudyCamp";
 import AdminDashboard from "./components/AdminDashboard";
 import EducationalMindMap from "./components/EducationalMindMap";
 import StudentChatRoom from "./components/StudentChatRoom";
-import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile, fetchLiveLessonsFromSupabase, LiveLesson } from "./lib/supabase";
+import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile, fetchLiveLessonsFromSupabase, LiveLesson, checkUserExistsAndActive } from "./lib/supabase";
 import { stageAndGradeTranslations, uiTranslations } from "./lib/translations";
 
 export default function App() {
@@ -169,6 +169,17 @@ export default function App() {
     return key;
   };
 
+
+
+  const refreshLiveLessonsList = async () => {
+    try {
+      const cloudLessons = await fetchLiveLessonsFromSupabase();
+      setLiveLessons(cloudLessons);
+    } catch (err) {
+      console.error("Failed to refresh live lessons:", err);
+    }
+  };
+
   // Global ripple click effect initializer for superb touch and click response
   useEffect(() => {
     const handleGlobalRipple = (e: MouseEvent) => {
@@ -236,133 +247,6 @@ export default function App() {
       document.removeEventListener("mousedown", handleGlobalRipple);
     };
   }, []);
-
-  // 📱 Mobile Back Button and Exit Confirmation Dialog Logic
-  const [showExitConfirmDialog, setShowExitConfirmDialog] = useState(false);
-  const prevSubViewActive = useRef(false);
-
-  // Helper safe history functions
-  const safeHistoryState = () => {
-    try {
-      if (typeof window !== "undefined" && window.history) {
-        return window.history.state;
-      }
-    } catch (err) {
-      // ignore
-    }
-    return null;
-  };
-
-  const safeHistoryReplaceState = (state: any, title: string, url?: string) => {
-    try {
-      if (typeof window !== "undefined" && window.history && window.history.replaceState) {
-        window.history.replaceState(state, title, url);
-      }
-    } catch (err) {
-      console.warn("history.replaceState is not accessible/allowed in this sandboxed container:", err);
-    }
-  };
-
-  const safeHistoryPushState = (state: any, title: string, url?: string) => {
-    try {
-      if (typeof window !== "undefined" && window.history && window.history.pushState) {
-        window.history.pushState(state, title, url);
-      }
-    } catch (err) {
-      console.warn("history.pushState is not accessible/allowed in this sandboxed container:", err);
-    }
-  };
-
-  const safeHistoryBack = () => {
-    try {
-      if (typeof window !== "undefined" && window.history && window.history.back) {
-        window.history.back();
-      }
-    } catch (err) {
-      console.warn("history.back is not accessible/allowed in this sandboxed container:", err);
-    }
-  };
-
-  useEffect(() => {
-    // 1. Setup initial history state safely
-    safeHistoryReplaceState({ page: "home" }, "");
-
-    const handlePopState = (event: PopStateEvent) => {
-      const isAnySubViewActive = !!(activeSubject || showAdminDashboard || showStudyCamp || showEducationalMindMap || showStudentChat || selectedStage);
-      
-      // If we go back and any sub-view is active, close it and prevent exit
-      if (isAnySubViewActive) {
-        // Close all subviews to return to home
-        setActiveSubject(null);
-        setShowAdminDashboard(false);
-        setShowStudyCamp(false);
-        setShowEducationalMindMap(false);
-        setShowStudentChat(false);
-        setSelectedStage(null);
-        setActiveGrade(null);
-        
-        // Push home state back to history to keep the back button functional for future navigations
-        safeHistoryPushState({ page: "home" }, "");
-      } else {
-        // We are on home and they want to exit. Let's show the beautiful styled React modal instead of window.confirm!
-        setShowExitConfirmDialog(true);
-        // Push state back to prevent actual browser navigation/exit
-        safeHistoryPushState({ page: "home" }, "");
-      }
-    };
-
-    try {
-      window.addEventListener("popstate", handlePopState);
-    } catch (err) {
-      console.warn("Failed to register popstate event listener:", err);
-    }
-
-    return () => {
-      try {
-        window.removeEventListener("popstate", handlePopState);
-      } catch (err) {
-        // Safe ignore
-      }
-    };
-  }, [activeSubject, showAdminDashboard, showStudyCamp, showEducationalMindMap, showStudentChat, selectedStage]);
-
-  // Synchronize view state transitions with window.history pushes
-  useEffect(() => {
-    const isAnySubViewActive = !!(activeSubject || showAdminDashboard || showStudyCamp || showEducationalMindMap || showStudentChat || selectedStage);
-    
-    // We only push a sub-view history state if the current history state is "home" and we entered a sub-view
-    if (isAnySubViewActive && !prevSubViewActive.current) {
-      safeHistoryPushState({ page: "subview" }, "");
-    }
-    prevSubViewActive.current = isAnySubViewActive;
-  }, [activeSubject, showAdminDashboard, showStudyCamp, showEducationalMindMap, showStudentChat, selectedStage]);
-
-  // General beforeunload exit prompt
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      try {
-        e.preventDefault();
-        e.returnValue = currentLang === "ar" ? "هل أنت متأكد من المغادرة؟" : "Are you sure you want to leave?";
-        return e.returnValue;
-      } catch (err) {
-        console.warn("beforeunload manipulation is not permitted in this context:", err);
-      }
-    };
-
-    try {
-      window.addEventListener("beforeunload", handleBeforeUnload);
-    } catch (err) {
-      // Safe ignore
-    }
-
-    return () => {
-      try {
-        window.removeEventListener("beforeunload", handleBeforeUnload);
-      } catch (err) {
-        // Safe ignore
-      }
-    };
-  }, [currentLang]);
 
   // Load from Supabase on start if available and subscribe to Webhook SSE events
   useEffect(() => {
@@ -512,6 +396,43 @@ export default function App() {
     return !!(isKidProfile || isKidStage);
   }, [kidModeOverride, currentUser, selectedStage]);
 
+  // 🔐 Verify if current user account is registered and not deleted/inactive in Supabase
+  useEffect(() => {
+    const verifyUserExistence = async () => {
+      if (currentUser) {
+        try {
+          const { exists, active } = await checkUserExistsAndActive(currentUser.id);
+          if (!exists || !active) {
+            // Log out
+            setCurrentUser(null);
+            localStorage.removeItem("sudan_auth_user");
+            setUserAuthError("⚠️ لا يوجد حساب نشط حالياً، نأمل التسجيل بالموقع.");
+            setUserModalTab("register");
+            setShowUserModal(true);
+            alert("⚠️ لا يوجد حساب نشط حالياً، نأمل التسجيل بالموقع.");
+          }
+        } catch (e) {
+          console.error("Error verifying user session:", e);
+        }
+      }
+    };
+    verifyUserExistence();
+  }, [currentUser]);
+
+  // 🔔 Push Notification permission request on mobile devices
+  useEffect(() => {
+    const isMobileDevice = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768;
+    if (isMobileDevice && "Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission().then((permission) => {
+          console.log("Mobile notification permission request result:", permission);
+        }).catch((err) => {
+          console.warn("Notification request failed:", err);
+        });
+      }
+    }
+  }, []);
+
   // Gentle happy sound synth specifically safe for modern browsers
   const playKidChime = (type: 'success' | 'click' | 'magic' = 'click') => {
     try {
@@ -570,7 +491,9 @@ export default function App() {
     }
   };
 
-  const [showUserModal, setShowUserModal] = useState(false);
+  const [showUserModal, setShowUserModal] = useState(() => {
+    return !localStorage.getItem("sudan_auth_user");
+  });
   const [userModalTab, setUserModalTab] = useState<"login" | "register" | "profile">("login");
   const [loginRole, setLoginRole] = useState<"student" | "admin">("student");
   const [userEmail, setUserEmail] = useState("");
@@ -1078,6 +1001,8 @@ export default function App() {
           setUserAuthSuccess("🎉 تم تسجيل حسابك كمعلم بنجاح! يخضع حسابك المبرمج حالياً للمراجعة من قبل الإدارة وسنتواصل معك قريباً.");
         } else {
           setUserAuthSuccess("🎉 تم تسجيل حسابك والدخول كطالب بنجاح!");
+          // Save registration grade selection timestamp for student
+          localStorage.setItem("sudan_grade_updated_at_" + res.user.id, String(Date.now()));
         }
         setCurrentUser(res.user);
         localStorage.setItem("sudan_auth_user", JSON.stringify(res.user));
@@ -1237,6 +1162,31 @@ export default function App() {
         resolvedGradeId = regGradeId;
         const matchedGrade = curriculumData.flatMap(stage => stage.grades).find(g => g.id === regGradeId);
         resolvedGradeName = matchedGrade ? matchedGrade.name : "";
+
+        // Enforce 15 days check
+        if (resolvedGradeId && resolvedGradeId !== currentUser.grade_id) {
+          let lastUpdatedTime = 0;
+          const localLastUpdated = localStorage.getItem("sudan_grade_updated_at_" + currentUser.id);
+          if (localLastUpdated) {
+            lastUpdatedTime = parseInt(localLastUpdated, 10);
+          } else if (currentUser.createdAt) {
+            lastUpdatedTime = new Date(currentUser.createdAt).getTime();
+          }
+
+          if (lastUpdatedTime > 0) {
+            const diffTime = Date.now() - lastUpdatedTime;
+            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+            if (diffDays < 15) {
+              const remainingDays = Math.ceil(15 - diffDays);
+              const alertMsg = currentLang === "ar"
+                ? `⚠️ عذراً، بصفتك طالباً، لا يمكنك تعديل المرحلة الدراسية الرسمية إلا بعد مرور 15 يوماً من تحديدها عند التسجيل أو آخر تعديل (متبقي ${remainingDays} يوم على إمكانية التعديل).`
+                : `⚠️ Sorry, as a student you cannot modify your official educational grade until 15 days have passed since registration or last change (${remainingDays} days remaining).`;
+              setUserAuthError(alertMsg);
+              setIsAuthLoading(false);
+              return;
+            }
+          }
+        }
       }
 
       let resolvedSpecialties = undefined;
@@ -1269,6 +1219,12 @@ export default function App() {
             contact_method: resolvedContactMethod
           };
         }
+
+        // If student successfully changed their grade, record it!
+        if (currentUser.user_role === "student" && resolvedGradeId !== currentUser.grade_id) {
+          localStorage.setItem("sudan_grade_updated_at_" + currentUser.id, String(Date.now()));
+        }
+
         setCurrentUser(updatedUser);
         localStorage.setItem("sudan_auth_user", JSON.stringify(updatedUser));
         
@@ -1422,55 +1378,6 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
     localStorage.removeItem("sudan_custom_curriculum_v2");
     localStorage.removeItem("sudan_custom_curriculum"); // Purge very old version if any
   }, []);
-
-  // 📱 Mobile and Browser Native Back Button Integration
-  // Automatically pushes and pops from window.history stack when modals are shown / hidden
-  useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      // When back is pressed, close any open modal
-      if (activeSubject) {
-        setActiveSubject(null);
-      } else if (addSubjectState) {
-        setAddSubjectState(null);
-      }
-    };
-
-    try {
-      window.addEventListener("popstate", handlePopState);
-    } catch (err) {
-      console.warn("Failed to listen to popstate for modal sync:", err);
-    }
-    
-    return () => {
-      try {
-        window.removeEventListener("popstate", handlePopState);
-      } catch (err) {
-        // Safe ignore
-      }
-    };
-  }, [activeSubject, addSubjectState]);
-
-  useEffect(() => {
-    try {
-      // Check if any modal is active
-      const modalActive = !!(activeSubject || addSubjectState);
-      const currentHistoryState = safeHistoryState();
-      
-      if (modalActive) {
-        // If modal is active but history does not reflect it, push state safely
-        if (!currentHistoryState || !currentHistoryState.modalOpen) {
-          safeHistoryPushState({ modalOpen: true }, "");
-        }
-      } else {
-        // If no modals are active but history still has modalOpen, pop back safely to sync states
-        if (currentHistoryState && currentHistoryState.modalOpen) {
-          safeHistoryBack();
-        }
-      }
-    } catch (err) {
-      console.warn("Error running modal history sync:", err);
-    }
-  }, [activeSubject, addSubjectState]);
 
   // Set default stage from loaded curriculumData or enforce registered student stage
   useEffect(() => {
@@ -1999,6 +1906,27 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 relative">
+            {/* Page Refresh Button */}
+            <button
+              onClick={() => {
+                window.location.reload();
+              }}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
+                siteTheme === "sudanese"
+                  ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-earthgold/60"
+                  : "bg-slate-950/60 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/60 text-slate-200"
+              }`}
+              title={currentLang === "ar" ? "تحديث الصفحة" : "Refresh Page"}
+            >
+              <RotateCw className="w-3.5 h-3.5 text-earthgold-600" />
+              <span className="hidden xs:inline">
+                {currentLang === "ar" ? "تحديث الصفحة 🔄" : "Refresh 🔄"}
+              </span>
+              <span className="xs:hidden">
+                {currentLang === "ar" ? "تحديث 🔄" : "Refresh 🔄"}
+              </span>
+            </button>
+
             {/* Theme Switcher Button */}
             <button
               onClick={toggleSiteTheme}
@@ -4213,8 +4141,11 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             onUpdateSubject={updateSubject}
             onDeleteSubject={deleteSubject}
             isAdminActive={hasEditPermissions}
+            isAdminLoggedIn={isAdminLoggedIn}
             currentLang={currentLang}
             siteTheme={siteTheme}
+            liveLessons={liveLessons}
+            onRefreshLiveLessons={refreshLiveLessonsList}
           />
         )}
       </AnimatePresence>
@@ -4229,6 +4160,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             onClose={() => setAddSubjectState(null)}
             onAddSubject={addSubject}
             isAdminActive={hasEditPermissions}
+            isAdminLoggedIn={isAdminLoggedIn}
             currentLang={currentLang}
             siteTheme={siteTheme}
           />
@@ -4265,12 +4197,14 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowUserModal(false)}
-                  className="p-1.5 bg-slate-950 hover:bg-slate-850 border border-slate-800 rounded-xl text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                {currentUser && (
+                  <button
+                    onClick={() => setShowUserModal(false)}
+                    className="p-1.5 bg-slate-950 hover:bg-slate-850 border border-slate-800 rounded-xl text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
               {/* Tabs list (Sign-in / Register) */}
@@ -4673,59 +4607,6 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         )}
       </AnimatePresence>
 
-      {/* 📱 Custom Exit Confirmation Dialog */}
-      <AnimatePresence>
-        {showExitConfirmDialog && (
-          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[999999] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ duration: 0.2 }}
-              className="w-full max-w-sm bg-[#0B0F19] border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative p-6 text-right font-sans space-y-4"
-              dir="rtl"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-red-650/15 text-red-400 rounded-2xl">
-                  <LogOut className="w-5 h-5 text-red-500" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-black text-slate-100">مغادرة المنصة 🚪</h4>
-                  <p className="text-[10px] text-slate-400 mt-0.5">منصة المناهج السودانية التفاعلية</p>
-                </div>
-              </div>
-
-              <p className="text-xs text-slate-300 font-bold leading-relaxed">
-                هل أنت متأكد من رغبتك في الخروج ومغادرة المنصة والدروس؟ نتمنى لك دائماً التوفيق والنجاح المستمر! 🇸🇩✨
-              </p>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setShowExitConfirmDialog(false);
-                    try {
-                      window.location.href = "about:blank";
-                    } catch (err) {
-                      console.warn("Redirect blocked:", err);
-                    }
-                  }}
-                  className="flex-1 py-2.5 bg-red-650 hover:bg-red-550 text-white rounded-xl text-xs font-black duration-150 cursor-pointer text-center"
-                >
-                  نعم، مغادرة
-                </button>
-                <button
-                  onClick={() => {
-                    setShowExitConfirmDialog(false);
-                  }}
-                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-250 rounded-xl text-xs font-black duration-150 cursor-pointer text-center"
-                >
-                  لا، البقاء بالمنصة
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
