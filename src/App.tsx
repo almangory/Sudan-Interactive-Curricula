@@ -1805,7 +1805,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             {/* Red alert badge with pulsing dot */}
             <div className="flex items-center gap-1.5 font-black bg-black/30 px-2.5 py-1 rounded-xl text-[10px] uppercase shadow-inner shrink-0 relative z-10 select-none border border-white/10">
               <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
-              <span className="text-[10px] md:text-[11px] font-black">{currentLang === "ar" ? "أخبار عاجلة 🔴" : "Breaking News 🔴"}</span>
+              <span className="text-[10px] md:text-[11px] font-black">{currentLang === "ar" ? "" : "Breaking News 🔴"}</span>
             </div>
 
             {/* Animated Ticker container */}
@@ -1905,7 +1905,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 relative">
+          <div className="flex items-center gap-2 sm:gap-3 relative w-auto h-auto">
             {/* Page Refresh Button */}
             <button
               onClick={() => {
@@ -1920,10 +1920,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             >
               <RotateCw className="w-3.5 h-3.5 text-earthgold-600" />
               <span className="hidden xs:inline">
-                {currentLang === "ar" ? "تحديث الصفحة 🔄" : "Refresh 🔄"}
+                {currentLang === "ar" ? "🔄" : " 🔄"}
               </span>
               <span className="xs:hidden">
-                {currentLang === "ar" ? "تحديث 🔄" : "Refresh 🔄"}
+                {currentLang === "ar" ? "🔄" : "🔄"}
               </span>
             </button>
 
@@ -1940,11 +1940,11 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               <span className="text-[14px]">🎨</span>
               <span className="hidden xs:inline">
                 {currentLang === "ar" 
-                  ? (siteTheme === "sudanese" ? "التصميم السوداني 🇸🇩" : "التصميم الداكن 🌙") 
+                  ? (siteTheme === "sudanese" ? "" : "التصميم الداكن 🌙") 
                   : (siteTheme === "sudanese" ? "Sudanese Style 🇸🇩" : "Dark Legacy 🌙")}
               </span>
               <span className="xs:hidden">
-                {siteTheme === "sudanese" ? "سوداني 🇸🇩" : "داكن 🌙"}
+                {siteTheme === "sudanese" ? "" : "داكن 🌙"}
               </span>
             </button>
 
@@ -1964,7 +1964,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             >
               <Globe className={`w-3.5 h-3.5 ${siteTheme === "sudanese" ? "text-earthgold" : "text-emerald-400"}`} />
               <span className="hidden xs:inline">{currentLang === "ar" ? "English" : "العربية"}</span>
-              <span className="xs:hidden">{currentLang === "ar" ? "EN" : "عربي"}</span>
+              <span className="xs:hidden">{currentLang === "ar" ? "EN" : "AR"}</span>
             </button>
 
             {/* Kid Mode (البراعم) Playful Toggle Button - only visible to registered primary/kindergarten stage students */}
@@ -2018,8 +2018,8 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               }`}
             >
               <MessagesSquare className="w-3.5 h-3.5 text-indigo-400" />
-              <span className="hidden sm:inline">{currentLang === "ar" ? "الدردشة الطلابية" : "Student Chat"}</span>
-              <span className="sm:hidden">{currentLang === "ar" ? "الدردشة" : "Chat"}</span>
+              <span className="hidden sm:inline">{currentLang === "ar" ? "" : ""}</span>
+              <span className="sm:hidden">{currentLang === "ar" ? "" : "Chat"}</span>
             </button>
 
             {/* Notification Bell Dropdown Component */}
