@@ -5,7 +5,7 @@ import {
   Users, ShieldAlert, CheckCircle2, UserCheck, Bell
 } from "lucide-react";
 import { Stage, Grade, Subject } from "../data/curriculum";
-import { getSupabaseConfig, saveSupabaseConfig, getSupabaseClient, saveCurriculumToSupabase, fetchCurriculumFromSupabase, testSupabaseConnection, AppUser, fetchAllRegisteredUsers, updateUserRoleAndPermissions } from "../lib/supabase";
+import { getSupabaseConfig, saveSupabaseConfig, getSupabaseClient, saveCurriculumToSupabase, fetchCurriculumFromSupabase, testSupabaseConnection, AppUser, fetchAllRegisteredUsers, updateUserRoleAndPermissions, fetchLiveLessonsFromSupabase, saveLiveLessonToSupabase, deleteLiveLessonFromSupabase, LiveLesson } from "../lib/supabase";
 
 interface AdminDashboardProps {
   stages: Stage[];
@@ -38,7 +38,7 @@ export default function AdminDashboard({
   breakingNews,
   onUpdateBreakingNews
 }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"edit" | "supabase" | "users" | "announcements">("edit");
+  const [activeTab, setActiveTab] = useState<"edit" | "supabase" | "users" | "announcements" | "live_lessons">("edit");
   
   // Breaking News Ticker States
   const [newsEnabled, setNewsEnabled] = useState(breakingNews?.enabled ?? true);
@@ -113,6 +113,120 @@ export default function AdminDashboard({
       fetchUsers();
     }
   }, [activeTab]);
+
+  // Live Lessons state & functions
+  const [liveLessons, setLiveLessons] = useState<LiveLesson[]>([]);
+  const [isLoadingLessons, setIsLoadingLessons] = useState(false);
+
+  // Live Lesson Form states
+  const [lessonTitle, setLessonTitle] = useState("");
+  const [lessonStageId, setLessonStageId] = useState("");
+  const [lessonGradeId, setLessonGradeId] = useState("");
+  const [lessonSubjectId, setLessonSubjectId] = useState("");
+  const [lessonTeacher, setLessonTeacher] = useState("");
+  const [lessonPlatform, setLessonPlatform] = useState<"zoom" | "google_meet" | "other">("google_meet");
+  const [lessonUrl, setLessonUrl] = useState("");
+  const [lessonTime, setLessonTime] = useState("");
+  const [lessonDuration, setLessonDuration] = useState<number>(45);
+  const [lessonNotes, setLessonNotes] = useState("");
+
+  const fetchLessons = async () => {
+    setIsLoadingLessons(true);
+    try {
+      const data = await fetchLiveLessonsFromSupabase();
+      setLiveLessons(data);
+    } catch (err) {
+      console.error("Failed to fetch live lessons:", err);
+    } finally {
+      setIsLoadingLessons(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "live_lessons") {
+      fetchLessons();
+      // Set default stage/grade for lesson form
+      if (stages.length > 0) {
+        setLessonStageId(stages[0].id);
+        if (stages[0].grades.length > 0) {
+          setLessonGradeId(stages[0].grades[0].id);
+        }
+      }
+    }
+  }, [activeTab, stages]);
+
+  const lessonStageObj = stages.find(s => s.id === lessonStageId);
+  useEffect(() => {
+    if (lessonStageObj && lessonStageObj.grades.length > 0) {
+      setLessonGradeId(lessonStageObj.grades[0].id);
+    } else {
+      setLessonGradeId("");
+    }
+    setLessonSubjectId("");
+  }, [lessonStageId]);
+
+  const handleSaveLesson = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lessonTitle.trim() || !lessonStageId || !lessonGradeId || !lessonTeacher.trim() || !lessonUrl.trim() || !lessonTime) {
+      showFeedback("⚠️ يرجى ملء جميع الحقول المطلوبة بشكل صحيح.", "error");
+      return;
+    }
+
+    if (!lessonUrl.startsWith("http://") && !lessonUrl.startsWith("https://")) {
+      showFeedback("⚠️ يجب أن يبدأ رابط الحصة بـ http:// أو https://", "error");
+      return;
+    }
+
+    const newLesson: LiveLesson = {
+      id: "lesson_" + Date.now(),
+      title: lessonTitle.trim(),
+      stageId: lessonStageId,
+      gradeId: lessonGradeId,
+      subjectId: lessonSubjectId || undefined,
+      teacherName: lessonTeacher.trim(),
+      meetingPlatform: lessonPlatform,
+      meetingUrl: lessonUrl.trim(),
+      scheduledTime: new Date(lessonTime).toISOString(),
+      duration: Number(lessonDuration) || 45,
+      notes: lessonNotes.trim() || undefined,
+      createdAt: new Date().toISOString()
+    };
+
+    setIsLoadingLessons(true);
+    const res = await saveLiveLessonToSupabase(newLesson);
+    setIsLoadingLessons(false);
+
+    if (res.success) {
+      showFeedback("✅ تم جدولة الحصة المباشرة وحفظها بنجاح!", "success");
+      setLessonTitle("");
+      setLessonTeacher("");
+      setLessonUrl("");
+      setLessonTime("");
+      setLessonDuration(45);
+      setLessonNotes("");
+      setLessonSubjectId("");
+      fetchLessons();
+    } else {
+      showFeedback(`❌ فشل حفظ الحصة: ${res.error || "خطأ غير معروف"}`, "error");
+    }
+  };
+
+  const handleDeleteLesson = async (id: string, title: string) => {
+    if (!window.confirm(`هل أنت متأكد من حذف الحصة المباشرة "${title}" بشكل نهائي؟`)) {
+      return;
+    }
+
+    setIsLoadingLessons(true);
+    const res = await deleteLiveLessonFromSupabase(id);
+    setIsLoadingLessons(false);
+
+    if (res.success) {
+      showFeedback("🗑️ تم حذف الحصة المباشرة بنجاح وبشكل فوري!", "info");
+      fetchLessons();
+    } else {
+      showFeedback(`❌ فشل حذف الحصة: ${res.error || "خطأ غير معروف"}`, "error");
+    }
+  };
   
   // Notification states
   const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: "success" | "error" | "info" } | null>(null);
@@ -584,7 +698,29 @@ DROP POLICY IF EXISTS "Allow insert update delete for all on site_updates" ON si
 CREATE POLICY "Allow select for everyone on site_updates" ON site_updates FOR SELECT USING (true);
 CREATE POLICY "Allow insert update delete for all on site_updates" ON site_updates FOR ALL USING (true) WITH CHECK (true);
 
--- 7. تفعيل ميزة البث الفوري والتلقائي اللحظي المباشر (Supabase Realtime) لجميع الأجهزة دون الحاجة لأي خوادم وسيطة أو تدخل يدوي:
+-- 7. إنشاء جدول الحصص المباشرة (live_lessons)
+CREATE TABLE IF NOT EXISTS live_lessons (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  stage_id TEXT NOT NULL,
+  grade_id TEXT NOT NULL,
+  subject_id TEXT,
+  teacher_name TEXT NOT NULL,
+  meeting_platform TEXT NOT NULL,
+  meeting_url TEXT NOT NULL,
+  scheduled_time TIMESTAMP WITH TIME ZONE NOT NULL,
+  duration INTEGER DEFAULT 45,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE live_lessons ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow select for everyone on live_lessons" ON live_lessons;
+DROP POLICY IF EXISTS "Allow insert update delete for all on live_lessons" ON live_lessons;
+CREATE POLICY "Allow select for everyone on live_lessons" ON live_lessons FOR SELECT USING (true);
+CREATE POLICY "Allow insert update delete for all on live_lessons" ON live_lessons FOR ALL USING (true) WITH CHECK (true);
+
+-- 8. تفعيل ميزة البث الفوري والتلقائي اللحظي المباشر (Supabase Realtime) لجميع الأجهزة دون الحاجة لأي خوادم وسيطة أو تدخل يدوي:
 -- التحقق من وجود المنشور أو إنشائه أولاً لضمان عدم توقف الكود:
 DO $$
 BEGIN
@@ -622,7 +758,14 @@ EXCEPTION WHEN OTHERS THEN
   NULL;
 END $$;
 
--- 8. تنشيط ذاكرة الكاش المؤقتة لـ PostgREST لتسريع قراءة وحفظ الأعمدة الجديدة:
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE live_lessons;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+-- 9. تنشيط ذاكرة الكاش المؤقتة لـ PostgREST لتسريع قراءة وحفظ الأعمدة الجديدة:
 NOTIFY pgrst, 'reload schema';`;
 
   const handleCreateDatabaseTable = async () => {
@@ -718,6 +861,18 @@ NOTIFY pgrst, 'reload schema';`;
         >
           <Bell className="w-4 h-4" />
           <span>📢 شريط الإعلان العاجل (بث)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("live_lessons")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === "live_lessons"
+              ? "bg-sky-600 text-[#ffffff] shadow-md shadow-sky-950"
+              : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+          }`}
+        >
+          <Video className="w-4 h-4" />
+          <span>🎥 جدولة الحصص المباشرة (Live)</span>
         </button>
       </div>
 
@@ -1621,6 +1776,328 @@ NOTIFY pgrst, 'reload schema';`;
                 <span>حفظ ونشر البث العاجل 📣</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab Contents: Live Lessons Scheduling */}
+      {activeTab === "live_lessons" && (
+        <div className="space-y-6 relative z-10 text-right animate-fade-in" dir="rtl">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            {/* Right Side: Create/Schedule Lesson Form */}
+            <form onSubmit={handleSaveLesson} className="lg:col-span-5 border border-slate-800 rounded-3xl p-6 bg-slate-900/60 space-y-4">
+              <div>
+                <h4 className="text-sm font-black text-slate-100 flex items-center gap-2">
+                  <Plus className="w-5 h-5 text-sky-400" />
+                  <span>📅 جدولة حصة تفاعلية جديدة</span>
+                </h4>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  قم بملء البيانات بالأسفل لإنشاء حصة زووم أو جوجل ميت تفاعلية مباشرة لتظهر فوراً للطلاب في لوحة التحكم الخاصة بهم.
+                </p>
+              </div>
+
+              {/* Title */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300 block">عنوان الدرس / الحصة المباشرة: <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  required
+                  value={lessonTitle}
+                  onChange={(e) => setLessonTitle(e.target.value)}
+                  placeholder="مثال: مراجعة شاملة لقصيدة المولد وبنية الكلمة"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 outline-none focus:border-sky-500 font-bold"
+                />
+              </div>
+
+              {/* Stage & Grade Selectors */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300 block">المرحلة الدراسية: <span className="text-red-500">*</span></label>
+                  <select
+                    required
+                    value={lessonStageId}
+                    onChange={(e) => setLessonStageId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 outline-none focus:border-sky-500 font-bold"
+                  >
+                    <option value="">-- اختر المرحلة --</option>
+                    {stages.map(stg => (
+                      <option key={stg.id} value={stg.id}>{stg.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300 block">الصف الدراسي: <span className="text-red-500">*</span></label>
+                  <select
+                    required
+                    value={lessonGradeId}
+                    onChange={(e) => setLessonGradeId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 outline-none focus:border-sky-500 font-bold"
+                  >
+                    <option value="">-- اختر الصف --</option>
+                    {lessonStageObj?.grades.map(grd => (
+                      <option key={grd.id} value={grd.id}>{grd.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Subject Selector (Dynamic) */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300 block">المادة الدراسية المرتبطة (اختياري):</label>
+                <select
+                  value={lessonSubjectId}
+                  onChange={(e) => setLessonSubjectId(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 outline-none focus:border-sky-500 font-bold"
+                >
+                  <option value="">-- ليست مرتبطة بمادة محددة (عام) --</option>
+                  {(stages.find(s => s.id === lessonStageId)?.grades.find(g => g.id === lessonGradeId)?.subjects || []).map(subj => (
+                    <option key={subj.id} value={subj.id}>{subj.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Teacher Name */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300 block">اسم المعلم / مقدم الحصة: <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  required
+                  value={lessonTeacher}
+                  onChange={(e) => setLessonTeacher(e.target.value)}
+                  placeholder="مثال: أ. أحمد المصطفى"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 outline-none focus:border-sky-500 font-bold"
+                />
+              </div>
+
+              {/* Platform & Meeting URL */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1 col-span-1">
+                  <label className="text-xs font-bold text-slate-300 block">المنصة: <span className="text-red-500">*</span></label>
+                  <select
+                    value={lessonPlatform}
+                    onChange={(e) => setLessonPlatform(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 outline-none focus:border-sky-500 font-bold"
+                  >
+                    <option value="google_meet">جوجل ميت</option>
+                    <option value="zoom">زووم Zoom</option>
+                    <option value="other">رابط خارجي</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1 col-span-2">
+                  <label className="text-xs font-bold text-slate-300 block">رابط الانضمام للحصة المباشرة: <span className="text-red-500">*</span></label>
+                  <input
+                    type="url"
+                    required
+                    value={lessonUrl}
+                    onChange={(e) => setLessonUrl(e.target.value)}
+                    placeholder={
+                      lessonPlatform === "google_meet" 
+                        ? "https://meet.google.com/..." 
+                        : lessonPlatform === "zoom" 
+                        ? "https://zoom.us/j/..." 
+                        : "https://"
+                    }
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 outline-none focus:border-sky-500 font-mono text-left"
+                    dir="ltr"
+                  />
+                </div>
+              </div>
+
+              {/* Scheduled Time & Duration */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300 block">تاريخ ووقت الحصة (توقيت السودان): <span className="text-red-500">*</span></label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={lessonTime}
+                    onChange={(e) => setLessonTime(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 outline-none focus:border-sky-500 text-left font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300 block">المدة المقدرة بالدقائق:</label>
+                  <input
+                    type="number"
+                    min={15}
+                    max={300}
+                    value={lessonDuration}
+                    onChange={(e) => setLessonDuration(Number(e.target.value) || 45)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 outline-none focus:border-sky-500 font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300 block">تعليمات إضافية للطلاب (اختياري):</label>
+                <textarea
+                  rows={2}
+                  value={lessonNotes}
+                  onChange={(e) => setLessonNotes(e.target.value)}
+                  placeholder="مثال: يرجى تحضير كشكول اللغة العربية وقراءة النص مسبقاً."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 outline-none focus:border-sky-500 font-bold resize-none"
+                />
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isLoadingLessons}
+                className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-black duration-200 cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-sky-955/45 active:scale-95 disabled:opacity-55"
+              >
+                {isLoadingLessons ? (
+                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                ) : (
+                  <Save className="w-4 h-4 text-white" />
+                )}
+                <span>جدولة الحصة وتعميم البث 📡</span>
+              </button>
+            </form>
+
+            {/* Left Side: Scheduled Lessons List */}
+            <div className="lg:col-span-7 border border-slate-800 rounded-3xl p-6 bg-slate-900/60 flex flex-col min-h-[400px]">
+              <div className="flex items-center justify-between border-b border-slate-850 pb-3 mb-4">
+                <div>
+                  <h4 className="text-sm font-black text-slate-100 flex items-center gap-2">
+                    <Video className="w-5 h-5 text-indigo-400" />
+                    <span>📺 جدول الحصص المباشرة الحالية</span>
+                  </h4>
+                  <p className="text-[10px] text-slate-450 mt-1">عرض ومتابعة الحصص الدراسية المباشرة المجدولة حالياً.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchLessons}
+                  disabled={isLoadingLessons}
+                  className="p-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40"
+                  title="تحديث الجدول"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingLessons ? "animate-spin text-sky-400" : ""}`} />
+                </button>
+              </div>
+
+              {isLoadingLessons && liveLessons.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center py-10 text-slate-500 gap-2">
+                  <RefreshCw className="w-8 h-8 animate-spin text-indigo-500" />
+                  <span className="text-xs font-bold">جاري تحميل الحصص المباشرة من السحابة...</span>
+                </div>
+              ) : liveLessons.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center py-12 text-center space-y-3">
+                  <div className="p-4 bg-slate-950 border border-slate-800 text-slate-600 rounded-3xl">
+                    <Video className="w-10 h-10 text-slate-500" />
+                  </div>
+                  <div className="space-y-1">
+                    <h5 className="text-xs font-bold text-slate-300">لا توجد حصص مباشرة مجدولة حالياً</h5>
+                    <p className="text-[10px] text-slate-500 max-w-sm mx-auto">لم يتم جدولة أي حصة تفاعلية مباشرة بعد. استخدم النموذج الجانبي لجدولة وبث أول حصة للطلاب!</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                  {liveLessons.map((lesson) => {
+                    const stg = stages.find(s => s.id === lesson.stageId);
+                    const grd = stg?.grades.find(g => g.id === lesson.gradeId);
+                    const subj = grd?.subjects.find(s => s.id === lesson.subjectId);
+                    const isPassed = new Date(lesson.scheduledTime).getTime() + (lesson.duration * 60 * 1000) < Date.now();
+                    const isActiveNow = new Date(lesson.scheduledTime).getTime() <= Date.now() && !isPassed;
+
+                    return (
+                      <div 
+                        key={lesson.id} 
+                        className={`p-4 rounded-2xl border text-right duration-200 ${
+                          isActiveNow 
+                            ? "bg-emerald-950/20 border-emerald-550/40 shadow-md shadow-emerald-950/20" 
+                            : isPassed 
+                            ? "bg-slate-950/35 border-slate-850 opacity-60" 
+                            : "bg-slate-950 border-slate-850 hover:border-slate-750"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3 flex-wrap sm:flex-nowrap">
+                          <div className="space-y-1.5 flex-1 min-w-[200px]">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-black text-slate-100">{lesson.title}</span>
+                              
+                              {isActiveNow && (
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-600 text-[#ffffff] animate-pulse">
+                                  ● جارية الآن
+                                </span>
+                              )}
+                              {isPassed && (
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-800 text-slate-400">
+                                  منتهية
+                                </span>
+                              )}
+                              {!isActiveNow && !isPassed && (
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-950 text-indigo-400 border border-indigo-900/30">
+                                  مجدولة
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-400 font-bold">
+                              <span>📚 {stg?.name || lesson.stageId}</span>
+                              <span className="opacity-40">|</span>
+                              <span>🏫 {grd?.name || lesson.gradeId}</span>
+                              {subj && (
+                                <>
+                                  <span className="opacity-40">|</span>
+                                  <span>📖 {subj.name}</span>
+                                </>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-300">
+                              <span>👤 المعلم: <strong className="text-slate-100 font-black">{lesson.teacherName}</strong></span>
+                              <span className="opacity-40">|</span>
+                              <span>⏰ المدة: {lesson.duration} دقيقة</span>
+                              <span className="opacity-40">|</span>
+                              <span>📅 الموعد: <strong className="text-sky-400 font-mono">{new Date(lesson.scheduledTime).toLocaleString("ar-SD", { dateStyle: "short", timeStyle: "short" })}</strong></span>
+                            </div>
+
+                            {lesson.notes && (
+                              <p className="text-[10px] text-slate-400 bg-slate-900/50 p-2 rounded-lg mt-1 border border-slate-850/40">
+                                💡 {lesson.notes}
+                              </p>
+                            )}
+
+                            <div className="flex items-center gap-3 pt-2">
+                              <a
+                                href={lesson.meetingUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`px-4 py-1.5 rounded-lg text-[10px] font-black flex items-center gap-1.5 duration-150 shadow-sm ${
+                                  lesson.meetingPlatform === "google_meet"
+                                    ? "bg-blue-600 hover:bg-blue-500 text-white"
+                                    : lesson.meetingPlatform === "zoom"
+                                    ? "bg-cyan-600 hover:bg-cyan-500 text-white"
+                                    : "bg-slate-800 hover:bg-slate-700 text-slate-200"
+                                }`}
+                              >
+                                <Video className="w-3.5 h-3.5" />
+                                <span>انضمام للحصة المباشرة ({lesson.meetingPlatform === "google_meet" ? "Google Meet" : lesson.meetingPlatform === "zoom" ? "Zoom" : "رابط"})</span>
+                              </a>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteLesson(lesson.id, lesson.title)}
+                            className="p-2 bg-red-950/30 hover:bg-red-950/60 border border-red-900/20 text-red-400 rounded-xl hover:text-red-300 duration-150 cursor-pointer self-start sm:self-center"
+                            title="حذف الحصة"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
       )}

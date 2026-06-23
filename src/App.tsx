@@ -15,7 +15,7 @@ import StudyCamp from "./components/StudyCamp";
 import AdminDashboard from "./components/AdminDashboard";
 import EducationalMindMap from "./components/EducationalMindMap";
 import StudentChatRoom from "./components/StudentChatRoom";
-import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile } from "./lib/supabase";
+import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile, fetchLiveLessonsFromSupabase, LiveLesson } from "./lib/supabase";
 import { stageAndGradeTranslations, uiTranslations } from "./lib/translations";
 
 export default function App() {
@@ -67,6 +67,7 @@ export default function App() {
   const [categoryFilter, setCategoryFilter] = useState<"all" | "books" | "videos" | "interactive">("all");
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
+  const [liveLessons, setLiveLessons] = useState<LiveLesson[]>([]);
 
   // 📢 Breaking News & Live Broadcasting Settings
   const [breakingNews, setBreakingNews] = useState(() => {
@@ -236,6 +237,133 @@ export default function App() {
     };
   }, []);
 
+  // 📱 Mobile Back Button and Exit Confirmation Dialog Logic
+  const [showExitConfirmDialog, setShowExitConfirmDialog] = useState(false);
+  const prevSubViewActive = useRef(false);
+
+  // Helper safe history functions
+  const safeHistoryState = () => {
+    try {
+      if (typeof window !== "undefined" && window.history) {
+        return window.history.state;
+      }
+    } catch (err) {
+      // ignore
+    }
+    return null;
+  };
+
+  const safeHistoryReplaceState = (state: any, title: string, url?: string) => {
+    try {
+      if (typeof window !== "undefined" && window.history && window.history.replaceState) {
+        window.history.replaceState(state, title, url);
+      }
+    } catch (err) {
+      console.warn("history.replaceState is not accessible/allowed in this sandboxed container:", err);
+    }
+  };
+
+  const safeHistoryPushState = (state: any, title: string, url?: string) => {
+    try {
+      if (typeof window !== "undefined" && window.history && window.history.pushState) {
+        window.history.pushState(state, title, url);
+      }
+    } catch (err) {
+      console.warn("history.pushState is not accessible/allowed in this sandboxed container:", err);
+    }
+  };
+
+  const safeHistoryBack = () => {
+    try {
+      if (typeof window !== "undefined" && window.history && window.history.back) {
+        window.history.back();
+      }
+    } catch (err) {
+      console.warn("history.back is not accessible/allowed in this sandboxed container:", err);
+    }
+  };
+
+  useEffect(() => {
+    // 1. Setup initial history state safely
+    safeHistoryReplaceState({ page: "home" }, "");
+
+    const handlePopState = (event: PopStateEvent) => {
+      const isAnySubViewActive = !!(activeSubject || showAdminDashboard || showStudyCamp || showEducationalMindMap || showStudentChat || selectedStage);
+      
+      // If we go back and any sub-view is active, close it and prevent exit
+      if (isAnySubViewActive) {
+        // Close all subviews to return to home
+        setActiveSubject(null);
+        setShowAdminDashboard(false);
+        setShowStudyCamp(false);
+        setShowEducationalMindMap(false);
+        setShowStudentChat(false);
+        setSelectedStage(null);
+        setActiveGrade(null);
+        
+        // Push home state back to history to keep the back button functional for future navigations
+        safeHistoryPushState({ page: "home" }, "");
+      } else {
+        // We are on home and they want to exit. Let's show the beautiful styled React modal instead of window.confirm!
+        setShowExitConfirmDialog(true);
+        // Push state back to prevent actual browser navigation/exit
+        safeHistoryPushState({ page: "home" }, "");
+      }
+    };
+
+    try {
+      window.addEventListener("popstate", handlePopState);
+    } catch (err) {
+      console.warn("Failed to register popstate event listener:", err);
+    }
+
+    return () => {
+      try {
+        window.removeEventListener("popstate", handlePopState);
+      } catch (err) {
+        // Safe ignore
+      }
+    };
+  }, [activeSubject, showAdminDashboard, showStudyCamp, showEducationalMindMap, showStudentChat, selectedStage]);
+
+  // Synchronize view state transitions with window.history pushes
+  useEffect(() => {
+    const isAnySubViewActive = !!(activeSubject || showAdminDashboard || showStudyCamp || showEducationalMindMap || showStudentChat || selectedStage);
+    
+    // We only push a sub-view history state if the current history state is "home" and we entered a sub-view
+    if (isAnySubViewActive && !prevSubViewActive.current) {
+      safeHistoryPushState({ page: "subview" }, "");
+    }
+    prevSubViewActive.current = isAnySubViewActive;
+  }, [activeSubject, showAdminDashboard, showStudyCamp, showEducationalMindMap, showStudentChat, selectedStage]);
+
+  // General beforeunload exit prompt
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      try {
+        e.preventDefault();
+        e.returnValue = currentLang === "ar" ? "هل أنت متأكد من المغادرة؟" : "Are you sure you want to leave?";
+        return e.returnValue;
+      } catch (err) {
+        console.warn("beforeunload manipulation is not permitted in this context:", err);
+      }
+    };
+
+    try {
+      window.addEventListener("beforeunload", handleBeforeUnload);
+    } catch (err) {
+      // Safe ignore
+    }
+
+    return () => {
+      try {
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+      } catch (err) {
+        // Safe ignore
+      }
+    };
+  }, [currentLang]);
+
   // Load from Supabase on start if available and subscribe to Webhook SSE events
   useEffect(() => {
     const loadSupabaseData = async () => {
@@ -263,6 +391,14 @@ export default function App() {
         if (cloudData && Array.isArray(cloudData) && cloudData.length > 0) {
           setCurriculumData(cloudData);
           console.log("Successfully loaded dynamic curriculum from Supabase database!");
+        }
+
+        // Fetch live lessons
+        try {
+          const cloudLessons = await fetchLiveLessonsFromSupabase();
+          setLiveLessons(cloudLessons);
+        } catch (err) {
+          console.error("Failed to load initial live lessons from Supabase:", err);
         }
       } catch (err) {
         console.error("Failed to load dynamic curriculum from Supabase", err);
@@ -703,6 +839,19 @@ export default function App() {
               }
             } catch (err) {
               console.warn("Realtime curriculum refresh failed:", err);
+            }
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "live_lessons" },
+          async () => {
+            console.log("⚡ Realtime Update: Live lessons updated on Supabase, refreshing data...");
+            try {
+              const freshLessons = await fetchLiveLessonsFromSupabase();
+              setLiveLessons(freshLessons);
+            } catch (err) {
+              console.warn("Realtime live lessons refresh failed:", err);
             }
           }
         )
@@ -1286,26 +1435,40 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
       }
     };
 
-    window.addEventListener("popstate", handlePopState);
+    try {
+      window.addEventListener("popstate", handlePopState);
+    } catch (err) {
+      console.warn("Failed to listen to popstate for modal sync:", err);
+    }
+    
     return () => {
-      window.removeEventListener("popstate", handlePopState);
+      try {
+        window.removeEventListener("popstate", handlePopState);
+      } catch (err) {
+        // Safe ignore
+      }
     };
   }, [activeSubject, addSubjectState]);
 
   useEffect(() => {
-    // Check if any modal is active
-    const modalActive = !!(activeSubject || addSubjectState);
-    
-    if (modalActive) {
-      // If modal is active but history does not reflect it, push state
-      if (!window.history.state || !window.history.state.modalOpen) {
-        window.history.pushState({ modalOpen: true }, "");
+    try {
+      // Check if any modal is active
+      const modalActive = !!(activeSubject || addSubjectState);
+      const currentHistoryState = safeHistoryState();
+      
+      if (modalActive) {
+        // If modal is active but history does not reflect it, push state safely
+        if (!currentHistoryState || !currentHistoryState.modalOpen) {
+          safeHistoryPushState({ modalOpen: true }, "");
+        }
+      } else {
+        // If no modals are active but history still has modalOpen, pop back safely to sync states
+        if (currentHistoryState && currentHistoryState.modalOpen) {
+          safeHistoryBack();
+        }
       }
-    } else {
-      // If no modals are active but history still has modalOpen, pop back to sync states
-      if (window.history.state && window.history.state.modalOpen) {
-        window.history.back();
-      }
+    } catch (err) {
+      console.warn("Error running modal history sync:", err);
     }
   }, [activeSubject, addSubjectState]);
 
@@ -2765,6 +2928,110 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       </svg>
                    </div>
                 </div>
+
+                {/* 🎥 Live Lessons Widget for Students */}
+                {liveLessons.length > 0 && (
+                   <div className="bg-[#FDFBF7] border border-[#D4AF37]/20 rounded-3xl p-6 text-right space-y-4 mb-6 shadow-2xs" dir="rtl">
+                      <div className="flex items-center justify-between border-b border-[#D4AF37]/15 pb-3">
+                         <div className="flex items-center gap-2">
+                            <span className="relative flex h-3 w-3">
+                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D21034] opacity-75"></span>
+                               <span className="relative inline-flex rounded-full h-3 w-3 bg-[#D21034]"></span>
+                            </span>
+                            <h3 className="font-extrabold text-[#5C2C16] text-sm md:text-base flex items-center gap-1.5">
+                               <span>🎥 البث المباشر والحصص التفاعلية الفورية</span>
+                            </h3>
+                         </div>
+                         <span className="text-4xs font-bold text-mud/60 bg-cream px-2 py-0.5 rounded-full border border-mud/5">
+                            {liveLessons.filter(l => new Date(l.scheduledTime).getTime() + (l.duration * 60 * 1000) > Date.now()).length} حصص نشطة/قادمة
+                         </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                         {liveLessons
+                           .filter(l => new Date(l.scheduledTime).getTime() + (l.duration * 60 * 1000) > Date.now()) // Only show active/future
+                           .sort((a, b) => new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime())
+                           .slice(0, 6) // Max 6 lessons
+                           .map((lesson) => {
+                              const isPassed = new Date(lesson.scheduledTime).getTime() + (lesson.duration * 60 * 1000) < Date.now();
+                              const isActiveNow = new Date(lesson.scheduledTime).getTime() <= Date.now() && !isPassed;
+
+                              // Resolve stage/grade names
+                              const stageObj = curriculumData.find(s => s.id === lesson.stageId);
+                              const gradeObj = stageObj?.grades.find(g => g.id === lesson.gradeId);
+                              const subjObj = gradeObj?.subjects.find(s => s.id === lesson.subjectId);
+
+                              return (
+                                 <div 
+                                   key={lesson.id} 
+                                   className={`p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between space-y-3 ${
+                                      isActiveNow 
+                                        ? "bg-white border-emerald-550 shadow-md shadow-emerald-550/5" 
+                                        : "bg-white border-mud/10 hover:border-earthgold/40 hover:shadow-2xs"
+                                   }`}
+                                 >
+                                    <div className="space-y-2 text-right">
+                                       <div className="flex items-center justify-between gap-2">
+                                          <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black ${
+                                             isActiveNow 
+                                               ? "bg-emerald-600 text-white" 
+                                               : "bg-earthgold/10 text-earthgold border border-earthgold/20"
+                                          }`}>
+                                             {isActiveNow ? "🔴 جارية الآن" : "📅 حصة مجدولة"}
+                                          </span>
+                                          <span className="text-[10px] font-bold text-mud/60 font-mono">
+                                             ⏱️ {lesson.duration} دقيقة
+                                          </span>
+                                       </div>
+
+                                       <h4 className="text-xs font-black text-mud line-clamp-2">{lesson.title}</h4>
+
+                                       <div className="flex flex-wrap gap-1.5 text-[9px] text-mud/75">
+                                          <span className="bg-[#FAF5EC] px-2 py-0.5 rounded border border-mud/5">📚 {stageObj?.name || lesson.stageId}</span>
+                                          <span className="bg-[#FAF5EC] px-2 py-0.5 rounded border border-mud/5">🏫 {gradeObj?.name || lesson.gradeId}</span>
+                                          {subjObj && (
+                                             <span className="bg-[#FAF5EC] px-2 py-0.5 rounded border border-mud/5">📖 {subjObj.name}</span>
+                                          )}
+                                       </div>
+
+                                       <div className="space-y-1 text-[10px] text-mud/80 bg-[#FAF5EC]/40 p-2 rounded-xl border border-mud/5 text-right">
+                                          <p className="flex items-center gap-1">
+                                             <span>👤 المعلم:</span>
+                                             <strong className="text-mud font-black">{lesson.teacherName}</strong>
+                                          </p>
+                                          <p className="flex items-center gap-1">
+                                             <span>📅 الموعد:</span>
+                                             <span className="font-mono text-earthgold font-bold">
+                                                {new Date(lesson.scheduledTime).toLocaleString("ar-SD", { dateStyle: "short", timeStyle: "short" })}
+                                             </span>
+                                          </p>
+                                          {lesson.notes && (
+                                             <p className="text-[9px] text-mud/60 border-t border-mud/5 pt-1 mt-1 text-right">
+                                                💡 {lesson.notes}
+                                             </p>
+                                          )}
+                                       </div>
+                                    </div>
+
+                                    <a
+                                      href={lesson.meetingUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`w-full py-2 rounded-xl text-[10px] font-black flex items-center justify-center gap-1.5 duration-150 shadow-2xs ${
+                                         isActiveNow
+                                           ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+                                           : "bg-earthgold hover:bg-earthgold/90 text-white"
+                                      }`}
+                                    >
+                                       <Video className="w-3.5 h-3.5 text-white" />
+                                       <span>دخول الحصة المباشرة ({lesson.meetingPlatform === "google_meet" ? "Google Meet" : lesson.meetingPlatform === "zoom" ? "Zoom" : "رابط الحصة"})</span>
+                                    </a>
+                                 </div>
+                              );
+                           })}
+                      </div>
+                   </div>
+                )}
 
                 {/* Grade Cards Grid */}
                 <div className="space-y-4">
@@ -4403,6 +4670,60 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             )}
             <span className="text-xs font-extrabold text-slate-200">{saveStatus}</span>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 📱 Custom Exit Confirmation Dialog */}
+      <AnimatePresence>
+        {showExitConfirmDialog && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[999999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-sm bg-[#0B0F19] border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative p-6 text-right font-sans space-y-4"
+              dir="rtl"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-red-650/15 text-red-400 rounded-2xl">
+                  <LogOut className="w-5 h-5 text-red-500" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-100">مغادرة المنصة 🚪</h4>
+                  <p className="text-[10px] text-slate-400 mt-0.5">منصة المناهج السودانية التفاعلية</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-300 font-bold leading-relaxed">
+                هل أنت متأكد من رغبتك في الخروج ومغادرة المنصة والدروس؟ نتمنى لك دائماً التوفيق والنجاح المستمر! 🇸🇩✨
+              </p>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setShowExitConfirmDialog(false);
+                    try {
+                      window.location.href = "about:blank";
+                    } catch (err) {
+                      console.warn("Redirect blocked:", err);
+                    }
+                  }}
+                  className="flex-1 py-2.5 bg-red-650 hover:bg-red-550 text-white rounded-xl text-xs font-black duration-150 cursor-pointer text-center"
+                >
+                  نعم، مغادرة
+                </button>
+                <button
+                  onClick={() => {
+                    setShowExitConfirmDialog(false);
+                  }}
+                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-250 rounded-xl text-xs font-black duration-150 cursor-pointer text-center"
+                >
+                  لا، البقاء بالمنصة
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

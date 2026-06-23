@@ -775,3 +775,154 @@ export async function updateCurrentUserProfile(
     return { success: false, error: err.message || String(err) };
   }
 }
+
+export interface LiveLesson {
+  id: string;
+  title: string;
+  stageId: string;
+  gradeId: string;
+  subjectId?: string;
+  teacherName: string;
+  meetingPlatform: "zoom" | "google_meet" | "other";
+  meetingUrl: string;
+  scheduledTime: string; // ISO datetime
+  duration: number; // in minutes
+  notes?: string;
+  createdAt?: string;
+}
+
+/**
+ * Fetches scheduled live lessons. Merges or falls back to local storage if needed.
+ */
+export async function fetchLiveLessonsFromSupabase(): Promise<LiveLesson[]> {
+  const localLessonsStr = localStorage.getItem("sudan_live_lessons_v1");
+  const localLessons: LiveLesson[] = localLessonsStr ? JSON.parse(localLessonsStr) : [];
+
+  const client = getSupabaseClient();
+  if (!client) {
+    return localLessons;
+  }
+
+  try {
+    const { data, error } = await client
+      .from("live_lessons")
+      .select("*")
+      .order("scheduled_time", { ascending: true });
+
+    if (error) {
+      console.warn("Could not load live lessons from Supabase (using local fallback):", error.message);
+      return localLessons;
+    }
+
+    if (data) {
+      const mappedLessons: LiveLesson[] = data.map((row: any) => ({
+        id: row.id,
+        title: row.title,
+        stageId: row.stage_id,
+        gradeId: row.grade_id,
+        subjectId: row.subject_id || undefined,
+        teacherName: row.teacher_name,
+        meetingPlatform: row.meeting_platform || "other",
+        meetingUrl: row.meeting_url,
+        scheduledTime: row.scheduled_time,
+        duration: row.duration || 45,
+        notes: row.notes || "",
+        createdAt: row.created_at
+      }));
+
+      // Update local storage cache
+      localStorage.setItem("sudan_live_lessons_v1", JSON.stringify(mappedLessons));
+      return mappedLessons;
+    }
+  } catch (err: any) {
+    console.error("Exception loading live lessons from Supabase:", err);
+  }
+
+  return localLessons;
+}
+
+/**
+ * Saves (inserts/updates) a live lesson to Supabase and updates local cache.
+ */
+export async function saveLiveLessonToSupabase(lesson: LiveLesson): Promise<{ success: boolean; error?: string }> {
+  // Update local storage first
+  const localLessonsStr = localStorage.getItem("sudan_live_lessons_v1");
+  let localLessons: LiveLesson[] = localLessonsStr ? JSON.parse(localLessonsStr) : [];
+  
+  const existingIdx = localLessons.findIndex(l => l.id === lesson.id);
+  if (existingIdx > -1) {
+    localLessons[existingIdx] = lesson;
+  } else {
+    localLessons.push(lesson);
+  }
+  localStorage.setItem("sudan_live_lessons_v1", JSON.stringify(localLessons));
+
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: true }; // locally successful
+  }
+
+  try {
+    const dbRow = {
+      id: lesson.id,
+      title: lesson.title,
+      stage_id: lesson.stageId,
+      grade_id: lesson.gradeId,
+      subject_id: lesson.subjectId || null,
+      teacher_name: lesson.teacherName,
+      meeting_platform: lesson.meetingPlatform,
+      meeting_url: lesson.meetingUrl,
+      scheduled_time: lesson.scheduledTime,
+      duration: lesson.duration,
+      notes: lesson.notes || null,
+      created_at: lesson.createdAt || new Date().toISOString()
+    };
+
+    const { error } = await client
+      .from("live_lessons")
+      .upsert(dbRow);
+
+    if (error) {
+      console.warn("Could not upsert live lesson to Supabase:", error.message);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Exception saving live lesson:", err);
+    return { success: false, error: err.message || String(err) };
+  }
+}
+
+/**
+ * Deletes a live lesson from Supabase and updates local cache.
+ */
+export async function deleteLiveLessonFromSupabase(lessonId: string): Promise<{ success: boolean; error?: string }> {
+  // Update local storage first
+  const localLessonsStr = localStorage.getItem("sudan_live_lessons_v1");
+  let localLessons: LiveLesson[] = localLessonsStr ? JSON.parse(localLessonsStr) : [];
+  localLessons = localLessons.filter(l => l.id !== lessonId);
+  localStorage.setItem("sudan_live_lessons_v1", JSON.stringify(localLessons));
+
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: true };
+  }
+
+  try {
+    const { error } = await client
+      .from("live_lessons")
+      .delete()
+      .eq("id", lessonId);
+
+    if (error) {
+      console.warn("Could not delete live lesson from Supabase:", error.message);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Exception deleting live lesson:", err);
+    return { success: false, error: err.message || String(err) };
+  }
+}
