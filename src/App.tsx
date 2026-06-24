@@ -5,7 +5,7 @@ import {
   Map, Sparkles, Star, ChevronLeft, ChevronDown, CheckCircle, 
   Search, ShieldAlert, History, Globe, Plus, FileText, Video, Filter,
   Lock, Network, MessageSquare, X, Bell, MessagesSquare, UserCheck, Check, Link, ArrowLeftRight,
-  User, LogOut, Settings, Wifi, WifiOff, RotateCw
+  User, LogOut, Settings, Wifi, WifiOff, RotateCw, UserPlus, LogIn, Image, Pencil
 } from "lucide-react";
 import { stagesData, Stage, Grade, Subject } from "./data/curriculum";
 import SubjectModal from "./components/SubjectModal";
@@ -18,6 +18,37 @@ import StudentChatRoom from "./components/StudentChatRoom";
 import WebsiteLogo from "./components/WebsiteLogo";
 import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile, fetchLiveLessonsFromSupabase, LiveLesson, checkUserExistsAndActive } from "./lib/supabase";
 import { stageAndGradeTranslations, uiTranslations } from "./lib/translations";
+
+function getGoogleDriveFileId(url: string): string {
+  if (!url) return "";
+  if (url.includes("drive.google.com")) {
+    const dMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (dMatch && dMatch[1]) {
+      return dMatch[1];
+    }
+    const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (idMatch && idMatch[1]) {
+      return idMatch[1];
+    }
+  }
+  return "";
+}
+
+function convertGoogleDriveUrl(url: string): string {
+  const fileId = getGoogleDriveFileId(url);
+  if (fileId) {
+    return `https://docs.google.com/uc?export=view&id=${fileId}`;
+  }
+  return url;
+}
+
+function getGoogleDriveEmbedUrl(url: string): string {
+  const fileId = getGoogleDriveFileId(url);
+  if (fileId) {
+    return `https://drive.google.com/file/d/${fileId}/preview`;
+  }
+  return url;
+}
 
 export default function App() {
   const [siteTheme, setSiteTheme] = useState<"sudanese" | "legacy">(() => {
@@ -139,6 +170,13 @@ export default function App() {
   const [lastCheckedChat, setLastCheckedChat] = useState<string>(() => localStorage.getItem("sudan_chat_last_read") || new Date(0).toISOString());
   const [lastCheckedUpdates, setLastCheckedUpdates] = useState<string>(() => localStorage.getItem("sudan_updates_last_read") || new Date(0).toISOString());
   const [isOnline, setIsOnline] = useState<boolean>(() => typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [showPushPrompt, setShowPushPrompt] = useState<boolean>(() => {
+    if (typeof window === "undefined" || typeof Notification === "undefined") return false;
+    const isMobileOrTablet = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const hasPermission = Notification.permission;
+    const dismissed = localStorage.getItem("sudan_push_dismissed") === "true";
+    return isMobileOrTablet && hasPermission === "default" && !dismissed;
+  });
 
   useEffect(() => {
     const handleOnline = () => {
@@ -366,6 +404,19 @@ export default function App() {
       setTimeout(() => setSaveStatus(null), 5000);
     }
   };
+
+  // 🖼️ Custom Banner Image/Video settings (defined directly in the code for developers)
+  // To change the banner media, edit the initial state values directly in the code here:
+  const [bannerImageUrl, setBannerImageUrl] = useState<string>("https://drive.google.com/file/d/1UeQW-B5t13X2RhNtDbdOfuxaLeePveuO/view?usp=sharing");
+  const [bannerMediaType, setBannerMediaType] = useState<"image" | "video">("image");
+  
+  // Dummy handlers to disable the UI-based banner editor modal
+  const showBannerEditModal = false;
+  const tempBannerUrl = "" as string;
+  const tempBannerMediaType = "image" as "image" | "video";
+  const setTempBannerUrl = (val: string) => {};
+  const setTempBannerMediaType = (val: "image" | "video") => {};
+  const setShowBannerEditModal = (val: boolean) => {};
 
   // 👤 Student & general user registration & login states (for standard 'users' table)
   const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
@@ -857,10 +908,10 @@ export default function App() {
     setShowUserModal(true);
   };
 
-  // Guard function: Don't allow opening materials/subjects if not logged in
+  // Guard function: Don't allow opening materials/subjects if not logged in or if logged in as a guest
   const handleOpenSubject = (subject: any) => {
-    if (!currentUser && !isAdminLoggedIn) {
-      setUserAuthError("⚠️ عذراً، يرجى تسجيل الدخول أو إنشاء حساب طالب/أستاذ أولاً لتتمكن من تصفح محتويات المواد والدرس التفاعلي!");
+    if ((!currentUser || currentUser.user_role === "guest") && !isAdminLoggedIn) {
+      setUserAuthError("⚠️ تصفح المواد الدراسية وفتح الدروس متاح للأعضاء المسجلين فقط. يرجى تسجيل الدخول أو إنشاء حساب جديد مجاناً للمتابعة!");
       setShowUserModal(true);
       setUserModalTab("login");
       return;
@@ -1024,6 +1075,179 @@ export default function App() {
       setIsAuthLoading(false);
     }
   };
+
+  const handleEnterAsGuest = () => {
+    const guestUser: AppUser = {
+      id: "guest_" + Math.random().toString(36).substr(2, 6),
+      username: currentLang === "ar" ? "زائر المنصة 👤" : "Guest User 👤",
+      email: "guest@sudan-edu.com",
+      provider: "guest",
+      user_role: "guest",
+      created_at: new Date().toISOString()
+    };
+    setCurrentUser(guestUser);
+    localStorage.setItem("sudan_auth_user", JSON.stringify(guestUser));
+    setShowUserModal(false);
+    setSaveStatus(currentLang === "ar" ? "مرحباً بك كزائر للمنصة! يمكنك التصفح بحرية كاملة 🚪✨" : "Welcome as a guest! You can now browse freely 🚪✨");
+    setTimeout(() => setSaveStatus(null), 5000);
+  };
+
+  const handleRequestPushPermission = async () => {
+    if (typeof Notification === "undefined") return;
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        setSaveStatus("🔔 تم تفعيل إشعارات الجوال بنجاح! ستصلك التنبيهات مباشرة.");
+        new Notification("المناهج السودانية 🇸🇩", {
+          body: "شكراً لتفعيل الإشعارات! ستصلك تحديثات المناهج هنا فوراً.",
+        });
+      } else {
+        setSaveStatus("⚠️ لم يتم تفعيل الإشعارات. يمكنك تفعيلها من إعدادات المتصفح.");
+      }
+      setTimeout(() => setSaveStatus(null), 5000);
+    } catch (err) {
+      console.warn("Could not request notification permission:", err);
+    }
+    setShowPushPrompt(false);
+    localStorage.setItem("sudan_push_dismissed", "true");
+  };
+
+  const handleDismissPushPrompt = () => {
+    setShowPushPrompt(false);
+    localStorage.setItem("sudan_push_dismissed", "true");
+  };
+
+  // 📱 Mobile screen hardware / virtual back button management
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      // If user went back, let's close open sections one by one
+      if (activeSubject) {
+        setActiveSubject(null);
+        event.preventDefault();
+        window.history.pushState({ app: "sudan-edu" }, "");
+        return;
+      }
+      if (addSubjectState) {
+        setAddSubjectState(null);
+        event.preventDefault();
+        window.history.pushState({ app: "sudan-edu" }, "");
+        return;
+      }
+      if (showStudentChat) {
+        setShowStudentChat(false);
+        event.preventDefault();
+        window.history.pushState({ app: "sudan-edu" }, "");
+        return;
+      }
+      if (showStudyCamp) {
+        setShowStudyCamp(false);
+        event.preventDefault();
+        window.history.pushState({ app: "sudan-edu" }, "");
+        return;
+      }
+      if (showEducationalMindMap) {
+        setShowEducationalMindMap(false);
+        event.preventDefault();
+        window.history.pushState({ app: "sudan-edu" }, "");
+        return;
+      }
+      if (showAdminDashboard) {
+        setShowAdminDashboard(false);
+        event.preventDefault();
+        window.history.pushState({ app: "sudan-edu" }, "");
+        return;
+      }
+      if (activeGrade) {
+        setActiveGrade(null);
+        event.preventDefault();
+        window.history.pushState({ app: "sudan-edu" }, "");
+        return;
+      }
+      if (selectedStage) {
+        setSelectedStage(null);
+        event.preventDefault();
+        window.history.pushState({ app: "sudan-edu" }, "");
+        return;
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [
+    activeSubject,
+    addSubjectState,
+    showStudentChat,
+    showStudyCamp,
+    showEducationalMindMap,
+    showAdminDashboard,
+    activeGrade,
+    selectedStage
+  ]);
+
+  // Push state to history whenever any view changes to enable the back button
+  useEffect(() => {
+    const hasActiveSubView = 
+      !!activeSubject || 
+      !!addSubjectState || 
+      showStudentChat || 
+      showStudyCamp || 
+      showEducationalMindMap || 
+      showAdminDashboard || 
+      !!activeGrade || 
+      !!selectedStage;
+
+    if (hasActiveSubView) {
+      if (window.history.state?.app !== "subview") {
+        window.history.pushState({ app: "subview" }, "");
+      }
+    }
+  }, [
+    activeSubject,
+    addSubjectState,
+    showStudentChat,
+    showStudyCamp,
+    showEducationalMindMap,
+    showAdminDashboard,
+    activeGrade,
+    selectedStage
+  ]);
+
+  // Exit prompt confirmation to avoid accidental close on exit
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const hasActiveSubView = 
+        !!activeSubject || 
+        !!addSubjectState || 
+        showStudentChat || 
+        showStudyCamp || 
+        showEducationalMindMap || 
+        showAdminDashboard || 
+        !!activeGrade || 
+        !!selectedStage;
+      
+      if (!hasActiveSubView) {
+        e.preventDefault();
+        e.returnValue = "هل أنت متأكد من مغادرة التطبيق؟";
+        return "هل أنت متأكد من مغادرة التطبيق؟";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [
+    activeSubject,
+    addSubjectState,
+    showStudentChat,
+    showStudyCamp,
+    showEducationalMindMap,
+    showAdminDashboard,
+    activeGrade,
+    selectedStage
+  ]);
 
   const handleUserLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1765,20 +1989,38 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
       });
     });
 
-    // 2. Unread Chat Messages
+    // 2. Unread Chat Messages (Only public chats or DMs directed specifically to this user)
     const unreadMsgs = recentChatMessages.filter((m: any) => {
-      if (currentUser && String(m.user_id) === String(currentUser.id)) return false;
+      if (!currentUser) return false;
+      const mUserId = m.userId || m.user_id;
+      if (String(mUserId) === String(currentUser.id)) return false;
+      
+      const isDM = m.text && m.text.startsWith("[DM:");
+      if (isDM) {
+        const dmMatch = m.text.match(/^\[DM:([^\]]+)\]/);
+        if (dmMatch) {
+          const recipientId = dmMatch[1];
+          if (String(recipientId) !== String(currentUser.id)) {
+            return false; // This private DM is not for this user!
+          }
+        } else {
+          return false;
+        }
+      }
+      
       return new Date(m.timestamp) > new Date(lastCheckedChat);
     });
 
     if (unreadMsgs.length > 0) {
       if (unreadMsgs.length === 1) {
         const m = unreadMsgs[0];
+        // Clean out private DM tag for display if needed
+        const cleanBodyText = m.text.startsWith("[DM:") ? m.text.replace(/^\[DM:[^\]]+\]/, "💬 [رسالة خاصة]: ") : m.text;
         list.push({
           id: `msg-${m.id}`,
           type: "message",
           title: currentLang === "ar" ? "رسالة جديدة 💬" : "New Message 💬",
-          body: `*${m.username}*: ${m.text}`,
+          body: `*${m.username}*: ${cleanBodyText}`,
           timeLabel: new Date(m.timestamp).toLocaleTimeString(currentLang === "ar" ? "ar-SD" : "en-US", { hour: '2-digit', minute: '2-digit' }),
           isUnread: true,
           icon: <MessagesSquare className="w-4 h-4 text-indigo-400" />,
@@ -1803,12 +2045,84 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
       }
     }
 
-    // 3. Site Curricula / updates
+    // 3. Site Curricula / updates (Filtered dynamically by user permissions, grade, specialties, and targeted recipients)
+    const teacherSpecs = currentUser && currentUser.user_role === "teacher" && currentUser.specialties
+      ? currentUser.specialties.split(",").map(s => s.trim().toLowerCase()).filter(Boolean)
+      : [];
+
+    let studentGradeName = "";
+    let studentStageName = "";
+    if (currentUser && currentUser.user_role === "student" && currentUser.grade_id) {
+      curriculumData.forEach(stage => {
+        const g = stage.grades.find(gr => gr.id === currentUser.grade_id);
+        if (g) {
+          studentGradeName = g.name.toLowerCase();
+          studentStageName = stage.name.toLowerCase();
+        }
+      });
+    }
+
     siteUpdates.forEach((upd: any) => {
       if (upd.category === "breaking_news" || (upd.body_ar && upd.body_ar.includes('"bgColor"')) || (upd.body_ar && upd.body_ar.includes('"enabled"'))) return; // Skip internal system config payloads
+      
       const isUnread = new Date(upd.created_at) > new Date(lastCheckedUpdates);
       const isNewSubject = upd.category === "new_subject";
-      
+
+      const titleArLower = (upd.title_ar || "").toLowerCase();
+      const bodyArLower = (upd.body_ar || "").toLowerCase();
+      const titleEnLower = (upd.title_en || "").toLowerCase();
+      const bodyEnLower = (upd.body_en || "").toLowerCase();
+
+      // Check for targeted/private supervisor/admin messages
+      const isTargeted = titleArLower.includes("موجه") || bodyArLower.includes("موجه") ||
+                          titleArLower.includes("خاص ب") || bodyArLower.includes("خاص ب");
+      if (isTargeted && currentUser) {
+        const matchesMe = 
+          titleArLower.includes(currentUser.username.toLowerCase()) || 
+          bodyArLower.includes(currentUser.username.toLowerCase()) ||
+          titleArLower.includes(currentUser.email.toLowerCase()) || 
+          bodyArLower.includes(currentUser.email.toLowerCase()) ||
+          (currentUser.user_role === "teacher" && (titleArLower.includes("معلم") || bodyArLower.includes("معلم") || titleArLower.includes("أساتذ") || bodyArLower.includes("أساتذ"))) ||
+          (currentUser.user_role === "student" && (titleArLower.includes("طالب") || bodyArLower.includes("طالب") || titleArLower.includes("طلاب") || bodyArLower.includes("طلاب")));
+        if (!matchesMe) return; // Skip if targeted message but not for this user
+      }
+
+      // Check role permissions: Teacher specialties
+      if (currentUser && currentUser.user_role === "teacher" && teacherSpecs.length > 0) {
+        const isSubjectUpdate = upd.category === "new_subject" || 
+                                titleArLower.includes("مادة") || bodyArLower.includes("مادة") ||
+                                titleArLower.includes("درس") || bodyArLower.includes("درس");
+        if (isSubjectUpdate) {
+          const matchesSpecialty = teacherSpecs.some(spec => 
+            titleArLower.includes(spec) || bodyArLower.includes(spec) ||
+            titleEnLower.includes(spec) || bodyEnLower.includes(spec)
+          );
+          if (!matchesSpecialty) return; // Skip notification if teacher is not specialized in this subject
+        }
+      }
+
+      // Check role permissions: Student grade/stage
+      if (currentUser && currentUser.user_role === "student" && currentUser.grade_id) {
+        const isSubjectUpdate = upd.category === "new_subject" || 
+                                titleArLower.includes("مادة") || bodyArLower.includes("مادة") ||
+                                titleArLower.includes("درس") || bodyArLower.includes("درس") ||
+                                titleArLower.includes("صف") || bodyArLower.includes("صف");
+        if (isSubjectUpdate) {
+          const mentionsMyGrade = (studentGradeName && (titleArLower.includes(studentGradeName) || bodyArLower.includes(studentGradeName))) ||
+                                  (studentStageName && (titleArLower.includes(studentStageName) || bodyArLower.includes(studentStageName)));
+          if (!mentionsMyGrade) {
+            // If it mentions other specific grades but not ours, skip it
+            const otherGrades = curriculumData.flatMap(st => st.grades.map(gr => gr.name.toLowerCase())).filter(name => name !== studentGradeName);
+            const mentionsOtherGrade = otherGrades.some(otherName => 
+              titleArLower.includes(otherName) || bodyArLower.includes(otherName)
+            );
+            if (mentionsOtherGrade) {
+              return; // Skip since it's for another grade
+            }
+          }
+        }
+      }
+
       list.push({
         id: `update-${upd.id}`,
         type: upd.category,
@@ -1947,10 +2261,6 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-1.5">
               <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-ping' : 'bg-amber-500 animate-pulse'}`}></span>
-              <div className="flex items-center gap-1.5">
-                <WebsiteLogo size={22} />
-                <span className={`text-3xs md:text-2xs font-bold ${siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"}`}>{t("tagline")}</span>
-              </div>
             </div>
             
             {/* Elegant Offline Indicator Badge */}
@@ -2057,142 +2367,146 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             )}
 
             {/* Live Student Chat Tab at Top */}
-            <button
-              onClick={() => {
-                const targetState = !showStudentChat;
-                setShowStudentChat(targetState);
-                
-                // Clear unread indicator
-                const nowStr = new Date().toISOString();
-                localStorage.setItem("sudan_chat_last_read", nowStr);
-                setLastCheckedChat(nowStr);
-
-                // Seamless mobile focus scroll
-                if (targetState && window.innerWidth < 1024) {
-                  setTimeout(() => {
-                    const chatEl = document.getElementById("friends-chat-dashboard") || document.getElementById("chat-visitor-blocked");
-                    chatEl?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }, 250);
-                }
-              }}
-              className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 border font-sans font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer ${
-                showStudentChat
-                  ? "bg-indigo-650/25 border-indigo-500 text-indigo-300 ring-2 ring-indigo-500/20"
-                  : "bg-slate-950/60 border-slate-800 hover:bg-slate-900 hover:border-indigo-500/50 text-slate-200"
-              }`}
-              title={currentLang === "ar" ? "الدردشة الطلابية" : "Student Chat"}
-            >
-              <MessagesSquare className="w-3.5 h-3.5 text-indigo-400" />
-              <span className="hidden sm:inline">
-                {currentLang === "ar" ? " الدردشة" : " Chat"}
-              </span>
-            </button>
-
-            {/* Notification Bell Dropdown Component */}
-            <div className="relative" ref={notificationDropdownRef}>
+            {currentUser && currentUser.user_role !== "guest" && (
               <button
                 onClick={() => {
-                  setShowNotificationsDropdown(prev => !prev);
-                  if (!showNotificationsDropdown) {
-                    const nowStr = new Date().toISOString();
-                    localStorage.setItem("sudan_updates_last_read", nowStr);
-                    setLastCheckedUpdates(nowStr);
+                  const targetState = !showStudentChat;
+                  setShowStudentChat(targetState);
+                  
+                  // Clear unread indicator
+                  const nowStr = new Date().toISOString();
+                  localStorage.setItem("sudan_chat_last_read", nowStr);
+                  setLastCheckedChat(nowStr);
+
+                  // Seamless mobile focus scroll
+                  if (targetState && window.innerWidth < 1024) {
+                    setTimeout(() => {
+                      const chatEl = document.getElementById("friends-chat-dashboard") || document.getElementById("chat-visitor-blocked");
+                      chatEl?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }, 250);
                   }
                 }}
-                className={`inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl shadow-sm transition-all duration-300 cursor-pointer relative ${
-                  showNotificationsDropdown 
-                    ? "bg-amber-955/35 border-amber-500 text-amber-300 ring-2 ring-amber-500/20" 
-                    : "bg-slate-950/60 border-slate-800 hover:bg-slate-900 border-slate-800 hover:border-amber-500/40 text-slate-200"
+                className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 border font-sans font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer ${
+                  showStudentChat
+                    ? "bg-indigo-650/25 border-indigo-500 text-indigo-300 ring-2 ring-indigo-500/20"
+                    : "bg-slate-950/60 border-slate-800 hover:bg-slate-900 hover:border-indigo-500/50 text-slate-200"
                 }`}
-                title={currentLang === "ar" ? "الإشعارات" : "Notifications"}
+                title={currentLang === "ar" ? "الدردشة الطلابية" : "Student Chat"}
               >
-                <Bell className={`w-3.5 h-3.5 ${unreadCount > 0 ? "text-amber-400 animate-bounce" : "text-slate-400"}`} />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-650 text-[9px] font-black text-white rounded-full flex items-center justify-center border border-slate-950 animate-pulse px-1">
-                    {unreadCount}
-                  </span>
-                )}
+                <MessagesSquare className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="hidden sm:inline">
+                  {currentLang === "ar" ? " الدردشة" : " Chat"}
+                </span>
               </button>
+            )}
 
-              <AnimatePresence>
-                {showNotificationsDropdown && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute left-0 mt-3 w-80 sm:w-96 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-4 z-[9999] text-right font-sans"
-                    dir={currentLang === "ar" ? "rtl" : "ltr"}
-                  >
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                      <div className="flex items-center gap-1.5">
-                        <Bell className="w-4 h-4 text-amber-500" />
-                        <h5 className="text-xs font-black text-slate-100">
-                          {currentLang === "ar" ? "الإشعارات والتحديثات 🔔" : "Notifications & Updates 🔔"}
-                        </h5>
-                      </div>
-                      <button
-                        onClick={() => {
-                          const nowStr = new Date().toISOString();
-                          localStorage.setItem("sudan_chat_last_read", nowStr);
-                          setLastCheckedChat(nowStr);
-                          localStorage.setItem("sudan_updates_last_read", nowStr);
-                          setLastCheckedUpdates(nowStr);
-                          setShowNotificationsDropdown(false);
-                        }}
-                        className="text-[9px] text-slate-400 hover:text-white transition-colors cursor-pointer"
-                      >
-                        {currentLang === "ar" ? "تحديد كالمقروءة وإغلاق ✓" : "Mark read & close ✓"}
-                      </button>
-                    </div>
+            {/* Notification Bell Dropdown Component */}
+            {currentUser && currentUser.user_role !== "guest" && (
+              <div className="relative" ref={notificationDropdownRef}>
+                <button
+                  onClick={() => {
+                    setShowNotificationsDropdown(prev => !prev);
+                    if (!showNotificationsDropdown) {
+                      const nowStr = new Date().toISOString();
+                      localStorage.setItem("sudan_updates_last_read", nowStr);
+                      setLastCheckedUpdates(nowStr);
+                    }
+                  }}
+                  className={`inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl shadow-sm transition-all duration-300 cursor-pointer relative ${
+                    showNotificationsDropdown 
+                      ? "bg-amber-955/35 border-amber-500 text-amber-300 ring-2 ring-amber-500/20" 
+                      : "bg-slate-950/60 border-slate-800 hover:bg-slate-900 border-slate-800 hover:border-amber-500/40 text-slate-200"
+                  }`}
+                  title={currentLang === "ar" ? "الإشعارات" : "Notifications"}
+                >
+                  <Bell className={`w-3.5 h-3.5 ${unreadCount > 0 ? "text-amber-400 animate-bounce" : "text-slate-400"}`} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-650 text-[9px] font-black text-white rounded-full flex items-center justify-center border border-slate-950 animate-pulse px-1">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
 
-                    <div className="mt-3 space-y-2 max-h-[320px] overflow-y-auto pr-1">
-                      {formattedNotifications.length === 0 ? (
-                        <div className="py-8 text-center text-slate-500 text-2xs space-y-1">
-                          <p className="font-extrabold text-slate-400">
-                            {currentLang === "ar" ? "لا توجد إشعارات جديدة حالياً." : "No new notifications yet."}
-                          </p>
-                          <p className="text-[10px] text-slate-500">
-                            {currentLang === "ar" 
-                              ? "سيتم تنبيهك هنا عند تلقي طلب صداقة، رسائل جديدة، أو إضافة مواد وروابط." 
-                              : "You will be notified of requests, replies, new subjects, or resource links here."}
-                          </p>
+                <AnimatePresence>
+                  {showNotificationsDropdown && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute left-0 mt-3 w-80 sm:w-96 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-4 z-[9999] text-right font-sans"
+                      dir={currentLang === "ar" ? "rtl" : "ltr"}
+                    >
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                        <div className="flex items-center gap-1.5">
+                          <Bell className="w-4 h-4 text-amber-500" />
+                          <h5 className="text-xs font-black text-slate-100">
+                            {currentLang === "ar" ? "الإشعارات والتحديثات 🔔" : "Notifications & Updates 🔔"}
+                          </h5>
                         </div>
-                      ) : (
-                        formattedNotifications.map(item => (
-                          <div
-                            key={item.id}
-                            onClick={() => handleNotificationClick(item)}
-                            className={`p-2.5 rounded-xl border text-right transition-all cursor-pointer ${
-                              item.isUnread
-                                ? "bg-amber-955/5 border-amber-900/40 hover:bg-slate-850 hover:border-amber-500/30"
-                                : "bg-slate-950/40 border-slate-900/40 hover:bg-slate-850"
-                            }`}
-                          >
-                            <div className="flex gap-2.5 items-start">
-                              <div className={`p-1.5 rounded-lg shrink-0 ${item.iconBg}`}>
-                                {item.icon}
-                              </div>
-                              <div className="space-y-1 min-w-0 flex-1">
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-[10px] font-black text-slate-100 truncate block">{item.title}</span>
-                                  {item.isUnread && (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                                  )}
+                        <button
+                          onClick={() => {
+                            const nowStr = new Date().toISOString();
+                            localStorage.setItem("sudan_chat_last_read", nowStr);
+                            setLastCheckedChat(nowStr);
+                            localStorage.setItem("sudan_updates_last_read", nowStr);
+                            setLastCheckedUpdates(nowStr);
+                            setShowNotificationsDropdown(false);
+                          }}
+                          className="text-[9px] text-slate-400 hover:text-white transition-colors cursor-pointer"
+                        >
+                          {currentLang === "ar" ? "تحديد كالمقروءة وإغلاق ✓" : "Mark read & close ✓"}
+                        </button>
+                      </div>
+
+                      <div className="mt-3 space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                        {formattedNotifications.length === 0 ? (
+                          <div className="py-8 text-center text-slate-500 text-2xs space-y-1">
+                            <p className="font-extrabold text-slate-400">
+                              {currentLang === "ar" ? "لا توجد إشعارات جديدة حالياً." : "No new notifications yet."}
+                            </p>
+                            <p className="text-[10px] text-slate-500">
+                              {currentLang === "ar" 
+                                ? "سيتم تنبيهك هنا عند تلقي طلب صداقة، رسائل جديدة، أو إضافة مواد وروابط." 
+                                : "You will be notified of requests, replies, new subjects, or resource links here."}
+                            </p>
+                          </div>
+                        ) : (
+                          formattedNotifications.map(item => (
+                            <div
+                              key={item.id}
+                              onClick={() => handleNotificationClick(item)}
+                              className={`p-2.5 rounded-xl border text-right transition-all cursor-pointer ${
+                                item.isUnread
+                                  ? "bg-amber-955/5 border-amber-900/40 hover:bg-slate-850 hover:border-amber-500/30"
+                                  : "bg-slate-950/40 border-slate-900/40 hover:bg-slate-850"
+                              }`}
+                            >
+                              <div className="flex gap-2.5 items-start">
+                                <div className={`p-1.5 rounded-lg shrink-0 ${item.iconBg}`}>
+                                  {item.icon}
                                 </div>
-                                <p className="text-[9px] text-slate-350 leading-normal font-medium whitespace-pre-line text-right">
-                                  {item.body}
-                                </p>
-                                <span className="text-[8px] text-slate-500 block pt-0.5 font-mono text-right">{item.timeLabel}</span>
+                                <div className="space-y-1 min-w-0 flex-1">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[10px] font-black text-slate-100 truncate block">{item.title}</span>
+                                    {item.isUnread && (
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                    )}
+                                  </div>
+                                  <p className="text-[9px] text-slate-350 leading-normal font-medium whitespace-pre-line text-right">
+                                    {item.body}
+                                  </p>
+                                  <span className="text-[8px] text-slate-500 block pt-0.5 font-mono text-right">{item.timeLabel}</span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
 
             {/* Student / user login trigger */}
             {currentUser ? (
@@ -2788,9 +3102,15 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                    <div className="absolute inset-0 pointer-events-none opacity-10 bg-[radial-gradient(#5C2C16_1px,transparent_1px)] [background-size:16px_16px]"></div>
                    
                    <div className="flex-1 space-y-2 sm:space-y-4 text-right">
-                      <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-earthgold/30 rounded-full text-[9px] sm:text-[10px] md:text-3xs font-extrabold text-mud uppercase tracking-wider shadow-sm select-none">
-                        <WebsiteLogo size={12} />
-                        <span>منصة المناهج السودانية المطورة 🇸🇩</span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-earthgold/30 rounded-full text-[9px] sm:text-[10px] md:text-3xs font-extrabold text-mud uppercase tracking-wider shadow-sm select-none">
+                          <WebsiteLogo size={12} />
+                          <span>منصة المناهج السودانية المطورة 🇸🇩</span>
+                        </div>
+                        <div className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-[9px] sm:text-[10px] md:text-3xs font-black text-[#2E7D32] dark:text-emerald-400 tracking-wider shadow-sm select-none animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#2E7D32] dark:bg-emerald-400 shrink-0"></span>
+                          <span>التعليم للجميع ✨</span>
+                        </div>
                       </div>
                       <h2 className="text-sm sm:text-2xl md:text-3xl font-black text-mud leading-snug">
                          {currentLang === "ar" ? "أهلاً بك في البوابة التعليمية التفاعلية الموحدة" : "Interactive Gateway to Sudanese Unified Curricula"}
@@ -2865,9 +3185,46 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       </div>
                    </div>
 
-                   {/* SVG Sudanese Traditional Gottia/Mud Architecture Scene Illustration */}
-                   <div className="w-28 h-20 sm:w-48 sm:h-36 shrink-0 relative bg-white/20 rounded-2xl border border-mud/10 flex items-center justify-center shadow-inner overflow-hidden select-none">
-                      <svg viewBox="0 0 200 150" className="w-full h-full object-cover">
+                   {/* SVG or Custom Animated Image/Video from Google Drive or Direct Link */}
+                   <div 
+                     className="w-28 h-20 sm:w-48 sm:h-36 shrink-0 relative bg-white/20 rounded-2xl border border-mud/10 flex items-center justify-center shadow-inner overflow-hidden select-none transition-all duration-300"
+                   >
+                     {bannerImageUrl ? (
+                       bannerMediaType === "video" ? (
+                         bannerImageUrl.includes("drive.google.com") ? (
+                           <iframe
+                             src={getGoogleDriveEmbedUrl(bannerImageUrl)}
+                             title="Banner Custom Video"
+                             className="absolute -top-[15%] -left-[15%] w-[130%] h-[130%] pointer-events-none rounded-2xl animate-fadeIn"
+                             allow="autoplay"
+                             referrerPolicy="no-referrer"
+                           />
+                         ) : (
+                           <video
+                             src={bannerImageUrl}
+                             autoPlay
+                             loop
+                             muted
+                             playsInline
+                             className="w-full h-full object-cover rounded-2xl pointer-events-none"
+                             onError={(e) => {
+                               console.warn("Custom banner video failed to load", e);
+                             }}
+                           />
+                         )
+                       ) : (
+                         <img 
+                           src={convertGoogleDriveUrl(bannerImageUrl)} 
+                           alt="Banner Custom" 
+                           className="w-full h-full object-cover rounded-2xl pointer-events-none"
+                           referrerPolicy="no-referrer"
+                           onError={(e) => {
+                             console.warn("Custom banner image failed to load, fallback to default icon");
+                           }}
+                         />
+                       )
+                     ) : (
+                        <svg viewBox="0 0 200 150" className="w-full h-full object-cover">
                          {/* Sky Sand Gradients */}
                          <defs>
                             <linearGradient id="sandSky" x1="0" y1="0" x2="0" y2="1">
@@ -2920,8 +3277,17 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                          <text x="80" y="35" fontFamily="sans-serif" fontSize="10" fill="#5C2C16" opacity="0.6">✍️</text>
                          <text x="135" y="65" fontFamily="sans-serif" fontSize="12" fill="#D4AF37">⭐</text>
                       </svg>
+                   )}
+
+                   {/* Hover Overlay indicating editable */}
+                   <div className="hidden flex flex-col items-center justify-center gap-1 text-white transition-all duration-300">
+                      <Pencil className="w-5 h-5 text-amber-400 animate-pulse" />
+                      <span className="text-[10px] font-black tracking-wider bg-black/35 px-2.5 py-0.5 rounded-full border border-white/10">
+                        {currentLang === "ar" ? "تعديل المظهر 🖼️🎥" : "Change Media 🖼️🎥"}
+                      </span>
                    </div>
                 </div>
+             </div>
 
                 {/* 🎥 Live Lessons Widget for Students */}
                 {liveLessons.length > 0 && (
@@ -4266,14 +4632,19 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     </p>
                   </div>
                 </div>
-                {currentUser && (
-                  <button
-                    onClick={() => setShowUserModal(false)}
-                    className="p-1.5 bg-slate-950 hover:bg-slate-850 border border-slate-800 rounded-xl text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
+                <button
+                  onClick={() => {
+                    if (currentUser) {
+                      setShowUserModal(false);
+                    } else {
+                      handleEnterAsGuest();
+                    }
+                  }}
+                  className="p-1.5 bg-slate-950 hover:bg-slate-850 border border-slate-800 rounded-xl text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                  title={currentUser ? "إغلاق" : "تصفح كزائر"}
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
               {/* Tabs list (Sign-in / Register) */}
@@ -4612,6 +4983,25 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   >
                     {isAuthLoading ? "جاري التحقق والمزامنة..." : userModalTab === "profile" ? "حفظ وتعديل البيانات الشخصية 💾" : userModalTab === "login" ? "تسجيل المزامنة والدخول 🚀" : "إتمام إنشاء الحساب وحفظه فورياً ✨"}
                   </button>
+
+                  {userModalTab !== "profile" && (
+                    <div className="mt-3.5">
+                      <div className="relative flex py-1.5 items-center">
+                        <div className="flex-grow border-t border-slate-800/50"></div>
+                        <span className="flex-shrink mx-3 text-[9px] text-slate-500 font-bold select-none">أو</span>
+                        <div className="flex-grow border-t border-slate-800/50"></div>
+                      </div>
+                      
+                      <button
+                        type="button"
+                        onClick={handleEnterAsGuest}
+                        className="w-full py-2.5 bg-slate-950 hover:bg-slate-850 text-slate-350 text-2xs font-extrabold rounded-xl transition-all cursor-pointer border border-slate-800 hover:border-emerald-500/40 hover:text-emerald-400 flex items-center justify-center gap-1.5 active:scale-95 shadow-inner"
+                      >
+                        <User className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>تصفح المنصة كـ زائر (بدون حساب) 🚪✨</span>
+                      </button>
+                    </div>
+                  )}
                 </form>
               </div>
 
@@ -4676,6 +5066,240 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             )}
             <span className="text-xs font-extrabold text-slate-200">{saveStatus}</span>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 📱 Mobile & Tablet Custom Notification Permission Prompt */}
+      <AnimatePresence>
+        {showPushPrompt && (
+          <motion.div
+            initial={{ opacity: 0, y: -50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -30, scale: 0.95 }}
+            className="fixed top-20 inset-x-4 mx-auto max-w-sm bg-gradient-to-r from-slate-900 to-indigo-950 border border-indigo-500/40 p-4 rounded-2xl shadow-2xl z-[9999] flex flex-col gap-3 font-sans"
+            dir="rtl"
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 bg-indigo-650/20 border border-indigo-500/30 rounded-xl text-indigo-400 shrink-0">
+                <Bell className="w-5 h-5 text-indigo-400 animate-pulse" />
+              </div>
+              <div className="space-y-1 text-right flex-1 min-w-0">
+                <h5 className="text-xs font-black text-slate-100">
+                  تفعيل إشعارات الجوال 🔔
+                </h5>
+                <p className="text-[10px] text-slate-350 leading-relaxed font-medium">
+                  احصل على تنبيهات فورية ضمن بار الجوال للمواد الدراسية الجديدة، الدردشات، ورسائل الأساتذة الخاصة بك لمتابعة الدروس أولاً بأول.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={handleDismissPushPrompt}
+                className="px-3 py-1.5 bg-slate-950 hover:bg-slate-850 text-[10px] font-bold text-slate-400 rounded-xl transition-all cursor-pointer border border-slate-800"
+              >
+                ليس الآن
+              </button>
+              <button
+                onClick={handleRequestPushPermission}
+                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-[10px] font-black text-white rounded-xl transition-all cursor-pointer shadow-md shadow-indigo-950/50 flex items-center gap-1 active:scale-95"
+              >
+                <span>🔔</span>
+                <span>تفعيل الآن</span>
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 🖼️ Custom Banner Image & Video Customizer Modal (with Google Drive animated links integration) */}
+      <AnimatePresence>
+        {showBannerEditModal && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[99999] flex items-center justify-center p-4 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-lg bg-white border border-earthgold/30 rounded-3xl overflow-hidden shadow-2xl relative text-right font-sans"
+              dir="rtl"
+            >
+              {/* Pattern Header Background Accent */}
+              <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#FAF5EC] to-transparent pointer-events-none" />
+              
+              {/* Modal Upper Top Bar */}
+              <div className="p-6 pb-4 border-b border-mud/10 flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-600">
+                    <Image className="w-6 h-6 text-[#D4AF37]" />
+                  </div>
+                  <div>
+                    <h5 className="text-base font-black text-mud">
+                      تعديل مظهر صندوق البانر 🖼️🎥
+                    </h5>
+                    <p className="text-3xs text-mud/60 mt-0.5 font-medium">
+                      يمكنك استخدام صور متحركة GIF أو فيديوهات تفاعلية من قوقل درايف أو روابط مباشرة
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowBannerEditModal(false)}
+                  className="p-1.5 bg-cream hover:bg-cream/80 border border-mud/10 rounded-xl text-mud/60 hover:text-mud transition-colors cursor-pointer"
+                  title="إغلاق"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 space-y-5 relative z-10">
+                {/* Media Type Toggle */}
+                <div className="space-y-2">
+                  <label className="block text-2xs font-extrabold text-mud/80">
+                    نوع المحتوى المرفق 📂
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 bg-cream/40 p-1 rounded-xl border border-mud/10">
+                    <button
+                      type="button"
+                      onClick={() => setTempBannerMediaType("image")}
+                      className={`py-2 text-xs font-black rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        tempBannerMediaType === "image"
+                          ? "bg-[#D4AF37] text-white shadow-xs"
+                          : "text-mud/70 hover:bg-cream/70 hover:text-mud"
+                      }`}
+                    >
+                      <Image className="w-4 h-4" />
+                      <span>صورة أو متحركة GIF 🖼️</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTempBannerMediaType("video")}
+                      className={`py-2 text-xs font-black rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        tempBannerMediaType === "video"
+                          ? "bg-[#D4AF37] text-white shadow-xs"
+                          : "text-mud/70 hover:bg-cream/70 hover:text-mud"
+                      }`}
+                    >
+                      <Video className="w-4 h-4" />
+                      <span>فيديو تفاعلي 🎥</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-2xs font-extrabold text-mud/80">
+                    رابط ملف قوقل درايف أو رابط خارجي مباشر 🔗
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      placeholder={tempBannerMediaType === "video" ? "أدخل رابط فيديو قوقل درايف أو رابط فيديو MP4 مباشر..." : "أدخل رابط صورة قوقل درايف أو أي رابط صورة مباشر..."}
+                      value={tempBannerUrl}
+                      onChange={(e) => setTempBannerUrl(e.target.value)}
+                      className="flex-1 px-4 py-2.5 text-xs bg-cream/50 hover:bg-cream/80 focus:bg-white border border-mud/15 rounded-xl text-mud font-medium transition-all focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37]"
+                    />
+                    {tempBannerUrl && (
+                      <button
+                        onClick={() => setTempBannerUrl("")}
+                        className="px-3 bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 text-red-600 text-3xs font-black rounded-xl transition-all cursor-pointer"
+                      >
+                        مسح 🗑️
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-mud/55 leading-relaxed font-sans">
+                    💡 **صيغة قوقل درايف المدعومة**: الصق رابط المشاركة العادي (مثال: <code className="bg-cream px-1 py-0.5 rounded text-[9px] font-mono break-all text-amber-700">https://drive.google.com/file/d/.../view</code>) وسنقوم تلقائياً بتحويله وتفعيله كمشغل تفاعلي!
+                  </p>
+                </div>
+
+                {/* Live Preview Block */}
+                <div className="space-y-2">
+                  <span className="block text-3xs font-black text-mud/50 uppercase tracking-wider">
+                    معاينة حية للمظهر الجديد 👁️
+                  </span>
+                  <div className="h-36 rounded-2xl border border-dashed border-mud/20 bg-cream/20 flex items-center justify-center overflow-hidden relative shadow-inner">
+                    {tempBannerUrl ? (
+                      tempBannerMediaType === "video" ? (
+                        tempBannerUrl.includes("drive.google.com") ? (
+                          <iframe
+                            src={getGoogleDriveEmbedUrl(tempBannerUrl)}
+                            title="Preview Banner Video"
+                            className="w-full h-full object-cover rounded-2xl scale-[1.1]"
+                            allow="autoplay"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <video
+                            src={tempBannerUrl}
+                            autoPlay
+                            loop
+                            muted
+                            playsInline
+                            className="w-full h-full object-cover rounded-2xl"
+                          />
+                        )
+                      ) : (
+                        <img
+                          src={convertGoogleDriveUrl(tempBannerUrl)}
+                          alt="Preview Banner"
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            // Warning preview
+                          }}
+                        />
+                      )
+                    ) : (
+                      <div className="text-center p-4 space-y-1 text-mud/40">
+                        <Image className="w-8 h-8 mx-auto stroke-1" />
+                        <span className="block text-4xs font-bold">
+                          المعالم التراثية التقليدية السودانية الافتراضية
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Helpful tips */}
+                <div className="p-3.5 bg-amber-500/5 border border-amber-500/10 rounded-2xl space-y-1">
+                  <h6 className="text-[11px] font-extrabold text-amber-800 flex items-center gap-1">
+                    <span>🌟</span>
+                    <span>خطوات مشاركة الملف (صورة أو فيديو) بشكل صحيح:</span>
+                  </h6>
+                  <ul className="list-decimal list-inside text-4xs text-mud/70 space-y-1 leading-relaxed font-sans">
+                    <li>اضغط بالزر الأيمن على الصورة أو الفيديو داخل قوقل درايف (Google Drive).</li>
+                    <li>اختر **مشاركة (Share)** ثم **مشاركة مع الآخرين**.</li>
+                    <li>تأكد من تغيير الوصول العام إلى **أي شخص لديه الرابط (Anyone with the link)**.</li>
+                    <li>اضغط على **نسخ الرابط (Copy Link)** ثم الصقه في الحقل أعلاه!</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Modal Footer actions */}
+              <div className="p-6 bg-[#FAF5EC]/50 border-t border-mud/10 flex gap-3 justify-end relative z-10">
+                <button
+                  onClick={() => setShowBannerEditModal(false)}
+                  className="px-4 py-2 bg-white hover:bg-cream border border-mud/15 text-xs font-bold text-mud rounded-xl transition-all cursor-pointer"
+                >
+                  إلغاء التغييرات
+                </button>
+                <button
+                  onClick={() => {
+                    localStorage.setItem("sudan_banner_image_url", tempBannerUrl);
+                    localStorage.setItem("sudan_banner_media_type", tempBannerMediaType);
+                    setBannerImageUrl(tempBannerUrl);
+                    setBannerMediaType(tempBannerMediaType);
+                    setShowBannerEditModal(false);
+                    setSaveStatus("✨ تم تحديث وحفظ مظهر صندوق البانر وتفعيله بنجاح!");
+                    setTimeout(() => setSaveStatus(null), 4000);
+                  }}
+                  className="px-5 py-2 bg-[#D4AF37] hover:bg-[#bfa032] active:scale-95 text-xs font-black text-white rounded-xl transition-all cursor-pointer shadow-md shadow-amber-950/20 flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>حفظ وتطبيق المظهر الجديد 💾</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
