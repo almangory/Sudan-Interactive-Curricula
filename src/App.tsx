@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   GraduationCap, Award, Compass, BookOpen, Clock, Heart, 
-  Map, Sparkles, Star, ChevronLeft, ChevronDown, CheckCircle, 
+  Map, Sparkles, Star, ChevronLeft, ChevronDown, ChevronUp, CheckCircle, 
   Search, ShieldAlert, History, Globe, Plus, FileText, Video, Filter,
   Lock, Network, MessageSquare, X, Bell, MessagesSquare, UserCheck, Check, Link, ArrowLeftRight,
   User, LogOut, Settings, Wifi, WifiOff, RotateCw, UserPlus, LogIn, Image, Pencil
@@ -100,6 +100,7 @@ export default function App() {
     gradeName: string;
   } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [showStudyCamp, setShowStudyCamp] = useState(false);
   const [showEducationalMindMap, setShowEducationalMindMap] = useState(false);
@@ -2919,19 +2920,29 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           <div className="flex flex-col lg:flex-row gap-8 mt-5 items-start">
              {/* Sidebar (Right/Left Column depending on dir, takes 1/4) */}
              <aside className="w-full lg:w-1/4 bg-white/95 rounded-3xl p-6 shadow-sm border border-mud/10 space-y-5 h-fit select-text z-10 text-right" dir="rtl">
-                <div className="space-y-1">
-                   <h4 className="text-[#5C2C16] font-bold text-sm flex items-center gap-1.5 border-b border-mud/10 pb-2">
-                     <span>🔍</span>
-                     <span>{currentLang === "ar" ? "البحث السريع والترشيح" : "Quick Search & Filter"}</span>
+                <div 
+                   className="space-y-1 cursor-pointer select-none pb-2 border-b border-mud/10"
+                   onClick={() => setIsSearchExpanded(prev => !prev)}
+                >
+                   <h4 className="text-[#5C2C16] font-bold text-sm flex items-center justify-between">
+                     <div className="flex items-center gap-1.5">
+                       <span>🔍</span>
+                       <span>{currentLang === "ar" ? "البحث السريع والترشيح" : "Quick Search & Filter"}</span>
+                     </div>
+                     <span className="text-mud/60">
+                       {isSearchExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4 animate-bounce" />}
+                     </span>
                    </h4>
                    <p className="text-3xs text-mud/60 leading-normal">{currentLang === "ar" ? "ابحث عن أي مادة أو كتاب أو ملخص بسهولة فورية" : "Search any interactive textbook or video course in Sudan"}</p>
                 </div>
 
-                {/* Search Text Input */}
-                <div className="space-y-1 pt-1">
-                   <label className="text-mud text-xs font-bold block mb-1">
-                     {currentLang === "ar" ? "عبارة البحث" : "Search Phrase"}
-                   </label>
+                {isSearchExpanded ? (
+                  <div className="space-y-4 pt-1 animate-fadeIn duration-200">
+                    {/* Search Text Input */}
+                    <div className="space-y-1">
+                       <label className="text-mud text-xs font-bold block mb-1">
+                         {currentLang === "ar" ? "عبارة البحث" : "Search Phrase"}
+                       </label>
                    <div className="relative flex items-center bg-[#FDFBF7] rounded-xl p-3 border border-mud/15 shadow-inner">
                      <Search className="w-4 h-4 text-mud/50 shrink-0 select-none ml-2" />
                      <input
@@ -3062,6 +3073,37 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                      <ChevronDown className="absolute left-3 w-4 h-4 text-mud/60 pointer-events-none" />
                    </div>
                 </div>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsSearchExpanded(false);
+                  }}
+                  className="w-full py-1.5 mt-2 text-center text-3xs font-bold text-mud/50 hover:text-mud/85 transition-all flex items-center justify-center gap-1 cursor-pointer bg-cream/10 hover:bg-cream/30 border border-mud/5 rounded-xl"
+                >
+                  <ChevronUp className="w-3.5 h-3.5" />
+                  <span>{currentLang === "ar" ? "إخفاء خيارات التصفية والبحث" : "Hide Search Options"}</span>
+                </button>
+              </div>
+            ) : (
+              <div className="pt-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsSearchExpanded(true);
+                  }}
+                  className="w-full py-3.5 px-4 bg-gradient-to-br from-[#FAF5EC] to-[#F1ECE3] hover:from-[#F1ECE3] hover:to-[#FAF5EC] border border-mud/20 rounded-2xl flex flex-col items-center justify-center gap-1.5 text-xs font-bold text-mud transition-all cursor-pointer shadow-xs active:scale-[0.98]"
+                >
+                  <div className="flex items-center gap-1.5 text-[#5C2C16] text-xs font-extrabold">
+                    <Search className="w-4 h-4 text-earthgold animate-pulse" />
+                    <span>{currentLang === "ar" ? "ابدأ البحث والترشيح التفاعلي" : "Start Interactive Filter"}</span>
+                  </div>
+                  <span className="text-[10px] text-mud/60 font-medium">
+                    {currentLang === "ar" ? "اضغط هنا لتصفية المواد والكتب والصفوف" : "Click here to filter materials and books"}
+                  </span>
+                </button>
+              </div>
+            )}
 
                 {/* Quick actions indicator */}
                 <div className="pt-3 border-t border-mud/10 space-y-2">
