@@ -15,6 +15,7 @@ import StudyCamp from "./components/StudyCamp";
 import AdminDashboard from "./components/AdminDashboard";
 import EducationalMindMap from "./components/EducationalMindMap";
 import StudentChatRoom from "./components/StudentChatRoom";
+import WebsiteLogo from "./components/WebsiteLogo";
 import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile, fetchLiveLessonsFromSupabase, LiveLesson, checkUserExistsAndActive } from "./lib/supabase";
 import { stageAndGradeTranslations, uiTranslations } from "./lib/translations";
 
@@ -1448,6 +1449,73 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
     }
   }, [curriculumData, currentUser, isAdminLoggedIn]);
 
+  // 📱 Automatic scroll to newly opened sections/subjects for enhanced mobile usability
+  useEffect(() => {
+    if (selectedStage) {
+      setTimeout(() => {
+        const el = document.getElementById("selected-stage-section");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 150);
+    }
+  }, [selectedStage]);
+
+  useEffect(() => {
+    if (activeGrade) {
+      setTimeout(() => {
+        const el = document.getElementById(`grade-card-${activeGrade.id}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 150);
+    }
+  }, [activeGrade]);
+
+  useEffect(() => {
+    if (showOnlyFavorites) {
+      setTimeout(() => {
+        const el = document.getElementById("favorites-view-section");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 150);
+    }
+  }, [showOnlyFavorites]);
+
+  useEffect(() => {
+    if (showStudyCamp) {
+      setTimeout(() => {
+        const el = document.getElementById("study-camp-view-section");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 150);
+    }
+  }, [showStudyCamp]);
+
+  useEffect(() => {
+    if (showEducationalMindMap) {
+      setTimeout(() => {
+        const el = document.getElementById("mind-map-view-section");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 150);
+    }
+  }, [showEducationalMindMap]);
+
+  useEffect(() => {
+    if (showAdminDashboard) {
+      setTimeout(() => {
+        const el = document.getElementById("admin-dashboard-view-section");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 150);
+    }
+  }, [showAdminDashboard]);
+
   // تم الاستغناء بالكامل عن الطريقة القديمة لحفظ الملفات محلياً على السيرفر (والتي كانت تفشل على فيرسل Vercel)
   // لصالح مزامنة سحابية ديناميكية وتلقائية بالكامل بنسبة 100% تعتمد على سوبابيس (Supabase Realtime Database)
 
@@ -1879,7 +1947,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-1.5">
               <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-ping' : 'bg-amber-500 animate-pulse'}`}></span>
-              <span className={`text-3xs md:text-2xs font-bold ${siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"}`}>{t("tagline")}</span>
+              <div className="flex items-center gap-1.5">
+                <WebsiteLogo size={22} />
+                <span className={`text-3xs md:text-2xs font-bold ${siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"}`}>{t("tagline")}</span>
+              </div>
             </div>
             
             {/* Elegant Offline Indicator Badge */}
@@ -1905,13 +1976,13 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 relative w-auto h-auto">
+          <div className="flex items-center gap-1.5 sm:gap-3 relative w-auto h-auto">
             {/* Page Refresh Button */}
             <button
               onClick={() => {
                 window.location.reload();
               }}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
+              className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
                 siteTheme === "sudanese"
                   ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-earthgold/60"
                   : "bg-slate-950/60 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/60 text-slate-200"
@@ -1919,18 +1990,15 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               title={currentLang === "ar" ? "تحديث الصفحة" : "Refresh Page"}
             >
               <RotateCw className="w-3.5 h-3.5 text-earthgold-600" />
-              <span className="hidden xs:inline">
-                {currentLang === "ar" ? "🔄" : " 🔄"}
-              </span>
-              <span className="xs:hidden">
-                {currentLang === "ar" ? "🔄" : "🔄"}
+              <span className="hidden sm:inline">
+                {currentLang === "ar" ? " تحديث" : " Refresh"}
               </span>
             </button>
 
             {/* Theme Switcher Button */}
             <button
               onClick={toggleSiteTheme}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
+              className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
                 siteTheme === "sudanese"
                   ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-earthgold/60"
                   : "bg-slate-950/60 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/60 text-slate-200"
@@ -1938,13 +2006,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               title={currentLang === "ar" ? "تغيير المظهر (التصميم السوداني التقليدي / المظهر الداكن)" : "Switch Theme (Traditional Sudanese / Legacy Dark)"}
             >
               <span className="text-[14px]">🎨</span>
-              <span className="hidden xs:inline">
+              <span className="hidden sm:inline">
                 {currentLang === "ar" 
-                  ? (siteTheme === "sudanese" ? "" : "التصميم الداكن 🌙") 
-                  : (siteTheme === "sudanese" ? "Sudanese Style 🇸🇩" : "Dark Legacy 🌙")}
-              </span>
-              <span className="xs:hidden">
-                {siteTheme === "sudanese" ? "" : "داكن 🌙"}
+                  ? (siteTheme === "sudanese" ? " التصميم السوداني" : " التصميم الداكن") 
+                  : (siteTheme === "sudanese" ? " Sudanese Style" : " Dark Legacy")}
               </span>
             </button>
 
@@ -1955,7 +2020,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 setCurrentLang(nextLang);
                 localStorage.setItem("sudan_edu_lang", nextLang);
               }}
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
+              className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
                 siteTheme === "sudanese"
                   ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-earthgold/60"
                   : "bg-slate-950/60 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/60 text-slate-200"
@@ -1963,8 +2028,8 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               title={currentLang === "ar" ? "Switch to English" : "التحويل للغة العربية"}
             >
               <Globe className={`w-3.5 h-3.5 ${siteTheme === "sudanese" ? "text-earthgold" : "text-emerald-400"}`} />
-              <span className="hidden xs:inline">{currentLang === "ar" ? "English" : "العربية"}</span>
-              <span className="xs:hidden">{currentLang === "ar" ? "EN" : "AR"}</span>
+              <span className="text-[10px] font-black ml-1 sm:hidden">{currentLang === "ar" ? "EN" : "AR"}</span>
+              <span className="hidden sm:inline">{currentLang === "ar" ? " English" : " العربية"}</span>
             </button>
 
             {/* Kid Mode (البراعم) Playful Toggle Button - only visible to registered primary/kindergarten stage students */}
@@ -1975,19 +2040,18 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   setKidModeOverride(nextVal);
                   playKidChime(nextVal ? 'success' : 'click');
                 }}
-                className={`relative rounded-full shadow-lg transition-all duration-305 cursor-pointer flex items-center justify-center ${
+                className={`relative rounded-full shadow-lg transition-all duration-305 cursor-pointer flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 shrink-0 ${
                   isKidModeActive
                     ? "bg-pink-500/25 border-2 border-pink-400 ring-4 ring-pink-500/35 scale-110 shadow-pink-500/30 animate-bounce"
                     : "bg-slate-950/75 border border-slate-800 hover:border-pink-500/60 hover:scale-110 shadow-inner"
                 }`}
-                style={{ width: "38px", height: "38px", minWidth: "38px" }}
                 title={currentLang === "ar" ? "اضغط على البالون للانتقال لواجهة الأطفال اللطيفة! 🎈" : "Click the balloon to launch children mode! 🎈"}
               >
-                <span className={`text-[18px] sm:text-[22px] select-none transition-all duration-300 ${isKidModeActive ? "scale-110" : "hover:scale-115"}`} style={{ transformOrigin: 'center' }}>
+                <span className={`text-[16px] sm:text-[20px] select-none transition-all duration-300 ${isKidModeActive ? "scale-110" : "hover:scale-115"}`} style={{ transformOrigin: 'center' }}>
                   🎈
                 </span>
                 {isKidModeActive && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-yellow-400 rounded-full animate-pulse" />
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
                 )}
               </button>
             )}
@@ -2011,15 +2075,17 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   }, 250);
                 }
               }}
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 border font-sans font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer ${
+              className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 border font-sans font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer ${
                 showStudentChat
                   ? "bg-indigo-650/25 border-indigo-500 text-indigo-300 ring-2 ring-indigo-500/20"
                   : "bg-slate-950/60 border-slate-800 hover:bg-slate-900 hover:border-indigo-500/50 text-slate-200"
               }`}
+              title={currentLang === "ar" ? "الدردشة الطلابية" : "Student Chat"}
             >
               <MessagesSquare className="w-3.5 h-3.5 text-indigo-400" />
-              <span className="hidden sm:inline">{currentLang === "ar" ? "" : ""}</span>
-              <span className="sm:hidden">{currentLang === "ar" ? "" : "Chat"}</span>
+              <span className="hidden sm:inline">
+                {currentLang === "ar" ? " الدردشة" : " Chat"}
+              </span>
             </button>
 
             {/* Notification Bell Dropdown Component */}
@@ -2033,7 +2099,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     setLastCheckedUpdates(nowStr);
                   }
                 }}
-                className={`inline-flex items-center justify-center p-2 rounded-xl shadow-sm transition-all duration-300 cursor-pointer relative ${
+                className={`inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl shadow-sm transition-all duration-300 cursor-pointer relative ${
                   showNotificationsDropdown 
                     ? "bg-amber-955/35 border-amber-500 text-amber-300 ring-2 ring-amber-500/20" 
                     : "bg-slate-950/60 border-slate-800 hover:bg-slate-900 border-slate-800 hover:border-amber-500/40 text-slate-200"
@@ -2718,25 +2784,25 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
              {/* Core Content Layout (Takes 3/4) */}
              <div className="w-full lg:w-3/4 space-y-8 z-10 text-right" dir="rtl">
                 {/* Visual Sudanese Heritage Gottia Pattern Backdrop Hero */}
-                <div className="relative bg-gradient-to-br from-[#FAF5EC]/90 via-[#FDFBF7] to-[#F1ECE3] rounded-3xl p-6 sm:p-10 border border-mud/15 overflow-hidden shadow-inner flex flex-col md:flex-row items-center gap-8 group">
+                <div className="relative bg-gradient-to-br from-[#FAF5EC]/90 via-[#FDFBF7] to-[#F1ECE3] rounded-3xl p-3.5 sm:p-10 border border-mud/15 overflow-hidden shadow-inner flex flex-col md:flex-row items-center gap-4 sm:gap-8 group">
                    <div className="absolute inset-0 pointer-events-none opacity-10 bg-[radial-gradient(#5C2C16_1px,transparent_1px)] [background-size:16px_16px]"></div>
                    
-                   <div className="flex-1 space-y-4 text-right">
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-earthgold/30 rounded-full text-[10px] md:text-3xs font-extrabold text-mud uppercase tracking-wider shadow-sm select-none">
-                        <Sparkles className="w-3 h-3 text-earthgold" />
+                   <div className="flex-1 space-y-2 sm:space-y-4 text-right">
+                      <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-earthgold/30 rounded-full text-[9px] sm:text-[10px] md:text-3xs font-extrabold text-mud uppercase tracking-wider shadow-sm select-none">
+                        <WebsiteLogo size={12} />
                         <span>منصة المناهج السودانية المطورة 🇸🇩</span>
                       </div>
-                      <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-mud leading-snug">
+                      <h2 className="text-sm sm:text-2xl md:text-3xl font-black text-mud leading-snug">
                          {currentLang === "ar" ? "أهلاً بك في البوابة التعليمية التفاعلية الموحدة" : "Interactive Gateway to Sudanese Unified Curricula"}
                       </h2>
-                      <p className="text-xs text-mud/85 leading-relaxed max-w-lg font-sans">
+                      <p className="text-[10px] sm:text-xs text-mud/85 leading-relaxed max-w-lg font-sans">
                          {currentLang === "ar" 
                            ? "نهدف لتوفير وصول دائم ومجاني لجميع المناهج الدراسية، الكتب، المذكرات التلخيصية، الشروحات التفاعلية، ومعامل الذكاء الاصطناعي المساندة للتعليم في السودان." 
                            : "Dedicated to providing free interactive school books, summaries, simulations, and virtual assistance for teachers and students."}
                       </p>
 
                       {/* Beautiful Traditional Sudanese Heritage Stats/Favorites/Admin Counters */}
-                      <div className="flex flex-wrap gap-2.5 pt-2 font-sans">
+                      <div className="flex flex-wrap gap-1.5 sm:gap-2.5 pt-1 sm:pt-2 font-sans">
                          <button 
                             onClick={() => {
                                setShowOnlyFavorites(prev => !prev);
@@ -2747,21 +2813,21 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                setSelectedStage(null);
                                setActiveGrade(null);
                             }}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-2xl border text-2xs font-bold transition-all duration-300 cursor-pointer select-none shadow-xs ${
+                            className={`flex items-center gap-1 sm:gap-2 px-2.5 py-1 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl border text-[10px] sm:text-2xs font-bold transition-all duration-300 cursor-pointer select-none shadow-xs ${
                                showOnlyFavorites 
                                  ? "bg-[#D4AF37] text-white border-[#D4AF37] ring-4 ring-[#D4AF37]/20" 
                                  : "bg-white hover:bg-cream border-mud/15 text-mud"
                             }`}
                          >
-                            <Star className={`w-3.5 h-3.5 shrink-0 ${showOnlyFavorites ? "fill-white text-white" : "text-amber-500 fill-[#D4AF37]"}`} />
+                            <Star className={`w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0 ${showOnlyFavorites ? "fill-white text-white" : "text-amber-500 fill-[#D4AF37]"}`} />
                             <span className="font-extrabold">{favoriteSubjects.length}</span>
                             <span>
                                {showOnlyFavorites ? (currentLang === "ar" ? "تصفح جميع المناهج 📋" : "Browse All Curricula 📋") : (currentLang === "ar" ? "المواد المفضلة ⭐" : "My Favorites ⭐")}
                             </span>
                          </button>
 
-                         <div className="flex items-center gap-2 px-4 py-2 rounded-2xl border border-mud/10 bg-white/70 text-mud text-2xs font-bold select-none shadow-xs">
-                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                         <div className="flex items-center gap-1 sm:gap-2 px-2.5 py-1 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl border border-mud/10 bg-white/70 text-mud text-[10px] sm:text-2xs font-bold select-none shadow-xs">
+                            <CheckCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-600 shrink-0" />
                             <span className="font-extrabold">{completedLessons.length}</span>
                             <span>{currentLang === "ar" ? "تمارين مكتملة" : "Completed Exercises"}</span>
                          </div>
@@ -2784,13 +2850,13 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                     setAdminPassword("");
                                  }
                               }}
-                              className={`flex items-center gap-2 px-4 py-2 rounded-2xl border text-2xs font-bold transition-all duration-300 cursor-pointer select-none shadow-xs ${
+                              className={`flex items-center gap-1 sm:gap-2 px-2.5 py-1 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl border text-[10px] sm:text-2xs font-bold transition-all duration-300 cursor-pointer select-none shadow-xs ${
                                  showAdminDashboard 
                                    ? "bg-emerald-700 text-white border-emerald-700 ring-4 ring-emerald-700/20" 
                                    : "bg-white hover:bg-cream border-mud/15 text-mud"
                               }`}
                            >
-                              <Lock className={`w-3.5 h-3.5 shrink-0 ${showAdminDashboard ? "text-white" : "text-mud/60"}`} />
+                              <Lock className={`w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0 ${showAdminDashboard ? "text-white" : "text-mud/60"}`} />
                               <span>
                                  {isAdminLoggedIn ? (currentLang === "ar" ? "لوحة التحكم" : "Admin Dashboard") : (currentLang === "ar" ? "بوابة الإدارة" : "Admin Gate")}
                               </span>
@@ -2800,7 +2866,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                    </div>
 
                    {/* SVG Sudanese Traditional Gottia/Mud Architecture Scene Illustration */}
-                   <div className="w-48 h-36 shrink-0 relative bg-white/20 rounded-2xl border border-mud/10 flex items-center justify-center shadow-inner overflow-hidden select-none">
+                   <div className="w-28 h-20 sm:w-48 sm:h-36 shrink-0 relative bg-white/20 rounded-2xl border border-mud/10 flex items-center justify-center shadow-inner overflow-hidden select-none">
                       <svg viewBox="0 0 200 150" className="w-full h-full object-cover">
                          {/* Sky Sand Gradients */}
                          <defs>
@@ -3039,7 +3105,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                         : selectedStage.grades;
 
                       return (
-                         <div className="bg-white/95 rounded-3xl p-6 border border-mud/15 shadow-md mt-6 animate-fadeIn space-y-6 select-text text-right" dir="rtl">
+                         <div id="selected-stage-section" className="bg-white/95 rounded-3xl p-6 border border-mud/15 shadow-md mt-6 animate-fadeIn space-y-6 select-text text-right" dir="rtl">
                             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-mud/10 pb-4">
                               <div className="space-y-1 text-center sm:text-right">
                                  <span className="text-[10px] text-earthgold font-black uppercase tracking-widest block">{t("gradesLevels")}</span>
@@ -3087,7 +3153,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                   if (searchQuery && filteredSubjects.length === 0) return null;
 
                                   return (
-                                     <div key={grade.id} className="bg-[#FDFBF7] border border-mud/10 rounded-2xl overflow-hidden shadow-2xs text-right">
+                                     <div key={grade.id} id={`grade-card-${grade.id}`} className="bg-[#FDFBF7] border border-mud/10 rounded-2xl overflow-hidden shadow-2xs text-right">
                                         <button
                                           onClick={() => {
                                              if (isGradeExpanded) {
@@ -3294,7 +3360,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       : stage.grades;
 
                     return (
-                      <div className="col-span-2 md:col-span-3 lg:col-span-5 bg-slate-900/50 border border-slate-800/80 p-5 md:p-6 rounded-2xl space-y-6 mt-1 mb-4 select-text">
+                      <div id="selected-stage-section" className="col-span-2 md:col-span-3 lg:col-span-5 bg-slate-900/50 border border-slate-800/80 p-5 md:p-6 rounded-2xl space-y-6 mt-1 mb-4 select-text">
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-850 pb-4">
                           <div className="space-y-1 text-center sm:text-right">
                             <span className="text-3xs text-emerald-400 font-mono font-black uppercase tracking-widest block">{t("gradesLevels")}</span>
@@ -3467,6 +3533,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                             return (
                               <motion.div 
                                 key={grade.id}
+                                id={`grade-card-${grade.id}`}
                                 layout
                                 className={
                                   isKidModeActive && (stage.id === "primary" || stage.id === "kindergarten")
@@ -3882,6 +3949,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         {/* Render Admin Dashboard, Favorited Subjects when filtered, otherwise Stage Exploration */}
         {showAdminDashboard ? (
           <motion.div
+            id="admin-dashboard-view-section"
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
@@ -3900,6 +3968,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           </motion.div>
         ) : showOnlyFavorites ? (
           <motion.div
+            id="favorites-view-section"
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
@@ -4050,6 +4119,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         ) : showEducationalMindMap ? (
           <motion.div
             key="mind-map-view"
+            id="mind-map-view-section"
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
@@ -4064,6 +4134,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         ) : showStudyCamp ? (
           <motion.div
             key="study-camp-view"
+            id="study-camp-view-section"
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
@@ -4185,9 +4256,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               {/* Modal Upper Top Bar */}
               <div className="p-6 pb-4 border-b border-slate-800/60 flex items-center justify-between relative z-10">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2.5 bg-indigo-600/15 text-indigo-400 rounded-xl">
-                    <GraduationCap className="w-5 h-5" />
-                  </div>
+                  <WebsiteLogo size={38} />
                   <div>
                     <h5 className="text-sm font-black text-slate-100">
                       {userModalTab === "profile" ? "تعديل بيانات الحساب ⚙️" : "بوابة الطالب والزائر 🇸🇩"}
@@ -4573,7 +4642,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         </div>
 
         <div className="space-y-4 text-xs text-slate-400">
-          <p className="font-semibold text-slate-300">🇸🇩 منصة المناهج السودانية التفاعلية لعام 2026</p>
+          <div className="flex items-center justify-center gap-2">
+            <WebsiteLogo size={24} />
+            <p className="font-semibold text-slate-300">🇸🇩 منصة المناهج السودانية التفاعلية لعام 2026</p>
+          </div>
           <p className="max-w-xl mx-auto text-2xs text-slate-500 leading-relaxed">
             تم تطوير هذا المنصة بواسطة عثمان المنقوري لمساعدة المنظومة التعليمية وطلاب السودان الأحباء لتسهيل التعلم .
           </p>
