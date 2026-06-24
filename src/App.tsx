@@ -50,6 +50,14 @@ function getGoogleDriveEmbedUrl(url: string): string {
   return url;
 }
 
+function convertGoogleDriveVideoUrl(url: string): string {
+  const fileId = getGoogleDriveFileId(url);
+  if (fileId) {
+    return `https://docs.google.com/uc?export=download&id=${fileId}`;
+  }
+  return url;
+}
+
 export default function App() {
   const [siteTheme, setSiteTheme] = useState<"sudanese" | "legacy">(() => {
     return (localStorage.getItem("sudan_site_theme") as "sudanese" | "legacy") || "sudanese";
@@ -407,7 +415,7 @@ export default function App() {
 
   // 🖼️ Custom Banner Image/Video settings (defined directly in the code for developers)
   // To change the banner media, edit the initial state values directly in the code here:
-  const [bannerImageUrl, setBannerImageUrl] = useState<string>("https://drive.google.com/file/d/1UeQW-B5t13X2RhNtDbdOfuxaLeePveuO/view?usp=sharing");
+  const [bannerImageUrl, setBannerImageUrl] = useState<string>("/banner_video.gif");
   const [bannerMediaType, setBannerMediaType] = useState<"image" | "video">("image");
   
   // Dummy handlers to disable the UI-based banner editor modal
@@ -2252,14 +2260,14 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
       )}
 
       {/* Top Header Bar for Admin Portal */}
-      <div className={`transition-all duration-300 border-b px-6 py-2.5 relative z-50 ${
+      <div className={`transition-all duration-300 border-b px-3 sm:px-6 py-2.5 relative z-50 ${
         siteTheme === "sudanese"
           ? "bg-white shadow-sm shadow-[#5C2C16]/5 border-mud/10 text-mud"
           : "bg-slate-900/90 border-slate-800/60 text-slate-100"
       }`}>
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap text-right">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-1.5">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 text-right flex-nowrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-nowrap">
+            <div className="flex items-center gap-1">
               <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-ping' : 'bg-amber-500 animate-pulse'}`}></span>
             </div>
             
@@ -2286,7 +2294,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-3 relative w-auto h-auto">
+          <div className="flex items-center gap-1 sm:gap-2 relative w-auto h-auto flex-nowrap shrink-0">
             {/* Page Refresh Button */}
             <button
               onClick={() => {
@@ -3191,7 +3199,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                    >
                      {bannerImageUrl ? (
                        bannerMediaType === "video" ? (
-                         bannerImageUrl.includes("drive.google.com") ? (
+                         false ? (
                            <iframe
                              src={getGoogleDriveEmbedUrl(bannerImageUrl)}
                              title="Banner Custom Video"
@@ -3201,14 +3209,14 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                            />
                          ) : (
                            <video
-                             src={bannerImageUrl}
+                             src={bannerImageUrl.includes("drive.google.com") ? convertGoogleDriveVideoUrl(bannerImageUrl) : bannerImageUrl}
                              autoPlay
                              loop
                              muted
                              playsInline
                              className="w-full h-full object-cover rounded-2xl pointer-events-none"
                              onError={(e) => {
-                               console.warn("Custom banner video failed to load", e);
+                               console.warn("Custom banner video failed to load");
                              }}
                            />
                          )
