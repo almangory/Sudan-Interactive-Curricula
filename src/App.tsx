@@ -416,8 +416,8 @@ export default function App() {
 
   // 🖼️ Custom Banner Image/Video settings (defined directly in the code for developers)
   // To change the banner media, edit the initial state values directly in the code here:
-  const [bannerImageUrl, setBannerImageUrl] = useState<string>("https://drive.google.com/file/d/1GbK99NfvbfVHIvRlv7F0XWfOIgVTIx0X/view?usp=sharing");
-  const [bannerMediaType, setBannerMediaType] = useState<"image" | "video">("https://drive.google.com/file/d/1UeQW-B5t13X2RhNtDbdOfuxaLeePveuO/view?usp=sharing");
+  const [bannerImageUrl, setBannerImageUrl] = useState<string>("");
+  const [bannerMediaType, setBannerMediaType] = useState<"image" | "video">("https://drive.google.com/file/d/1GbK99NfvbfVHIvRlv7F0XWfOIgVTIx0X/view?usp=sharing");
   
   // Dummy handlers to disable the UI-based banner editor modal
   const showBannerEditModal = false;
