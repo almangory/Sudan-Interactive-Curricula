@@ -101,6 +101,10 @@ export default function App() {
   } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [showTopSearch, setShowTopSearch] = useState(false);
+  const [publicLibraryUrl, setPublicLibraryUrl] = useState(() => {
+    return localStorage.getItem("sudan_public_library_url") || "https://sd-books-library.vercel.app/";
+  });
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [showStudyCamp, setShowStudyCamp] = useState(false);
   const [showEducationalMindMap, setShowEducationalMindMap] = useState(false);
@@ -109,6 +113,37 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   const [liveLessons, setLiveLessons] = useState<LiveLesson[]>([]);
+
+  const handleLibraryClick = () => {
+    if (publicLibraryUrl) {
+      window.open(publicLibraryUrl, "_blank");
+    } else {
+      if (isAdminLoggedIn) {
+        const newUrl = prompt(
+          currentLang === "ar" 
+            ? "أدخل رابط موقع المكتبة العامة الجديد لحفظه:" 
+            : "Enter new Public Library URL to save:", 
+          "https://sd-books-library.vercel.app/"
+        );
+        if (newUrl !== null) {
+          setPublicLibraryUrl(newUrl);
+          localStorage.setItem("sudan_public_library_url", newUrl);
+          setSaveStatus(
+            currentLang === "ar" 
+              ? "🎉 تم حفظ رابط المكتبة العامة بنجاح!" 
+              : "🎉 Public Library link saved successfully!"
+          );
+          setTimeout(() => setSaveStatus(null), 4000);
+        }
+      } else {
+        alert(
+          currentLang === "ar"
+            ? "📚 المكتبة العامة الرقمية:\nسيتم إضافة رابط موقع المكتبة العامة قريباً من قبل إدارة المنصة! ترقبوا كتباً تفاعلية ومصادر خارجية قيمة. ✨"
+            : "📚 Digital Public Library:\nThe direct link will be added soon by the platform administration! Stay tuned for valuable interactive books & external resources. ✨"
+        );
+      }
+    }
+  };
 
   // 📢 Breaking News & Live Broadcasting Settings
   const [breakingNews, setBreakingNews] = useState(() => {
@@ -2409,12 +2444,210 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               </button>
             )}
 
+            {/* Search Lens Button and Popover */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowTopSearch(prev => !prev);
+                  setShowNotificationsDropdown(false);
+                }}
+                className={`inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl shadow-sm transition-all duration-305 cursor-pointer relative ${
+                  showTopSearch 
+                    ? "bg-[#5C2C16] text-[#FAF5EC] ring-2 ring-[#5C2C16]/20" 
+                    : siteTheme === "sudanese"
+                      ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-[#5C2C16]/60"
+                      : "bg-slate-950/60 border-slate-800 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/40 text-slate-200"
+                }`}
+                title={currentLang === "ar" ? "البحث السريع والترشيح" : "Quick Search & Filter"}
+              >
+                <Search className="w-3.5 h-3.5" />
+              </button>
+
+              <AnimatePresence>
+                {showTopSearch && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className={`absolute left-0 mt-3 w-80 sm:w-96 rounded-2xl shadow-2xl p-5 z-[9999] text-right font-sans border ${
+                      siteTheme === "sudanese"
+                        ? "bg-white border-mud/15 text-mud"
+                        : "bg-slate-900 border-slate-800 text-slate-100"
+                    }`}
+                    dir={currentLang === "ar" ? "rtl" : "ltr"}
+                  >
+                    <div className="flex items-center justify-between border-b border-mud/10 pb-2.5 mb-4">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <Search className={`w-4 h-4 ${siteTheme === "sudanese" ? "text-earthgold" : "text-emerald-400"}`} />
+                        <h5 className="text-xs font-black">
+                          {currentLang === "ar" ? "البحث والترشيح السريع 🔍" : "Quick Search & Filter 🔍"}
+                        </h5>
+                      </div>
+                      <button
+                        onClick={() => setShowTopSearch(false)}
+                        className="text-[10px] text-mud/50 hover:text-mud transition-colors cursor-pointer"
+                      >
+                        {currentLang === "ar" ? "إغلاق ✕" : "Close ✕"}
+                      </button>
+                    </div>
+
+                    <div className="space-y-4 text-right" dir="rtl">
+                      {/* Search Input Box */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold block mb-1">
+                          {currentLang === "ar" ? "كلمة البحث" : "Search Query"}
+                        </label>
+                        <div className={`relative flex items-center rounded-xl p-2.5 border shadow-inner ${
+                          siteTheme === "sudanese" ? "bg-[#FDFBF7] border-mud/15 text-mud" : "bg-slate-950 border-slate-800 text-slate-200"
+                        }`}>
+                          <Search className="w-4 h-4 opacity-50 shrink-0 select-none ml-2" />
+                          <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder={currentLang === "ar" ? "اكتب اسم المادة..." : "Type subject..."}
+                            className="bg-transparent w-full outline-none text-xs font-semibold text-right"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Stage selection */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold block mb-1">
+                          {currentLang === "ar" ? "المرحلة الدراسية" : "Educational Level"}
+                        </label>
+                        <div className={`relative flex items-center rounded-xl p-2.5 border shadow-inner ${
+                          siteTheme === "sudanese" ? "bg-[#FDFBF7] border-mud/15 text-mud" : "bg-slate-950 border-slate-800 text-slate-200"
+                        }`}>
+                          <select
+                            value={selectedStage ? selectedStage.id : ""}
+                            onChange={(e) => {
+                              const stageId = e.target.value;
+                              if (stageId === "") {
+                                setSelectedStage(null);
+                                setActiveGrade(null);
+                              } else {
+                                const stg = curriculumData.find(s => s.id === stageId);
+                                if (stg) {
+                                  setSelectedStage(stg);
+                                  setActiveGrade(null);
+                                  setShowOnlyFavorites(false);
+                                  setShowStudyCamp(false);
+                                  setShowEducationalMindMap(false);
+                                }
+                              }
+                            }}
+                            className="w-full bg-transparent outline-none appearance-none text-xs font-bold cursor-pointer text-right"
+                          >
+                            <option value="" className="text-slate-855">{currentLang === "ar" ? "جميع المراحل التعليمية" : "All Stages"}</option>
+                            {curriculumData.map(st => (
+                              <option key={st.id} value={st.id} className="text-slate-855">
+                                {st.name}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute left-3 w-4 h-4 opacity-60 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      {/* Grade selection */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold block mb-1">
+                          {currentLang === "ar" ? "الصف الدراسي" : "Class / Grade"}
+                        </label>
+                        <div className={`relative flex items-center rounded-xl p-2.5 border shadow-inner ${
+                          siteTheme === "sudanese" ? "bg-[#FDFBF7] border-mud/15 text-mud" : "bg-slate-950 border-slate-800 text-slate-200"
+                        }`}>
+                          <select
+                            value={activeGrade ? activeGrade.id : ""}
+                            onChange={(e) => {
+                              const gradeId = e.target.value;
+                              if (gradeId === "") {
+                                setActiveGrade(null);
+                              } else {
+                                if (selectedStage) {
+                                  const gr = selectedStage.grades.find(g => g.id === gradeId);
+                                  if (gr) {
+                                    setActiveGrade(gr);
+                                  }
+                                } else {
+                                  let fs = null;
+                                  let fg = null;
+                                  curriculumData.forEach(st => {
+                                    const gr = st.grades.find(g => g.id === gradeId);
+                                    if (gr) {
+                                      fs = st;
+                                      fg = gr;
+                                    }
+                                  });
+                                  if (fs && fg) {
+                                    setSelectedStage(fs);
+                                    setActiveGrade(fg);
+                                  }
+                                }
+                              }
+                            }}
+                            className="w-full bg-transparent outline-none appearance-none text-xs font-bold cursor-pointer text-right"
+                          >
+                            <option value="" className="text-slate-855">{currentLang === "ar" ? "اختر الصف الدراسي..." : "Select Class..."}</option>
+                            {(selectedStage ? selectedStage.grades : curriculumData.flatMap(st => st.grades)).map(gr => (
+                              <option key={gr.id} value={gr.id} className="text-slate-855">
+                                {gr.name}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute left-3 w-4 h-4 opacity-60 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      {/* Subject selection */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold block mb-1">
+                          {currentLang === "ar" ? "قائمة المواد" : "Subject Filter"}
+                        </label>
+                        <div className={`relative flex items-center rounded-xl p-2.5 border shadow-inner ${
+                          siteTheme === "sudanese" ? "bg-[#FDFBF7] border-mud/15 text-mud" : "bg-slate-950 border-slate-800 text-slate-200"
+                        }`}>
+                          <select
+                            value={activeSubject ? activeSubject.id : ""}
+                            onChange={(e) => {
+                              const subId = e.target.value;
+                              if (subId) {
+                                let foundSub = null;
+                                curriculumData.forEach(st => {
+                                  st.grades.forEach(g => {
+                                    const sub = g.subjects.find(s => s.id === subId);
+                                    if (sub) foundSub = sub;
+                                  });
+                                });
+                                if (foundSub) handleOpenSubject(foundSub);
+                              }
+                            }}
+                            className="w-full bg-transparent outline-none appearance-none text-xs font-bold cursor-pointer text-right"
+                          >
+                            <option value="" className="text-slate-855">{currentLang === "ar" ? "تصفح المواد..." : "Go to Subject..."}</option>
+                            {(activeGrade ? activeGrade.subjects : curriculumData.flatMap(st => st.grades.flatMap(g => g.subjects))).map(s => (
+                              <option key={s.id} value={s.id} className="text-slate-855">
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute left-3 w-4 h-4 opacity-60 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             {/* Notification Bell Dropdown Component */}
             {currentUser && currentUser.user_role !== "guest" && (
               <div className="relative" ref={notificationDropdownRef}>
                 <button
                   onClick={() => {
                     setShowNotificationsDropdown(prev => !prev);
+                    setShowTopSearch(false);
                     if (!showNotificationsDropdown) {
                       const nowStr = new Date().toISOString();
                       localStorage.setItem("sudan_updates_last_read", nowStr);
@@ -2642,42 +2875,41 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       <div className="bg-emerald-955/25 border border-emerald-900/35 rounded-lg p-2.5 text-[9px] text-emerald-400 space-y-1 leading-normal font-semibold">
                         <p className="font-extrabold text-emerald-300">🔑 دخول المسؤول المفوّض:</p>
                         <p>اسم المستخدم: <span className="font-mono text-white select-all bg-slate-950 px-1 rounded">admin@sudan.edu</span></p>
-                        <p>رمز المرور السري: <span className="font-mono text-white select-all bg-slate-950 px-1 rounded">20302060</span></p>
+                        <p>رمز المرور السري: <span className="font-mono text-white select-all bg-slate-950 px-1 rounded">sudan2026</span></p>
                       </div>
 
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 font-bold block">اسم المستخدم:</label>
-                        <input
-                          type="text"
-                          required
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] text-slate-400 font-bold block">اسم المستخدم</label>
+                        <input 
+                          type="text" 
                           value={adminUsername}
                           onChange={(e) => setAdminUsername(e.target.value)}
-                          placeholder="أدخل الاسم: almangory"
-                          className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-3xs text-slate-100 outline-none focus:border-emerald-600 transition-all font-sans"
+                          placeholder="admin@sudan.edu"
+                          className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500 font-sans"
                         />
                       </div>
 
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 font-bold block">كلمة المرور السرية:</label>
-                        <input
-                          type="password"
-                          required
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] text-slate-400 font-bold block">رمز المرور السري</label>
+                        <input 
+                          type="password" 
                           value={adminPassword}
                           onChange={(e) => setAdminPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-3xs text-slate-100 outline-none focus:border-emerald-600 transition-all font-sans"
+                          className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500 font-sans"
                         />
                       </div>
 
                       {adminLoginError && (
-                        <p className="text-[10px] text-rose-500 font-bold text-center leading-normal bg-rose-955/20 border border-rose-900/40 p-1.5 rounded-lg animate-bounce">{adminLoginError}</p>
+                        <p className="text-[10px] text-rose-400 font-bold leading-normal">{adminLoginError}</p>
                       )}
 
-                      <button
+                      <button 
                         type="submit"
-                        className="w-full py-2 bg-gradient-to-l from-emerald-600 to-emerald-700 hover:from-emerald-505 hover:to-emerald-605 text-[#ffffff] text-3xs font-black rounded-lg transition-all cursor-pointer shadow-md active:scale-95"
+                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-extrabold text-xs rounded-xl transition-all duration-200 shadow-md cursor-pointer flex items-center justify-center gap-1.5"
                       >
-                        تفعيل صلاحيات الإدارة وحفظ الأكواد
+                        <LogIn className="w-3.5 h-3.5" />
+                        <span>تسجيل الدخول كمسؤول</span>
                       </button>
                     </form>
                   </motion.div>
@@ -2687,58 +2919,6 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           </div>
         </div>
       </div>
-
-      {/* Admin Operations Section */}
-      {isAdminLoggedIn && (
-        <div id="admin-git-integration" className="bg-slate-900 border-b border-emerald-900/40 px-6 py-4 pb-5 relative z-40 text-right font-sans" dir="rtl">
-          <div className="max-w-7xl mx-auto space-y-3">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-              <div className="space-y-1">
-                <span className="text-emerald-400 text-3xs font-black block">⚙️ أدوات نقل وتحديث المنهج التعليمي (GitHub / Vercel / Live-Server):</span>
-                <p className="text-xs text-slate-300 font-bold">
-                  لقد قمت بإجراء تعديلات على مسميات أو روابط المواد الدراسية. يمكنك تصدير الملف لتحديثه على <span className="font-mono text-emerald-400">GitHub</span> من هنا ليعمل على جميع المنصات مجاناً وبشكل دائم!
-                </p>
-              </div>
-
-              {/* Reset button */}
-              <button
-                onClick={resetCurriculumToDefault}
-                className="px-3.5 py-1.5 bg-red-950/10 hover:bg-red-950/30 border border-red-900/40 hover:border-red-550 text-red-400 text-3xs font-extrabold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <span>استعادة المنهج الأصلي 🔄</span>
-              </button>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Copy Code Button */}
-              <button
-                onClick={copyCurriculumCode}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-550 text-white text-2xs font-extrabold rounded-2xl transition-all shadow-md cursor-pointer flex items-center gap-2"
-              >
-                <span>{copySuccess ? "✓ تم نسخ الكود!" : "📋 نسخ كود الملف الكامل (curriculum.ts)"}</span>
-              </button>
-
-              {/* Download File Button */}
-              <button
-                onClick={downloadCurriculumFile}
-                className="px-4 py-2.5 bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-slate-705 text-slate-100 text-2xs font-extrabold rounded-2xl transition-all shadow-md cursor-pointer flex items-center gap-2"
-              >
-                <span>📥 تنزيل ملف المنهج المحدث (curriculum.ts)</span>
-              </button>
-
-              <span className="text-3xs text-slate-400 max-w-sm leading-normal">
-                💡 **طريقة النقل**: قم بتنزيل أو نسخ الملف المحدث أعلاه، واستبدل به الملف القديم في كود مستودع GitHub الخاص بك في هذا المسار تماماً: <code className="bg-slate-950 text-yellow-400 px-1.5 py-0.5 rounded text-3xs font-mono">src/data/curriculum.ts</code> ، وسيتم تحديث ونقل جميع تعديلات الروابط والمسميات تلقائياً فوراً!
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Split web layout shell to show chat beside main workspace */}
-      <div className="flex flex-col lg:flex-row relative z-10 w-full min-h-screen">
-        {/* Main interactive curriculum workspace column */}
-        <div className="flex-1 min-w-0">
-          {/* Embedded Sudan Cultural and Academic Hero Banner */}
           {siteTheme === "legacy" && (
             <header className="relative py-12 md:py-16 px-6 overflow-hidden">
         {/* Abstract Geometrics */}
@@ -2762,25 +2942,13 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             <p className="text-sm md:text-base text-slate-400 leading-relaxed max-w-xl">
               {t("gatewayDesc")}
             </p>
-
-            {/* Quick search input */}
-            <div className="relative max-w-md mx-auto md:mr-0 pt-2">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t("searchPlaceholder")}
-                className="w-full bg-slate-900 border border-slate-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 placeholder-slate-500 rounded-xl py-2 px-4 pr-10 text-xs md:text-sm text-slate-200 outline-none transition-all font-sans"
-              />
-            </div>
           </div>
 
           {/* Simple Statistics & Admin Gate widgets */}
           <div className={`w-full md:w-auto grid gap-4 flex-shrink-0 ${
             isAdminLoggedIn || showHiddenAdminGate 
-              ? "grid-cols-2 md:grid-cols-3" 
-              : "grid-cols-2"
+              ? "grid-cols-2 md:grid-cols-4" 
+              : "grid-cols-2 md:grid-cols-3"
           }`}>
             <div 
               onClick={() => {
@@ -2807,6 +2975,23 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               <CheckCircle className="w-5 h-5 text-emerald-450 mx-auto" />
               <span className="text-xl font-bold text-slate-100 block">{completedLessons.length}</span>
               <span className="text-2xs text-slate-400 block font-medium">{t("completedExercises")}</span>
+            </div>
+
+            {/* 📚 Premium Vintage Book Cover Card for Public Library (المكتبة العامة) - Legacy Theme */}
+            <div 
+              onClick={handleLibraryClick}
+              className="p-4 bg-gradient-to-br from-[#3D1E12] via-[#2B140B] to-[#1E0D06] border-2 border-amber-500/40 rounded-2xl text-center space-y-1 min-w-[140px] shadow-lg cursor-pointer transition-all duration-200 hover:scale-[1.03] flex flex-col justify-between min-h-[110px] select-none group"
+            >
+              <div className="bg-[#1E0D06]/70 px-1 py-0.5 rounded border border-amber-500/20 text-[7px] font-bold text-amber-400 text-center w-fit mx-auto leading-none">
+                كنوز المعرفة 📜
+              </div>
+              <div className="py-1">
+                <span className="text-xs font-black text-amber-300 block leading-tight">المكتبة العامة</span>
+                <span className="text-[9px] text-amber-400/80 block mt-0.5">الكتب والمراجع التفاعلية</span>
+              </div>
+              <div className="w-5 h-5 mx-auto rounded-full border border-amber-400/40 flex items-center justify-center bg-amber-400/15 group-hover:animate-spin">
+                <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+              </div>
             </div>
 
             {(isAdminLoggedIn || showHiddenAdminGate) && (
@@ -2911,242 +3096,13 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             </div>
           </section>
         )}
-        
-
 
         {/* Stage selection selector tabs */}
         {siteTheme === "sudanese" ? (
           // Beautiful Traditional Sudanese Traditional clay architecture layout!
-          <div className="flex flex-col lg:flex-row gap-8 mt-5 items-start">
-             {/* Sidebar (Right/Left Column depending on dir, takes 1/4) */}
-             <aside className="w-full lg:w-1/4 bg-white/95 rounded-3xl p-6 shadow-sm border border-mud/10 space-y-5 h-fit select-text z-10 text-right" dir="rtl">
-                <div 
-                   className="space-y-1 cursor-pointer select-none pb-2 border-b border-mud/10"
-                   onClick={() => setIsSearchExpanded(prev => !prev)}
-                >
-                   <h4 className="text-[#5C2C16] font-bold text-sm flex items-center justify-between">
-                     <div className="flex items-center gap-1.5">
-                       <span>🔍</span>
-                       <span>{currentLang === "ar" ? "البحث السريع والترشيح" : "Quick Search & Filter"}</span>
-                     </div>
-                     <span className="text-mud/60">
-                       {isSearchExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4 animate-bounce" />}
-                     </span>
-                   </h4>
-                   <p className="text-3xs text-mud/60 leading-normal">{currentLang === "ar" ? "ابحث عن أي مادة أو كتاب أو ملخص بسهولة فورية" : "Search any interactive textbook or video course in Sudan"}</p>
-                </div>
-
-                {isSearchExpanded ? (
-                  <div className="space-y-4 pt-1 animate-fadeIn duration-200">
-                    {/* Search Text Input */}
-                    <div className="space-y-1">
-                       <label className="text-mud text-xs font-bold block mb-1">
-                         {currentLang === "ar" ? "عبارة البحث" : "Search Phrase"}
-                       </label>
-                   <div className="relative flex items-center bg-[#FDFBF7] rounded-xl p-3 border border-mud/15 shadow-inner">
-                     <Search className="w-4 h-4 text-mud/50 shrink-0 select-none ml-2" />
-                     <input
-                       type="text"
-                       value={searchQuery}
-                       onChange={(e) => setSearchQuery(e.target.value)}
-                       placeholder={currentLang === "ar" ? "اكتب اسم المادة..." : "Type subject..."}
-                       className="bg-transparent w-full outline-none text-mud text-xs font-semibold placeholder-mud/35"
-                     />
-                   </div>
-                </div>
-
-                {/* Grade Dropdown Selector */}
-                <div className="space-y-1">
-                   <label className="text-mud text-xs font-bold block mb-1">
-                     {currentLang === "ar" ? "المرحلة الدراسية" : "Educational Level"}
-                   </label>
-                   <div className="relative flex items-center bg-[#FDFBF7] rounded-xl p-3 border border-mud/15 shadow-inner">
-                     <select
-                       value={selectedStage ? selectedStage.id : ""}
-                       onChange={(e) => {
-                         const stageId = e.target.value;
-                         if (stageId === "") {
-                           setSelectedStage(null);
-                           setActiveGrade(null);
-                         } else {
-                           const stg = curriculumData.find(s => s.id === stageId);
-                           if (stg) {
-                             setSelectedStage(stg);
-                             setActiveGrade(null);
-                             setShowOnlyFavorites(false);
-                             setShowStudyCamp(false);
-                             setShowEducationalMindMap(false);
-                           }
-                         }
-                       }}
-                       className="w-full bg-transparent outline-none appearance-none text-mud text-xs font-bold cursor-pointer"
-                     >
-                       <option value="" className="text-slate-850">{currentLang === "ar" ? "جميع المراحل التعليمية" : "All Stages"}</option>
-                       {curriculumData.map(st => (
-                         <option key={st.id} value={st.id} className="text-slate-855">
-                           {st.name}
-                         </option>
-                       ))}
-                     </select>
-                     <ChevronDown className="absolute left-3 w-4 h-4 text-mud/60 pointer-events-none" />
-                   </div>
-                </div>
-
-                {/* Sub-Grade Selector */}
-                <div className="space-y-1">
-                   <label className="text-mud text-xs font-bold block mb-1">
-                     {currentLang === "ar" ? "الصف الدراسي" : "Class / Grade"}
-                   </label>
-                   <div className="relative flex items-center bg-[#FDFBF7] rounded-xl p-3 border border-mud/15 shadow-inner">
-                     <select
-                       value={activeGrade ? activeGrade.id : ""}
-                       onChange={(e) => {
-                         const gradeId = e.target.value;
-                         if (gradeId === "") {
-                           setActiveGrade(null);
-                         } else {
-                           if (selectedStage) {
-                             const gr = selectedStage.grades.find(g => g.id === gradeId);
-                             if (gr) {
-                               setActiveGrade(gr);
-                             }
-                           } else {
-                             let fs = null;
-                             let fg = null;
-                             curriculumData.forEach(st => {
-                               const gr = st.grades.find(g => g.id === gradeId);
-                               if (gr) {
-                                 fs = st;
-                                 fg = gr;
-                               }
-                             });
-                             if (fs && fg) {
-                               setSelectedStage(fs);
-                               setActiveGrade(fg);
-                             }
-                           }
-                         }
-                       }}
-                       className="w-full bg-transparent outline-none appearance-none text-mud text-xs font-bold cursor-pointer"
-                     >
-                       <option value="" className="text-slate-855">{currentLang === "ar" ? "اختر الصف الدراسي..." : "Select Class..."}</option>
-                       {(selectedStage ? selectedStage.grades : curriculumData.flatMap(st => st.grades)).map(gr => (
-                         <option key={gr.id} value={gr.id} className="text-slate-855">
-                           {gr.name}
-                         </option>
-                       ))}
-                     </select>
-                     <ChevronDown className="absolute left-3 w-4 h-4 text-mud/60 pointer-events-none" />
-                   </div>
-                </div>
-
-                {/* Direct Subject Selector */}
-                <div className="space-y-1">
-                   <label className="text-mud text-xs font-bold block mb-1">
-                     {currentLang === "ar" ? "قائمة المواد" : "Subject Filter"}
-                   </label>
-                   <div className="relative flex items-center bg-[#FDFBF7] rounded-xl p-3 border border-mud/15 shadow-inner">
-                     <select
-                       value={activeSubject ? activeSubject.id : ""}
-                       onChange={(e) => {
-                         const subId = e.target.value;
-                         if (subId) {
-                           let foundSub = null;
-                           curriculumData.forEach(st => {
-                             st.grades.forEach(g => {
-                               const sub = g.subjects.find(s => s.id === subId);
-                               if (sub) foundSub = sub;
-                             });
-                           });
-                           if (foundSub) handleOpenSubject(foundSub);
-                         }
-                       }}
-                       className="w-full bg-transparent outline-none appearance-none text-mud text-xs font-bold cursor-pointer"
-                     >
-                       <option value="" className="text-slate-855">{currentLang === "ar" ? "تصفح المواد..." : "Go to Subject..."}</option>
-                       {(activeGrade ? activeGrade.subjects : curriculumData.flatMap(st => st.grades.flatMap(g => g.subjects))).map(s => (
-                         <option key={s.id} value={s.id} className="text-slate-855">
-                           {s.name}
-                         </option>
-                       ))}
-                     </select>
-                     <ChevronDown className="absolute left-3 w-4 h-4 text-mud/60 pointer-events-none" />
-                   </div>
-                </div>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsSearchExpanded(false);
-                  }}
-                  className="w-full py-1.5 mt-2 text-center text-3xs font-bold text-mud/50 hover:text-mud/85 transition-all flex items-center justify-center gap-1 cursor-pointer bg-cream/10 hover:bg-cream/30 border border-mud/5 rounded-xl"
-                >
-                  <ChevronUp className="w-3.5 h-3.5" />
-                  <span>{currentLang === "ar" ? "إخفاء خيارات التصفية والبحث" : "Hide Search Options"}</span>
-                </button>
-              </div>
-            ) : (
-              <div className="pt-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsSearchExpanded(true);
-                  }}
-                  className="w-full py-3.5 px-4 bg-gradient-to-br from-[#FAF5EC] to-[#F1ECE3] hover:from-[#F1ECE3] hover:to-[#FAF5EC] border border-mud/20 rounded-2xl flex flex-col items-center justify-center gap-1.5 text-xs font-bold text-mud transition-all cursor-pointer shadow-xs active:scale-[0.98]"
-                >
-                  <div className="flex items-center gap-1.5 text-[#5C2C16] text-xs font-extrabold">
-                    <Search className="w-4 h-4 text-earthgold animate-pulse" />
-                    <span>{currentLang === "ar" ? "ابدأ البحث والترشيح التفاعلي" : "Start Interactive Filter"}</span>
-                  </div>
-                  <span className="text-[10px] text-mud/60 font-medium">
-                    {currentLang === "ar" ? "اضغط هنا لتصفية المواد والكتب والصفوف" : "Click here to filter materials and books"}
-                  </span>
-                </button>
-              </div>
-            )}
-
-                {/* Quick actions indicator */}
-                <div className="pt-3 border-t border-mud/10 space-y-2">
-                   <button
-                     onClick={() => {
-                       setShowStudyCamp(prev => !prev);
-                       setSelectedStage(null);
-                       setActiveGrade(null);
-                       setShowEducationalMindMap(false);
-                       setShowOnlyFavorites(false);
-                     }}
-                     className={`w-full py-2.5 px-3 rounded-xl border text-2xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                       showStudyCamp
-                         ? "bg-earthgold text-white border-earthgold shadow-sm"
-                         : "bg-[#FDFBF7] text-mud border-mud/15 hover:bg-cream"
-                     }`}
-                   >
-                     <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                     <span>{currentLang === "ar" ? "نشاط مخيم المذاكرة ⚡" : "Study Camp Activities ⚡"}</span>
-                   </button>
-
-                   <button
-                     onClick={() => {
-                       setShowEducationalMindMap(prev => !prev);
-                       setSelectedStage(null);
-                       setActiveGrade(null);
-                       setShowStudyCamp(false);
-                       setShowOnlyFavorites(false);
-                     }}
-                     className={`w-full py-2.5 px-3 rounded-xl border text-2xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                       showEducationalMindMap
-                         ? "bg-earthgold text-white border-earthgold shadow-sm"
-                         : "bg-[#FDFBF7] text-mud border-mud/15 hover:bg-cream"
-                      }`}
-                   >
-                     <Network className="w-3.5 h-3.5 shrink-0" />
-                     <span>{currentLang === "ar" ? "خرائط المسارات التعليمية 🗺️" : "Curriculum Mind Maps 🗺️"}</span>
-                   </button>
-                </div>
-             </aside>
-
-             {/* Core Content Layout (Takes 3/4) */}
-             <div className="w-full lg:w-3/4 space-y-8 z-10 text-right" dir="rtl">
+          <div className="flex flex-col gap-8 mt-5 items-start w-full">
+             {/* Core Content Layout (Takes Full Width) */}
+             <div className="w-full space-y-8 z-10 text-right" dir="rtl">
                 {/* Visual Sudanese Heritage Gottia Pattern Backdrop Hero */}
                 <div className="relative bg-gradient-to-br from-[#FAF5EC]/90 via-[#FDFBF7] to-[#F1ECE3] rounded-3xl p-3.5 sm:p-10 border border-mud/15 overflow-hidden shadow-inner flex flex-col md:flex-row items-center gap-4 sm:gap-8 group">
                    <div className="absolute inset-0 pointer-events-none opacity-10 bg-[radial-gradient(#5C2C16_1px,transparent_1px)] [background-size:16px_16px]"></div>
@@ -3154,12 +3110,12 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                    <div className="flex-1 space-y-2 sm:space-y-4 text-right">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-earthgold/30 rounded-full text-[9px] sm:text-[10px] md:text-3xs font-extrabold text-mud uppercase tracking-wider shadow-sm select-none">
-                          <WebsiteLogo size={12} />
-                          <span>منصة المناهج السودانية المطورة 🇸🇩</span>
+                           <WebsiteLogo size={12} />
+                           <span>منصة المناهج السودانية المطورة 🇸🇩</span>
                         </div>
                         <div className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-[9px] sm:text-[10px] md:text-3xs font-black text-[#2E7D32] dark:text-emerald-400 tracking-wider shadow-sm select-none animate-pulse">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#2E7D32] dark:bg-emerald-400 shrink-0"></span>
-                          <span>التعليم للجميع ✨</span>
+                           <span className="w-1.5 h-1.5 rounded-full bg-[#2E7D32] dark:bg-emerald-400 shrink-0"></span>
+                           <span>التعليم للجميع ✨</span>
                         </div>
                       </div>
                       <h2 className="text-sm sm:text-2xl md:text-3xl font-black text-mud leading-snug">
@@ -3235,109 +3191,152 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       </div>
                    </div>
 
-                   {/* SVG or Custom Animated Image/Video from Google Drive or Direct Link */}
-                   <div 
-                     className="w-28 h-20 sm:w-48 sm:h-36 shrink-0 relative bg-white/20 rounded-2xl border border-mud/10 flex items-center justify-center shadow-inner overflow-hidden select-none transition-all duration-300"
-                   >
-                     {bannerImageUrl ? (
-                       bannerMediaType === "video" ? (
-                         false ? (
-                           <iframe
-                             src={getGoogleDriveEmbedUrl(bannerImageUrl)}
-                             title="Banner Custom Video"
-                             className="absolute -top-[15%] -left-[15%] w-[130%] h-[130%] pointer-events-none rounded-2xl animate-fadeIn"
-                             allow="autoplay"
-                             referrerPolicy="no-referrer"
-                           />
-                         ) : (
-                           <video
-                             src={bannerImageUrl.includes("drive.google.com") ? convertGoogleDriveVideoUrl(bannerImageUrl) : bannerImageUrl}
-                             autoPlay
-                             loop
-                             muted
-                             playsInline
-                             className="w-full h-full object-cover rounded-2xl pointer-events-none"
-                             onError={(e) => {
-                               console.warn("Custom banner video failed to load");
-                             }}
-                           />
-                         )
-                       ) : (
-                         <img 
-                           src={convertGoogleDriveUrl(bannerImageUrl)} 
-                           alt="Banner Custom" 
-                           className="w-full h-full object-cover rounded-2xl pointer-events-none"
-                           referrerPolicy="no-referrer"
-                           onError={(e) => {
-                             console.warn("Custom banner image failed to load, fallback to default icon");
-                           }}
-                         />
-                       )
-                     ) : (
-                        <svg viewBox="0 0 200 150" className="w-full h-full object-cover">
-                         {/* Sky Sand Gradients */}
-                         <defs>
-                            <linearGradient id="sandSky" x1="0" y1="0" x2="0" y2="1">
-                               <stop offset="0%" stopColor="#FDFBF7" />
-                               <stop offset="100%" stopColor="#FAF5EC" />
-                            </linearGradient>
-                         </defs>
-                         <rect width="200" height="150" fill="url(#sandSky)" />
+                   {/* Right side containers: Huts Gottia + Public Library Card */}
+                   <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 shrink-0 mt-4 md:mt-0">
+                      {/* SVG or Custom Animated Image/Video from Google Drive or Direct Link */}
+                      <div 
+                        onClick={() => {
+                          if (isAdminLoggedIn) {
+                            const newUrl = prompt(
+                              currentLang === "ar" 
+                                ? "أدخل رابط صورة أو فيديو الغلاف الجديد (دعها فارغة للافتراضي):" 
+                                : "Enter new cover image/video URL (leave empty for default):", 
+                              bannerImageUrl || ""
+                            );
+                            if (newUrl !== null) {
+                              setBannerImageUrl(newUrl);
+                              localStorage.setItem("sudan_edu_banner_image_v1", newUrl);
+                              const newType = newUrl && (newUrl.endsWith(".mp4") || newUrl.includes("video") || newUrl.includes("drive.google.com/file/d/")) ? "video" : "image";
+                              setBannerMediaType(newType);
+                              localStorage.setItem("sudan_edu_banner_media_type_v1", newType);
+                            }
+                          }
+                        }}
+                        className="w-28 h-20 sm:w-48 sm:h-36 shrink-0 relative bg-white/20 rounded-2xl border border-mud/10 flex items-center justify-center shadow-inner overflow-hidden select-none transition-all duration-300 cursor-pointer group/banner"
+                      >
+                        {bannerImageUrl ? (
+                          bannerMediaType === "video" ? (
+                            <video
+                              src={bannerImageUrl.includes("drive.google.com") ? convertGoogleDriveVideoUrl(bannerImageUrl) : bannerImageUrl}
+                              autoPlay
+                              loop
+                              muted
+                              playsInline
+                              className="w-full h-full object-cover rounded-2xl pointer-events-none"
+                              onError={(e) => {
+                                console.warn("Custom banner video failed to load");
+                              }}
+                            />
+                          ) : (
+                            <img 
+                              src={convertGoogleDriveUrl(bannerImageUrl)} 
+                              alt="Banner Custom" 
+                              className="w-full h-full object-cover rounded-2xl pointer-events-none"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                console.warn("Custom banner image failed to load, fallback to default icon");
+                              }}
+                            />
+                          )
+                        ) : (
+                           <svg viewBox="0 0 200 150" className="w-full h-full object-cover">
+                            {/* Sky Sand Gradients */}
+                            <defs>
+                               <linearGradient id="sandSky" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="#FDFBF7" />
+                                  <stop offset="100%" stopColor="#FAF5EC" />
+                               </linearGradient>
+                            </defs>
+                            <rect width="200" height="150" fill="url(#sandSky)" />
+                            
+                            {/* Golden Sun */}
+                            <circle cx="160" cy="50" r="18" fill="#D4AF37" opacity="0.35" className="animate-pulse" />
+                            <circle cx="160" cy="50" r="12" fill="#D4AF37" opacity="0.8" />
+
+                            {/* Desert sand dune */}
+                            <path d="M 0 135 Q 60 115, 120 125 T 200 120 L 200 150 L 0 150 Z" fill="#E8DFCF" />
+                            <path d="M 0 142 Q 80 132, 160 138 T 200 130 L 200 150 L 0 150 Z" fill="#FAF5EC" />
+
+                            {/* gottia 1 */}
+                            <g transform="translate(45, 80)">
+                               {/* Gottia straw cone roof */}
+                               <polygon points="25,0 0,35 50,35" fill="#D4AF37" stroke="#5C2C16" strokeWidth="1" />
+                               {/* Gottia mud wall */}
+                               <rect x="5" y="34" width="40" height="25" fill="#C57530" stroke="#5C2C16" strokeWidth="1" rx="2" />
+                               {/* gottia door */}
+                               <path d="M 20 45 A 5 5 0 0 1 30 45 L 30 59 L 20 59 Z" fill="#5C2C16" />
+                            </g>
+
+                            {/* gottia 2 */}
+                            <g transform="translate(100, 88)">
+                               {/* Gottia straw cone roof */}
+                               <polygon points="20,0 0,28 40,28" fill="#5C2C16" opacity="0.85" />
+                               {/* Gottia mud wall */}
+                               <rect x="4" y="27" width="32" height="22" fill="#E4A054" stroke="#5C2C16" strokeWidth="1" rx="1" />
+                               {/* gottia door */}
+                               <path d="M 16 38 A 4 4 0 0 1 24 38 L 24 49 L 16 49 Z" fill="#5C2C16" />
+                            </g>
+
+                            {/* Palm tree */}
+                            <g transform="translate(145, 85)">
+                               <path d="M 10 0 Q 3 -25, -10 -40 Q 3 -15, 10 0 Z" fill="#C57530" />
+                               {/* Palm leaves */}
+                               <path d="M -10 -40 Q -25 -52, -35 -40" stroke="#D4AF37" strokeWidth="2" fill="none" />
+                               <path d="M -10 -40 Q -20 -58, -5 -55" stroke="#D4AF37" strokeWidth="2.5" fill="none" />
+                               <path d="M -10 -40 Q 5 -55, 12 -45" stroke="#D4AF37" strokeWidth="2" fill="none" />
+                               <path d="M -10 -40 Q -15 -32, -22 -28" stroke="#D4AF37" strokeWidth="1.5" fill="none" />
+                            </g>
+
+                            {/* Floating educational gears/symbols */}
+                            <text x="25" y="45" fontFamily="sans-serif" fontSize="11" fill="#D4AF37" className="animate-bounce">📖</text>
+                            <text x="80" y="35" fontFamily="sans-serif" fontSize="10" fill="#5C2C16" opacity="0.6">✍️</text>
+                            <text x="135" y="65" fontFamily="sans-serif" fontSize="12" fill="#D4AF37">⭐</text>
+                         </svg>
+                      )}
+
+                      {/* Hover Overlay indicating editable */}
+                      {isAdminLoggedIn && (
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/banner:opacity-100 flex flex-col items-center justify-center gap-1 text-white transition-all duration-300">
+                           <Pencil className="w-5 h-5 text-amber-400 animate-pulse" />
+                           <span className="text-[10px] font-black tracking-wider bg-black/35 px-2.5 py-0.5 rounded-full border border-white/10">
+                             {currentLang === "ar" ? "تعديل المظهر 🖼️🎥" : "Change Media 🖼️🎥"}
+                           </span>
+                        </div>
+                      )}
+                      </div>
+
+                      {/* 📚 Premium Vintage Book Cover Card for Public Library (المكتبة العامة) - Sudanese Theme */}
+                      <div
+                        onClick={handleLibraryClick}
+                        className="w-28 h-36 sm:w-32 sm:h-44 shrink-0 bg-gradient-to-b from-[#3D1E12] via-[#2B140B] to-[#1E0D06] border-2 border-amber-500/40 p-2.5 flex flex-col justify-between rounded-2xl shadow-xl relative cursor-pointer hover:shadow-amber-500/10 hover:shadow-2xl transition-all duration-300 hover:scale-[1.05] overflow-hidden select-none group"
+                      >
+                         {/* Dashed Gold Inner Stitches */}
+                         <div className="absolute inset-1.5 border border-dashed border-amber-500/20 rounded-xl pointer-events-none" />
                          
-                         {/* Golden Sun */}
-                         <circle cx="160" cy="50" r="18" fill="#D4AF37" opacity="0.35" className="animate-pulse" />
-                         <circle cx="160" cy="50" r="12" fill="#D4AF37" opacity="0.8" />
-
-                         {/* Desert sand dune */}
-                         <path d="M 0 135 Q 60 115, 120 125 T 200 120 L 200 150 L 0 150 Z" fill="#E8DFCF" />
-                         <path d="M 0 142 Q 80 132, 160 138 T 200 130 L 200 150 L 0 150 Z" fill="#FAF5EC" />
-
-                         {/* gottia 1 */}
-                         <g transform="translate(45, 80)">
-                            {/* Gottia straw cone roof */}
-                            <polygon points="25,0 0,35 50,35" fill="#D4AF37" stroke="#5C2C16" strokeWidth="1" />
-                            {/* Gottia mud wall */}
-                            <rect x="5" y="34" width="40" height="25" fill="#C57530" stroke="#5C2C16" strokeWidth="1" rx="2" />
-                            {/* gottia door */}
-                            <path d="M 20 45 A 5 5 0 0 1 30 45 L 30 59 L 20 59 Z" fill="#5C2C16" />
-                         </g>
-
-                         {/* gottia 2 */}
-                         <g transform="translate(100, 88)">
-                            {/* Gottia straw cone roof */}
-                            <polygon points="20,0 0,28 40,28" fill="#5C2C16" opacity="0.85" />
-                            {/* Gottia mud wall */}
-                            <rect x="4" y="27" width="32" height="22" fill="#E4A054" stroke="#5C2C16" strokeWidth="1" rx="1" />
-                            {/* gottia door */}
-                            <path d="M 16 38 A 4 4 0 0 1 24 38 L 24 49 L 16 49 Z" fill="#5C2C16" />
-                         </g>
-
-                         {/* Palm tree */}
-                         <g transform="translate(145, 85)">
-                            <path d="M 10 0 Q 3 -25, -10 -40 Q 3 -15, 10 0 Z" fill="#C57530" />
-                            {/* Palm leaves */}
-                            <path d="M -10 -40 Q -25 -52, -35 -40" stroke="#D4AF37" strokeWidth="2" fill="none" />
-                            <path d="M -10 -40 Q -20 -58, -5 -55" stroke="#D4AF37" strokeWidth="2.5" fill="none" />
-                            <path d="M -10 -40 Q 5 -55, 12 -45" stroke="#D4AF37" strokeWidth="2" fill="none" />
-                            <path d="M -10 -40 Q -15 -32, -22 -28" stroke="#D4AF37" strokeWidth="1.5" fill="none" />
-                         </g>
-
-                         {/* Floating educational gears/symbols */}
-                         <text x="25" y="45" fontFamily="sans-serif" fontSize="11" fill="#D4AF37" className="animate-bounce">📖</text>
-                         <text x="80" y="35" fontFamily="sans-serif" fontSize="10" fill="#5C2C16" opacity="0.6">✍️</text>
-                         <text x="135" y="65" fontFamily="sans-serif" fontSize="12" fill="#D4AF37">⭐</text>
-                      </svg>
-                   )}
-
-                   {/* Hover Overlay indicating editable */}
-                   <div className="hidden flex flex-col items-center justify-center gap-1 text-white transition-all duration-300">
-                      <Pencil className="w-5 h-5 text-amber-400 animate-pulse" />
-                      <span className="text-[10px] font-black tracking-wider bg-black/35 px-2.5 py-0.5 rounded-full border border-white/10">
-                        {currentLang === "ar" ? "تعديل المظهر 🖼️🎥" : "Change Media 🖼️🎥"}
-                      </span>
+                         {/* Vintage Top Ribbon */}
+                         <div className="bg-[#1E0D06]/70 px-1.5 py-0.5 rounded border border-amber-500/20 text-[7px] sm:text-[8px] font-bold text-amber-400 text-center relative z-10 mx-auto w-fit tracking-wider">
+                           كنوز المعرفة 📜
+                         </div>
+                         
+                         {/* Book Title & Subtitle */}
+                         <div className="text-center space-y-0.5 relative z-10 my-auto">
+                           <h4 className="text-[11px] sm:text-[13px] font-black text-amber-300 drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.8)] leading-tight font-sans">
+                             المكتبة العامة
+                           </h4>
+                           <p className="text-[7px] sm:text-[8px] font-medium text-amber-400/80 leading-none">
+                             الكتب التفاعلية والمصادر
+                           </p>
+                         </div>
+                         
+                         {/* Golden Seal Stamp */}
+                         <div className="relative z-10 mx-auto flex items-center justify-center">
+                           <div className="w-5 h-5 rounded-full border border-amber-400/40 flex items-center justify-center bg-amber-400/10 group-hover:animate-spin">
+                             <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                           </div>
+                         </div>
+                      </div>
                    </div>
                 </div>
-             </div>
 
                 {/* 🎥 Live Lessons Widget for Students */}
                 {liveLessons.length > 0 && (
@@ -4279,83 +4278,41 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               );
             })}
 
-            {/* Study Camp Activator Card */}
+            {/* 📚 Premium Digital Book Cover Card for Public Library (المكتبة العامة) - Legacy Theme */}
             <button
-              onClick={() => {
-                setShowStudyCamp(true);
-                setShowEducationalMindMap(false);
-                setShowStudentChat(false);
-                setSelectedStage(null);
-                setActiveGrade(null);
-                setShowOnlyFavorites(false);
-              }}
-              className={`relative p-5 rounded-2xl text-right border transition-all text-xs md:text-sm shadow-sm overflow-hidden group cursor-pointer ${
-                showStudyCamp 
-                  ? "bg-slate-900 border-indigo-600 shadow-md shadow-indigo-950/20" 
-                  : "bg-slate-900/40 border-slate-800/60 hover:bg-slate-900 hover:border-indigo-650/40"
-              }`}
+              onClick={handleLibraryClick}
+              className="relative p-5 rounded-2xl text-right border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-950 hover:bg-slate-900 hover:border-emerald-400 transition-all text-xs md:text-sm shadow-lg overflow-hidden group cursor-pointer flex flex-col justify-between min-h-[140px] select-none"
             >
-              {showStudyCamp && (
-                <span className="absolute top-0 right-0 bottom-0 w-1.5 bg-gradient-to-b from-indigo-505 to-indigo-705" />
-              )}
-
-              <div className="flex items-start gap-4">
-                <div className={`p-3 rounded-xl transition-all ${
-                  showStudyCamp 
-                    ? "bg-indigo-600/20 text-indigo-400" 
-                    : "bg-slate-800 text-slate-400 group-hover:text-indigo-405"
-                }`}>
-                  <Sparkles className="w-5 h-5 text-indigo-400" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="font-bold text-slate-100">مخيم المذاكرة وأدوات التفوق ⚡</h3>
-                  <p className="text-2xs text-slate-400 line-clamp-1">تدريبات تفاعلية وحاسبات ذكية</p>
-                  <span className="text-3xs text-indigo-455 font-bold block mt-1 animate-pulse">
-                    اختبارات، درجات، وجداول 📅
-                  </span>
-                </div>
+              {/* Subtle pulsing background glow */}
+              <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+              
+              {/* Top Row / Badge */}
+              <div className="flex items-center justify-between w-full">
+                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-950/60 border border-emerald-500/25 px-2 py-0.5 rounded-full">
+                  المكتبة الرقمية 🌐
+                </span>
+                <BookOpen className="w-4 h-4 text-emerald-400 group-hover:animate-bounce" />
               </div>
-            </button>
 
-            {/* Educational Pathways Mind Map Card Activator */}
-            <button
-              onClick={() => {
-                setShowEducationalMindMap(true);
-                setShowStudyCamp(false);
-                setShowStudentChat(false);
-                setSelectedStage(null);
-                setActiveGrade(null);
-                setShowOnlyFavorites(false);
-              }}
-              className={`relative p-5 rounded-2xl text-right border transition-all text-xs md:text-sm shadow-sm overflow-hidden group cursor-pointer ${
-                showEducationalMindMap 
-                  ? "bg-slate-900 border-emerald-600 shadow-md shadow-emerald-950/20" 
-                  : "bg-slate-900/40 border-slate-800/60 hover:bg-slate-900 hover:border-emerald-650/40"
-              }`}
-            >
-              {showEducationalMindMap && (
-                <span className="absolute top-0 right-0 bottom-0 w-1.5 bg-gradient-to-b from-emerald-500 to-emerald-700" />
-              )}
+              {/* Title & Description */}
+              <div className="space-y-1 mt-3">
+                <h3 className="font-extrabold text-slate-100 text-xs sm:text-sm group-hover:text-emerald-300 transition-colors">
+                  المكتبة العامة السودانية
+                </h3>
+                <p className="text-[10px] text-slate-400 leading-normal">
+                  مصادر دراسية خارجية مثرية وكتب تفاعلية قيّمة
+                </p>
+              </div>
 
-              <div className="flex items-start gap-4">
-                <div className={`p-3 rounded-xl transition-all ${
-                  showEducationalMindMap 
-                    ? "bg-emerald-600/20 text-emerald-400" 
-                    : "bg-slate-800 text-slate-400 group-hover:text-emerald-405"
-                }`}>
-                  <Network className="w-5 h-5 text-emerald-400" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="font-bold text-slate-100">
-                    {currentLang === "ar" ? "خرائط المسارات الدراسية 🗺️" : "Learning Pathways Map 🗺️"}
-                  </h3>
-                  <p className="text-2xs text-slate-400 line-clamp-1">
-                    {currentLang === "ar" ? "مخطط ذهني تفاعلي لترابط الفصول والمواد" : "Interactive pathways and progression flows"}
-                  </p>
-                  <span className="text-3xs text-emerald-455 font-bold block mt-1 animate-pulse">
-                    {currentLang === "ar" ? "استكشاف تفاعلي وتوليد خطط 🧭" : "Interactive timeline & weekly plans 🧭"}
-                  </span>
-                </div>
+              {/* Action indicator */}
+              <div className="mt-4 pt-2 border-t border-slate-800/60 flex items-center justify-between w-full text-[10px]">
+                <span className="text-emerald-400 font-extrabold flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-400 animate-pulse" />
+                  <span>تصفح الكتب والمصادر</span>
+                </span>
+                <span className="text-slate-500 font-bold group-hover:text-emerald-400 transition-colors">
+                  دخول 🚀
+                </span>
               </div>
             </button>
           </div>
@@ -4561,7 +4518,6 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           null
         )}
       </main>
-        </div>
 
         {/* Sidebar Vertical Chat Space */}
         <AnimatePresence>
@@ -4613,7 +4569,6 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             </>
           )}
         </AnimatePresence>
-      </div>
 
       {/* Embedded Subject entry gate Modal */}
       <AnimatePresence>
