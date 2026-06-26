@@ -115,6 +115,18 @@ export default function App() {
   const [liveLessons, setLiveLessons] = useState<LiveLesson[]>([]);
 
   const handleLibraryClick = () => {
+    // 🔒 Check if logged in as registered user or admin
+    if ((!currentUser || currentUser.user_role === "guest") && !isAdminLoggedIn) {
+      setUserAuthError(
+        currentLang === "ar"
+          ? "⚠️ الدخول إلى المكتبة العامة متاح للأعضاء المسجلين فقط. يرجى تسجيل الدخول أو إنشاء حساب جديد مجاناً للمتابعة!"
+          : "⚠️ Access to the Public Library is available for registered members only. Please log in or create a new free account to continue!"
+      );
+      setUserModalTab("login");
+      setShowUserModal(true);
+      return;
+    }
+
     if (publicLibraryUrl) {
       window.open(publicLibraryUrl, "_blank");
     } else {
@@ -3308,7 +3320,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       {/* 📚 Premium Vintage Book Cover Card for Public Library (المكتبة العامة) - Sudanese Theme */}
                       <div
                         onClick={handleLibraryClick}
-                        className="w-28 h-36 sm:w-32 sm:h-44 shrink-0 bg-gradient-to-b from-[#3D1E12] via-[#2B140B] to-[#1E0D06] border-2 border-amber-500/40 p-2.5 flex flex-col justify-between rounded-2xl shadow-xl relative cursor-pointer hover:shadow-amber-500/10 hover:shadow-2xl transition-all duration-300 hover:scale-[1.05] overflow-hidden select-none group"
+                        className="w-28 h-36 sm:w-32 sm:h-44 shrink-0 bg-gradient-to-b from-[#3D1E12] via-[#2B140B] to-[#1E0D06] border-2 border-amber-500/40 hover:border-amber-400 p-2.5 flex flex-col justify-between rounded-2xl shadow-xl relative cursor-pointer hover:shadow-amber-500/30 hover:shadow-2xl transition-all duration-300 hover:scale-[1.05] overflow-hidden select-none group"
                       >
                          {/* Dashed Gold Inner Stitches */}
                          <div className="absolute inset-1.5 border border-dashed border-amber-500/20 rounded-xl pointer-events-none" />
@@ -4281,36 +4293,36 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             {/* 📚 Premium Digital Book Cover Card for Public Library (المكتبة العامة) - Legacy Theme */}
             <button
               onClick={handleLibraryClick}
-              className="relative p-5 rounded-2xl text-right border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-950 hover:bg-slate-900 hover:border-emerald-400 transition-all text-xs md:text-sm shadow-lg overflow-hidden group cursor-pointer flex flex-col justify-between min-h-[140px] select-none"
+              className="relative p-5 rounded-2xl text-right border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-950 hover:bg-slate-900 hover:border-amber-500 hover:scale-[1.05] transition-all duration-300 text-xs md:text-sm shadow-lg hover:shadow-amber-500/20 overflow-hidden group cursor-pointer flex flex-col justify-between min-h-[140px] select-none"
             >
               {/* Subtle pulsing background glow */}
-              <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+              <div className="absolute inset-0 bg-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
               
               {/* Top Row / Badge */}
               <div className="flex items-center justify-between w-full">
-                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-950/60 border border-emerald-500/25 px-2 py-0.5 rounded-full">
+                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400 group-hover:text-amber-400 group-hover:bg-amber-950/40 group-hover:border-amber-500/30 bg-emerald-950/60 border border-emerald-500/25 px-2 py-0.5 rounded-full transition-all duration-300">
                   المكتبة الرقمية 🌐
                 </span>
-                <BookOpen className="w-4 h-4 text-emerald-400 group-hover:animate-bounce" />
+                <BookOpen className="w-4 h-4 text-emerald-400 group-hover:text-amber-400 transition-colors duration-300 group-hover:animate-bounce" />
               </div>
 
               {/* Title & Description */}
               <div className="space-y-1 mt-3">
-                <h3 className="font-extrabold text-slate-100 text-xs sm:text-sm group-hover:text-emerald-300 transition-colors">
+                <h3 className="font-extrabold text-slate-100 text-xs sm:text-sm group-hover:text-amber-300 transition-colors duration-300">
                   المكتبة العامة السودانية
                 </h3>
-                <p className="text-[10px] text-slate-400 leading-normal">
+                <p className="text-[10px] text-slate-400 leading-normal group-hover:text-slate-200 transition-colors duration-300">
                   مصادر دراسية خارجية مثرية وكتب تفاعلية قيّمة
                 </p>
               </div>
 
               {/* Action indicator */}
               <div className="mt-4 pt-2 border-t border-slate-800/60 flex items-center justify-between w-full text-[10px]">
-                <span className="text-emerald-400 font-extrabold flex items-center gap-1">
+                <span className="text-emerald-400 group-hover:text-amber-400 font-extrabold flex items-center gap-1 transition-colors duration-300">
                   <Sparkles className="w-3 h-3 text-amber-400 animate-pulse" />
                   <span>تصفح الكتب والمصادر</span>
                 </span>
-                <span className="text-slate-500 font-bold group-hover:text-emerald-400 transition-colors">
+                <span className="text-slate-500 font-bold group-hover:text-amber-400 transition-colors duration-300">
                   دخول 🚀
                 </span>
               </div>
