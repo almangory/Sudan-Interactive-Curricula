@@ -5,7 +5,7 @@ import {
   Map, Sparkles, Star, ChevronLeft, ChevronDown, ChevronUp, CheckCircle, 
   Search, ShieldAlert, History, Globe, Plus, FileText, Video, Filter,
   Lock, Network, MessageSquare, X, Bell, MessagesSquare, UserCheck, Check, Link, ArrowLeftRight,
-  User, LogOut, Settings, Wifi, WifiOff, RotateCw, UserPlus, LogIn, Image, Pencil
+  User, LogOut, Settings, Wifi, WifiOff, RotateCw, UserPlus, LogIn, Image, Pencil, Gamepad2
 } from "lucide-react";
 import { stagesData, Stage, Grade, Subject } from "./data/curriculum";
 import SubjectModal from "./components/SubjectModal";
@@ -105,6 +105,9 @@ export default function App() {
   const [publicLibraryUrl, setPublicLibraryUrl] = useState(() => {
     return localStorage.getItem("sudan_public_library_url") || "https://sd-books-library.vercel.app/";
   });
+  const [educationalGamesUrl, setEducationalGamesUrl] = useState(() => {
+    return localStorage.getItem("sudan_educational_games_url") || "";
+  });
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [showStudyCamp, setShowStudyCamp] = useState(false);
   const [showEducationalMindMap, setShowEducationalMindMap] = useState(false);
@@ -152,6 +155,49 @@ export default function App() {
           currentLang === "ar"
             ? "📚 المكتبة العامة الرقمية:\nسيتم إضافة رابط موقع المكتبة العامة قريباً من قبل إدارة المنصة! ترقبوا كتباً تفاعلية ومصادر خارجية قيمة. ✨"
             : "📚 Digital Public Library:\nThe direct link will be added soon by the platform administration! Stay tuned for valuable interactive books & external resources. ✨"
+        );
+      }
+    }
+  };
+
+  const handleGamesClick = () => {
+    // 🔒 Check if logged in as registered user or admin
+    if ((!currentUser || currentUser.user_role === "guest") && !isAdminLoggedIn) {
+      setUserAuthError(
+        currentLang === "ar"
+          ? "⚠️ الدخول إلى الألعاب التعليمية متاح للأعضاء المسجلين فقط. يرجى تسجيل الدخول أو إنشاء حساب جديد مجاناً للمرح والتعلم!"
+          : "⚠️ Access to Educational Games is available for registered members only. Please log in or create a new free account to play and learn!"
+      );
+      setUserModalTab("login");
+      setShowUserModal(true);
+      return;
+    }
+
+    if (educationalGamesUrl) {
+      window.open(educationalGamesUrl, "_blank");
+    } else {
+      if (isAdminLoggedIn) {
+        const newUrl = prompt(
+          currentLang === "ar"
+            ? "أدخل رابط موقع الألعاب التعليمية الجديد لحفظه:"
+            : "Enter new Educational Games URL to save:",
+          "https://www.abcya.com"
+        );
+        if (newUrl !== null) {
+          setEducationalGamesUrl(newUrl);
+          localStorage.setItem("sudan_educational_games_url", newUrl);
+          setSaveStatus(
+            currentLang === "ar"
+              ? "🎉 تم حفظ رابط الألعاب التعليمية بنجاح!"
+              : "🎉 Educational Games link saved successfully!"
+          );
+          setTimeout(() => setSaveStatus(null), 4000);
+        }
+      } else {
+        alert(
+          currentLang === "ar"
+            ? "🎈 ألعاب تعليمية مشوقة:\nسيتم إضافة رابط موقع الألعاب التفاعلية قريباً من قبل إدارة المنصة! ترقبوا أروع الألعاب التعليمية الترفيهية للأطفال. ✨"
+            : "🎈 Interactive Educational Games:\nThe link will be added soon by the platform administration! Stay tuned for awesome, fun educational games for kids. ✨"
         );
       }
     }
@@ -2983,11 +3029,19 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               </span>
             </div>
 
-            <div className="bg-slate-900/60 p-4 border border-slate-800/80 rounded-2xl text-center space-y-1 min-w-[140px] shadow-lg selection:bg-transparent">
-              <CheckCircle className="w-5 h-5 text-emerald-450 mx-auto" />
-              <span className="text-xl font-bold text-slate-100 block">{completedLessons.length}</span>
-              <span className="text-2xs text-slate-400 block font-medium">{t("completedExercises")}</span>
-            </div>
+            {(selectedStage?.id === "kindergarten" || selectedStage?.id === "primary") && (
+              <div 
+                onClick={handleGamesClick}
+                className="relative bg-gradient-to-br from-pink-500 via-purple-500 to-amber-500 p-4 border border-white/20 rounded-2xl text-center space-y-1.5 min-w-[140px] shadow-lg cursor-pointer transition-all duration-300 hover:scale-[1.08] hover:rotate-1 animate-bounce select-none group"
+                style={{ animationDuration: '4s' }}
+              >
+                <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl pointer-events-none" />
+                <Gamepad2 className="w-5 h-5 mx-auto text-white animate-pulse" />
+                <span className="text-2xs text-white block font-black uppercase tracking-wide">
+                  {currentLang === "ar" ? "ألعاب تعليمية 🍭" : "Educational Games 🍭"}
+                </span>
+              </div>
+            )}
 
             {/* 📚 Premium Vintage Book Cover Card for Public Library (المكتبة العامة) - Legacy Theme */}
             <div 
@@ -3164,11 +3218,16 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                             </span>
                          </button>
 
-                         <div className="flex items-center gap-1 sm:gap-2 px-2.5 py-1 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl border border-mud/10 bg-white/70 text-mud text-[10px] sm:text-2xs font-bold select-none shadow-xs">
-                            <CheckCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-600 shrink-0" />
-                            <span className="font-extrabold">{completedLessons.length}</span>
-                            <span>{currentLang === "ar" ? "تمارين مكتملة" : "Completed Exercises"}</span>
-                         </div>
+                         {(selectedStage?.id === "kindergarten" || selectedStage?.id === "primary") && (
+                            <button 
+                               onClick={handleGamesClick}
+                               className="flex items-center gap-1.5 sm:gap-2.5 px-3 py-1.5 sm:px-5 sm:py-2.5 rounded-2xl bg-gradient-to-r from-pink-500 via-purple-500 to-amber-500 text-white font-black text-[11px] sm:text-xs shadow-md border-2 border-white/40 hover:border-white transition-all duration-300 hover:scale-[1.08] hover:rotate-1 cursor-pointer select-none animate-bounce"
+                               style={{ animationDuration: '4s' }}
+                            >
+                               <span className="text-xs sm:text-sm animate-pulse">🎮</span>
+                               <span>{currentLang === "ar" ? "ألعاب تعليمية 🍭" : "Educational Games 🍭"}</span>
+                            </button>
+                         )}
                          
                          {(isAdminLoggedIn || showHiddenAdminGate) && (
                            <button 
