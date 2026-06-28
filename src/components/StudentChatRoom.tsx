@@ -1218,57 +1218,57 @@ export default function StudentChatRoom({
                         </div>
 
                         <div className="space-y-1 flex-1 min-w-0">
-                          <div className={`flex items-center gap-1.5 text-4xs ${
-                            isMyMsg ? "flex-row-reverse" : "text-right"
+                          <div className={`flex items-center flex-wrap gap-1.5 text-[11px] mb-1 ${
+                            isMyMsg ? "flex-row-reverse" : "justify-start text-right"
                           }`}>
-                            <span className={`font-extrabold ${siteTheme === "sudanese" ? "text-mud" : "text-slate-200"}`}>
+                            <span className={`font-extrabold text-xs shrink-0 ${siteTheme === "sudanese" ? "text-mud font-black" : "text-slate-200"}`}>
                               {msg.username}
                             </span>
 
                             {isMsgAdmin ? (
-                              <span className="px-1.5 py-0.5 rounded-full text-5xs font-bold bg-gradient-to-r from-red-955/40 to-slate-900 text-red-400 border border-red-900/30">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-950/40 text-red-400 border border-red-900/30 whitespace-nowrap">
                                 {t.adminBadge}
                               </span>
                             ) : isMsgTeacher ? (
-                              <span className="px-1.5 py-0.5 rounded-full text-5xs font-bold bg-gradient-to-r from-emerald-950/40 to-slate-900 text-emerald-400 border border-emerald-900/30">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/40 text-emerald-400 border border-emerald-900/30 whitespace-nowrap">
                                 {t.teacherBadge}
                               </span>
                             ) : (
-                              <span className={`px-1.5 py-0.5 rounded-full text-5xs font-bold border ${
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap ${
                                 siteTheme === "sudanese"
                                   ? "bg-earthgold/10 text-mud border-earthgold/30"
-                                  : "bg-slate-905 text-slate-400 border-slate-800"
+                                  : "bg-slate-900 text-slate-350 border-slate-800"
                               }`}>
                                 {t.studentBadge} {msg.gradeName ? `(${msg.gradeName})` : ""}
                               </span>
                             )}
 
-                            <span className={`font-mono text-5xs ${siteTheme === "sudanese" ? "text-mud/50" : "text-slate-500"}`}>
+                            <span className={`font-mono text-[9px] shrink-0 ${siteTheme === "sudanese" ? "text-mud/50" : "text-slate-500"}`}>
                               {formatTime(msg.timestamp)}
                             </span>
                           </div>
 
-                          <div className={`p-3.5 rounded-2xl break-words text-xs leading-relaxed font-semibold select-text text-right ${
+                          <div className={`p-3 px-4 rounded-2xl break-words text-xs sm:text-[13px] leading-relaxed font-medium select-text text-right shadow-2xs border ${
                             isMyMsg 
                               ? siteTheme === "sudanese"
-                                ? "bg-[#5C2C16] text-[#FDFBF7] rounded-tl-none border-[#5C2C16] shadow-sm"
-                                : "bg-gradient-to-br from-indigo-900/25 to-slate-900 text-indigo-100 rounded-tl-none border border-indigo-900/50" 
+                                ? "bg-[#5C2C16] text-[#FDFBF7] rounded-tl-none border-[#5C2C16]"
+                                : "bg-indigo-600 text-white rounded-tl-none border-indigo-750 shadow-sm shadow-indigo-950/10" 
                               : isMsgAdmin 
-                              ? "bg-red-50 border border-red-200 text-red-900 rounded-tr-none"
+                              ? "bg-red-50/10 border-red-900/30 text-red-400 rounded-tr-none"
                               : isMsgTeacher
-                              ? "bg-emerald-50 border border-emerald-250 text-emerald-700 rounded-tr-none"
+                              ? "bg-emerald-50/10 border-emerald-900/30 text-emerald-400 rounded-tr-none"
                               : siteTheme === "sudanese"
-                              ? "bg-white border border-mud/11 text-mud rounded-tr-none shadow-sm font-sans"
-                              : "bg-slate-900/60 border border-slate-800 text-slate-101 rounded-tr-none"
+                              ? "bg-white border-mud/15 text-mud rounded-tr-none font-sans"
+                              : "bg-slate-900 border-slate-850 text-slate-100 rounded-tr-none"
                           }`}>
                             {cleanMessageText(msg.text)}
                           </div>
 
                           {isAdminLoggedIn && (
-                            <div className={`flex ${isMyMsg ? "justify-start" : "justify-end"}`}>
+                            <div className={`flex ${isMyMsg ? "justify-end" : "justify-start"}`}>
                               <button
                                 onClick={() => handleDeleteMessage(msg.id)}
-                                className="inline-flex items-center gap-1 mt-0.5 text-5xs text-rose-500 hover:text-rose-450 cursor-pointer font-bold bg-rose-95/10 hover:bg-rose-95/30 px-2 py-0.5 rounded"
+                                className="inline-flex items-center gap-1 mt-1 text-[10px] text-rose-400 hover:text-rose-350 cursor-pointer font-bold bg-rose-950/20 hover:bg-rose-950/45 border border-rose-900/30 px-2 py-0.5 rounded-lg active:scale-95 duration-100"
                               >
                                 <Trash2 className="w-2.5 h-2.5" />
                                 <span>{currentLang === "ar" ? "حذف" : "Remove"}</span>
@@ -1373,7 +1373,7 @@ export default function StudentChatRoom({
                 {t.noUsers}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 select-none">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 select-none">
                 {renderedUsers.map(peer => {
                   const peerStage = getStageOfGrade(peer.grade_id);
                   const isSameStage = peerStage === myStageId;
@@ -1384,68 +1384,6 @@ export default function StudentChatRoom({
                   const receivedPending = pendingIncoming.some(f => String(f.sender_id) === String(peer.id));
 
                   return (
-                    <button 
-                      key={peer.id}
-                      onClick={() => setSelectedPeerDetails(peer)}
-                      className={`p-3.5 rounded-2xl border transition-all duration-300 relative select-none w-full flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 group ${
-                        siteTheme === "sudanese"
-                          ? isSameStage 
-                            ? "bg-white border-mud/10 hover:border-mud/30 hover:bg-[#FAF9F5] text-mud shadow-2xs hover:shadow-xs" 
-                            : "bg-[#FAFAF6]/60 border-mud/5 opacity-70 hover:opacity-100"
-                          : isSameStage 
-                            ? "bg-slate-900/55 border-slate-850 hover:border-indigo-500/40 hover:bg-slate-900 text-slate-100 shadow-2xs hover:shadow-lg hover:shadow-indigo-950/15" 
-                            : "bg-slate-925/20 border-slate-900/60 opacity-60 hover:opacity-100 text-slate-400"
-                      }`}
-                    >
-                      {/* Floating status dot representing availability */}
-                      <div className="absolute top-2.5 left-2.5 flex items-center justify-center">
-                        <span 
-                          className={`w-2.5 h-2.5 rounded-full ring-2 shadow-xs ${
-                            siteTheme === "sudanese" ? "ring-[#FAF8F5]" : "ring-slate-950"
-                          } ${
-                            isSameStage 
-                              ? "bg-emerald-500 animate-pulse" 
-                              : "bg-rose-500"
-                          }`}
-                          title={isSameStage 
-                            ? (currentLang === "ar" ? "متاح للإضافة (نفس المرحلة)" : "Available to add (Same stage)")
-                            : (currentLang === "ar" ? "غير متاح (مرحلة دراسية مختلفة)" : "Unavailable (Different stage)")
-                          }
-                        />
-                      </div>
-
-                      {/* Small Avatar Icon */}
-                      <div className={`w-11 h-11 rounded-full shrink-0 border flex items-center justify-center font-black text-sm mb-2.5 transition-transform duration-300 group-hover:scale-108 ${
-                        siteTheme === "sudanese"
-                          ? isSameStage 
-                            ? "bg-mud/10 text-mud border-mud/20" 
-                            : "bg-mud/5 text-mud/40 border-mud/5"
-                          : isSameStage 
-                            ? "bg-indigo-950/40 text-indigo-400 border-indigo-900/30" 
-                            : "bg-slate-900 text-slate-505 border-slate-850"
-                      }`}>
-                        {peer.user_role === "teacher" ? "👨‍🏫" : peer.username.charAt(0).toUpperCase()}
-                      </div>
-
-                      {/* Username Only */}
-                      <h4 className={`font-black text-4xs sm:text-3xs truncate max-w-full px-1 ${
-                        siteTheme === "sudanese" ? "text-mud font-black" : "text-slate-100"
-                      }`}>
-                        {peer.username}
-                      </h4>
-
-                      {/* Small role label inside if teacher */}
-                      {peer.user_role === "teacher" && (
-                        <span className="mt-1 text-[8px] bg-indigo-500/10 text-indigo-400 px-1.5 py-0.2 rounded-full font-bold">
-                          {t.teacherBadge}
-                        </span>
-                      )}
-                    </button>
-                  );
-
-                  if (isFriend || !isFriend) {
-                    // This block bypasses the historical representation
-                    return (
                       <div 
                         key={peer.id}
                       className={`p-4 rounded-2xl border transition-all duration-300 relative ${
@@ -1585,7 +1523,6 @@ export default function StudentChatRoom({
                       </div>
                     </div>
                   );
-                  }
                 })}
               </div>
             )}

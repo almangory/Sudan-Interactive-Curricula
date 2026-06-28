@@ -5083,18 +5083,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
       {/* Sticky footer info */}
       <footer className="mt-20 border-t border-slate-800/80 pt-10 text-center max-w-7xl mx-auto px-6">
-        {/* Simple email contact info requested by the user */}
-        <div className="max-w-md mx-auto mb-10 p-5 bg-slate-900/40 border border-slate-800/60 rounded-2xl text-center backdrop-blur shadow-lg">
-          <p className="text-xs text-slate-300 leading-relaxed font-sans mb-2">
-            📬 للتواصل والاستفسارات والاقتراحات يرجى مراسلتنا مباشرة عبر البريد الإلكتروني:
-          </p>
-          <a 
-            href="mailto:almangoryo@gmail.com" 
-            className="text-emerald-450 font-mono font-bold text-sm tracking-wide hover:text-emerald-350 select-all transition-all hover:underline"
-          >
-            almangoryo@gmail.com
-          </a>
-        </div>
+
 
         <div className="space-y-4 text-xs text-slate-400">
           <div className="flex items-center justify-center gap-2">
