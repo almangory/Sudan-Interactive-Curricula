@@ -106,7 +106,7 @@ export default function App() {
     return localStorage.getItem("sudan_public_library_url") || "https://sd-books-library.vercel.app/";
   });
   const [educationalGamesUrl, setEducationalGamesUrl] = useState(() => {
-    return localStorage.getItem("sudan_educational_games_url") || "";
+    return localStorage.getItem("sudan_educational_games_url") || "https://naqla-game.vercel.app/";
   });
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [showStudyCamp, setShowStudyCamp] = useState(false);
@@ -181,7 +181,7 @@ export default function App() {
           currentLang === "ar"
             ? "أدخل رابط موقع الألعاب التعليمية الجديد لحفظه:"
             : "Enter new Educational Games URL to save:",
-          "https://www.abcya.com"
+          "https://naqla-game.vercel.app/"
         );
         if (newUrl !== null) {
           setEducationalGamesUrl(newUrl);
@@ -1050,7 +1050,9 @@ export default function App() {
     }
 
     // 2. If DB validation succeeded, or fallback user matched standard offline password
-    const isOfflineFallback = (cleanUser.toLowerCase() === "almangory" || cleanUser.toLowerCase() === "admin@sudan.edu") && adminPassword === "20302060";
+    const isOfflineFallback = 
+      (cleanUser.toLowerCase() === "almangory" || cleanUser.toLowerCase() === "admin@sudan.edu") && 
+      (adminPassword === "20302060" || adminPassword === "sudan2026");
 
     if (authenticated || isOfflineFallback) {
       setIsAdminLoggedIn(true);
@@ -1361,7 +1363,7 @@ export default function App() {
       const cleanEmail = userEmail.trim().toLowerCase();
       
       // Admin Login Option inside Student/User modal
-      if (cleanEmail === "admin@sudan.edu" && userPassword === "20302060") {
+      if (cleanEmail === "admin@sudan.edu" && (userPassword === "20302060" || userPassword === "sudan2026")) {
         setIsAdminLoggedIn(true);
         localStorage.setItem("sudan_edu_admin", "true");
         setShowHiddenAdminGate(true);
@@ -1706,31 +1708,9 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
     localStorage.removeItem("sudan_custom_curriculum"); // Purge very old version if any
   }, []);
 
-  // Set default stage from loaded curriculumData or enforce registered student stage
+  // Do not select any stage by default on mount to keep the home page clean and showing no tabs/stages open.
   useEffect(() => {
-    if (currentUser && currentUser.user_role === "student" && currentUser.grade_id && curriculumData.length > 0) {
-      let foundStage = null;
-      let foundGrade = null;
-      for (const stage of curriculumData) {
-        const matched = stage.grades.find(g => g.id === currentUser.grade_id);
-        if (matched) {
-          foundStage = stage;
-          foundGrade = matched;
-          break;
-        }
-      }
-      if (foundStage && foundGrade) {
-        setSelectedStage(foundStage);
-        setActiveGrade(foundGrade);
-        setShowOnlyFavorites(false);
-        setShowStudyCamp(false);
-        setShowEducationalMindMap(false);
-        setShowStudentChat(false);
-        setShowAdminDashboard(false);
-      }
-    } else if (curriculumData.length > 1 && !selectedStage) {
-      setSelectedStage(curriculumData[1]); // Default to primary stage
-    }
+    // Left empty intentionally to prevent automatic selections of stage or grade on opening the website.
   }, [curriculumData, currentUser]);
 
   // Handle active stage changing when curriculumData is updated to keep selectedStage reference in sync
@@ -2359,36 +2339,141 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           ? "bg-white shadow-sm shadow-[#5C2C16]/5 border-mud/10 text-mud"
           : "bg-slate-900/90 border-slate-800/60 text-slate-100"
       }`}>
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 text-right flex-nowrap">
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-nowrap">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-center">
+          <div className="flex items-center justify-center gap-1.5 sm:gap-2 shrink-0">
             <div className="flex items-center gap-1">
               <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-ping' : 'bg-amber-500 animate-pulse'}`}></span>
             </div>
             
             {/* Elegant Offline Indicator Badge */}
             <div 
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-black tracking-wide transition-all duration-300 ${
+              className={`inline-flex items-center justify-center p-1.5 rounded-xl border transition-all duration-300 ${
                 isOnline 
                   ? 'bg-emerald-950/20 text-emerald-400 border-emerald-900/30' 
-                  : 'bg-amber-955/30 text-amber-400 border-amber-900/40 animate-pulse'
+                  : 'bg-amber-950/20 text-amber-400 border-amber-900/40 animate-pulse'
               }`}
               title={isOnline ? "مزامنة ذكية مفعلة - جميع المواد المفتوحة تُحمل تلقائياً" : "وضع عدم الاتصال مفعل - تصفح ما تم فتحه مسبقاً بدقة عالية"}
             >
               {isOnline ? (
-                <>
-                  <Wifi className="w-2.5 h-2.5 text-emerald-400 stroke-[3]" />
-                  <span>{currentLang === "ar" ? "متصل" : "Online"}</span>
-                </>
+                <Wifi className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
               ) : (
-                <>
-                  <WifiOff className="w-2.5 h-2.5 text-amber-400 stroke-[3]" />
-                  <span>{currentLang === "ar" ? "وضع عدم الاتصال" : "Offline Mode"}</span>
-                </>
+                <WifiOff className="w-3.5 h-3.5 text-amber-400 stroke-[3]" />
               )}
+            </div>
+
+            {/* Username next to Wifi on mobile/tablet */}
+            {currentUser && (
+              <button
+                onClick={triggerEditProfile}
+                className="md:hidden inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-3xs font-black text-indigo-300 select-none hover:border-indigo-500/50 transition-colors"
+                title={t("editProfile")}
+              >
+                <span className="relative flex h-1.5 w-1.5 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-indigo-500"></span>
+                </span>
+                <User className="w-3.5 h-3.5 text-indigo-455 shrink-0" />
+                <span className="truncate max-w-[85px]">{currentUser.username}</span>
+              </button>
+            )}
+
+            {/* Admin Portal Lock Icon next to User / Wifi */}
+            <div className="relative">
+              {isAdminLoggedIn ? (
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-emerald-400 font-bold bg-emerald-950/20 px-1.5 py-0.5 rounded-lg border border-emerald-900/30">إدارة</span>
+                  <button
+                    onClick={handleAdminLogout}
+                    className="p-1 bg-rose-955/20 hover:bg-rose-900/20 border border-rose-900/40 text-rose-450 hover:text-rose-350 rounded-lg transition-all duration-300 cursor-pointer shadow-sm active:scale-95"
+                    title={t("logout")}
+                  >
+                    <LogOut className="w-3 h-3 text-rose-500" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setShowAdminLogin(prev => !prev);
+                    setAdminLoginError("");
+                    setAdminUsername("");
+                    setAdminPassword("");
+                  }}
+                  className="inline-flex items-center justify-center p-1.5 bg-red-950/20 hover:bg-red-900/20 border border-red-900/40 text-red-500 hover:text-red-400 rounded-xl shadow-sm transition-all duration-300 cursor-pointer animate-pulse"
+                  title={currentLang === "ar" ? "دخول المسؤول المفوّض" : "Authorized Administrator Portal Login"}
+                >
+                  <Lock className="w-3.5 h-3.5 text-[#8a1111]" style={{ color: '#8a1111' }} />
+                </button>
+              )}
+
+              {/* Admin Login Dialog dropdown (positioned beautifully under top lock button) */}
+              <AnimatePresence>
+                {showAdminLogin && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute -left-16 sm:left-auto sm:-right-4 mt-2 w-64 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-4 z-[9999] space-y-3 font-sans text-right"
+                    style={{ direction: 'rtl' }}
+                  >
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                      <h5 className="text-[10px] font-black text-slate-100 flex items-center gap-1.5">
+                        <Lock className="w-3 h-3 text-emerald-400" />
+                        <span>دخول إدارة المنهج التعليمي 🇸🇩</span>
+                      </h5>
+                      <button 
+                        onClick={() => setShowAdminLogin(false)}
+                        className="p-1 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-slate-300 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleAdminLoginSubmit(e);
+                      }} 
+                      className="space-y-2.5"
+                    >
+                      <div>
+                        <label className="block text-[9px] text-slate-400 mb-0.5 font-bold">اسم المسؤول</label>
+                        <input
+                          type="text"
+                          className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 outline-none focus:border-emerald-500/50 text-right"
+                          value={adminUsername}
+                          onChange={(e) => setAdminUsername(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-slate-400 mb-0.5 font-bold">كلمة المرور</label>
+                        <input
+                          type="password"
+                          className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 outline-none focus:border-emerald-500/50 text-right"
+                          value={adminPassword}
+                          onChange={(e) => setAdminPassword(e.target.value)}
+                        />
+                      </div>
+
+                      {adminLoginError && (
+                        <p className="text-[9px] text-rose-400 font-bold bg-rose-950/20 px-2 py-0.5 rounded border border-rose-900/30 text-right">
+                          {adminLoginError}
+                        </p>
+                      )}
+
+                      <button
+                        type="submit"
+                        className="w-full py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-black text-[10px] rounded-lg shadow transition-all active:scale-95"
+                      >
+                        تسجيل الدخول كمسؤول
+                      </button>
+                    </form>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-2 relative w-auto h-auto flex-nowrap shrink-0">
+          <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 relative w-auto h-auto">
             {/* Page Refresh Button */}
             <button
               onClick={() => {
@@ -2403,7 +2488,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             >
               <RotateCw className="w-3.5 h-3.5 text-earthgold-600" />
               <span className="hidden sm:inline">
-                {currentLang === "ar" ? " تحديث" : " Refresh"}
+                {currentLang === "ar" ? " " : " "}
               </span>
             </button>
 
@@ -2415,12 +2500,12 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-earthgold/60"
                   : "bg-slate-950/60 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/60 text-slate-200"
               }`}
-              title={currentLang === "ar" ? "تغيير المظهر (التصميم السوداني التقليدي / المظهر الداكن)" : "Switch Theme (Traditional Sudanese / Legacy Dark)"}
+              title={currentLang === "ar" ? "تغيير المظهر (المظهر الداكن)" : "Switch Theme (  Legacy Dark)"}
             >
               <span className="text-[14px]">🎨</span>
               <span className="hidden sm:inline">
                 {currentLang === "ar" 
-                  ? (siteTheme === "sudanese" ? " التصميم السوداني" : " التصميم الداكن") 
+                  ? (siteTheme === "sudanese" ? "  " : " التصميم الداكن") 
                   : (siteTheme === "sudanese" ? " Sudanese Style" : " Dark Legacy")}
               </span>
             </button>
@@ -2495,9 +2580,9 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 }`}
                 title={currentLang === "ar" ? "الدردشة الطلابية" : "Student Chat"}
               >
-                <MessagesSquare className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="hidden sm:inline">
-                  {currentLang === "ar" ? " الدردشة" : " Chat"}
+                <MessagesSquare className="w-[23px] h-[24px] text-indigo-400" />
+                <span className="hidden sm:inline text-[#001126]">
+                  {currentLang === "ar" ? " " : " "}
                 </span>
               </button>
             )}
@@ -2513,12 +2598,13 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   showTopSearch 
                     ? "bg-[#5C2C16] text-[#FAF5EC] ring-2 ring-[#5C2C16]/20" 
                     : siteTheme === "sudanese"
-                      ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-[#5C2C16]/60"
-                      : "bg-slate-950/60 border-slate-800 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/40 text-slate-200"
+                      ? "bg-[#d3c7bc] hover:bg-cream/50 border-mud/25 text-mud hover:border-[#5C2C16]/60"
+                      : "bg-[#d3c7bc] hover:bg-slate-900 border-slate-800 hover:border-emerald-500/40 text-[#5C2C16]"
                 }`}
+                style={!showTopSearch ? { backgroundColor: '#d3c7bc' } : {}}
                 title={currentLang === "ar" ? "البحث السريع والترشيح" : "Quick Search & Filter"}
               >
-                <Search className="w-3.5 h-3.5" />
+                <Search className="w-3.5 h-3.5 text-[#0b2f7e]" style={{ color: '#0b2f7e' }} />
               </button>
 
               <AnimatePresence>
@@ -2721,7 +2807,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 >
                   <Bell className={`w-3.5 h-3.5 ${unreadCount > 0 ? "text-amber-400 animate-bounce" : "text-slate-400"}`} />
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-650 text-[9px] font-black text-white rounded-full flex items-center justify-center border border-slate-950 animate-pulse px-1">
+                    <span 
+                      className="absolute -top-1 -right-1 z-20 min-w-[16px] h-4 text-[9px] font-black text-white rounded-full flex items-center justify-center border border-slate-950 animate-pulse px-1"
+                      style={{ backgroundColor: '#8a1111', zIndex: 20 }}
+                    >
                       {unreadCount}
                     </span>
                   )}
@@ -2811,17 +2900,17 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             {/* Student / user login trigger */}
             {currentUser ? (
               <div className="inline-flex items-center gap-1.5 sm:gap-2.5 bg-slate-950 px-2 sm:px-3.5 py-1.5 border border-slate-800 rounded-xl shadow-inner select-none">
-                <span className="relative flex h-1.5 w-1.5 shrink-0">
+                <span className="relative md:flex h-1.5 w-1.5 shrink-0 hidden">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-indigo-500"></span>
                 </span>
                 
-                <span className="inline-flex items-center gap-1 text-3xs md:text-2xs text-indigo-300 font-extrabold max-w-[80px] xs:max-w-[130px] truncate">
+                <span className="md:inline-flex items-center gap-1 text-3xs md:text-2xs text-indigo-300 font-extrabold max-w-[80px] xs:max-w-[130px] truncate hidden">
                   <User className="w-3.5 h-3.5 text-indigo-455 shrink-0" />
                   <span className="truncate">{currentUser.username}</span>
                 </span>
 
-                <div className="h-4 w-px bg-slate-800 shrink-0" />
+                <div className="h-4 w-px bg-slate-800 shrink-0 hidden md:block" />
 
                 <button
                   onClick={triggerEditProfile}
@@ -2871,109 +2960,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               </button>
             )}
 
-            {/* Wrap the Admin Button and Dropdown in a dedicated relative div to prevent position overflow */}
-            <div className="relative">
-              {isAdminLoggedIn ? (
-                <div className="flex items-center gap-2 md:gap-3 flex-wrap">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-955/45 border border-emerald-900/65 text-emerald-400 font-extrabold text-[10px] rounded-xl shadow-inner select-none">
-                    <span className="relative flex h-1.5 w-1.5 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-455 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                    </span>
-                    <span>{t("adminLoggedInAs")}</span>
-                    <span className="text-white font-mono font-black pb-0.5">almangory</span>
-                  </div>
-                  <button
-                    onClick={handleAdminLogout}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-955/20 hover:bg-rose-900/20 border border-rose-900/40 text-rose-450 hover:text-rose-350 font-extrabold text-[10px] rounded-xl transition-all duration-300 cursor-pointer shadow-sm active:scale-95"
-                  >
-                    <LogOut className="w-3 h-3 text-rose-500" />
-                    <span>{t("logout")}</span>
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => {
-                    setShowAdminLogin(prev => !prev);
-                    setAdminLoginError("");
-                    setAdminUsername("");
-                    setAdminPassword("");
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-950/65 hover:bg-slate-900 text-slate-200 border border-slate-800 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 hover:border-emerald-500/40 cursor-pointer"
-                  title={currentLang === "ar" ? "دخول المسؤول المفوّض لتعديل وإخفاء المناهج التعليمية" : "Authorized Administrator Portal Login"}
-                >
-                  <Lock className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>{t("adminPortal")}</span>
-                </button>
-              )}
 
-              {/* Admin Login Dialog dropdown (properly absolute-positioned under parent button) */}
-              <AnimatePresence>
-                {showAdminLogin && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute -left-[150px] sm:left-auto sm:-right-4 mt-3 w-72 md:w-80 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-4 z-[9999] space-y-3 font-sans"
-                  >
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                      <h5 className="text-xs font-black text-slate-100 flex items-center gap-1.5">
-                        <Lock className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>دخول إدارة المنهج التعليمي 🇸🇩</span>
-                      </h5>
-                      <button 
-                        onClick={() => setShowAdminLogin(false)}
-                        className="p-1 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-slate-300 transition-colors"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    <form onSubmit={handleAdminLoginSubmit} className="space-y-3">
-                      <div className="bg-emerald-955/25 border border-emerald-900/35 rounded-lg p-2.5 text-[9px] text-emerald-400 space-y-1 leading-normal font-semibold">
-                        <p className="font-extrabold text-emerald-300">🔑 دخول المسؤول المفوّض:</p>
-                        <p>اسم المستخدم: <span className="font-mono text-white select-all bg-slate-950 px-1 rounded">admin@sudan.edu</span></p>
-                        <p>رمز المرور السري: <span className="font-mono text-white select-all bg-slate-950 px-1 rounded">sudan2026</span></p>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] text-slate-400 font-bold block">اسم المستخدم</label>
-                        <input 
-                          type="text" 
-                          value={adminUsername}
-                          onChange={(e) => setAdminUsername(e.target.value)}
-                          placeholder="admin@sudan.edu"
-                          className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500 font-sans"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] text-slate-400 font-bold block">رمز المرور السري</label>
-                        <input 
-                          type="password" 
-                          value={adminPassword}
-                          onChange={(e) => setAdminPassword(e.target.value)}
-                          placeholder="••••••••"
-                          className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500 font-sans"
-                        />
-                      </div>
-
-                      {adminLoginError && (
-                        <p className="text-[10px] text-rose-400 font-bold leading-normal">{adminLoginError}</p>
-                      )}
-
-                      <button 
-                        type="submit"
-                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-extrabold text-xs rounded-xl transition-all duration-200 shadow-md cursor-pointer flex items-center justify-center gap-1.5"
-                      >
-                        <LogIn className="w-3.5 h-3.5" />
-                        <span>تسجيل الدخول كمسؤول</span>
-                      </button>
-                    </form>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
           </div>
         </div>
       </div>
@@ -3032,13 +3019,16 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             {(selectedStage?.id === "kindergarten" || selectedStage?.id === "primary") && (
               <div 
                 onClick={handleGamesClick}
-                className="relative bg-gradient-to-br from-pink-500 via-purple-500 to-amber-500 p-4 border border-white/20 rounded-2xl text-center space-y-1.5 min-w-[140px] shadow-lg cursor-pointer transition-all duration-300 hover:scale-[1.08] hover:rotate-1 animate-bounce select-none group"
+                className="relative bg-gradient-to-br from-pink-500 via-purple-500 to-amber-500 p-4 border border-white/20 rounded-2xl text-center flex flex-col justify-center items-center gap-2 min-w-[140px] shadow-lg cursor-pointer transition-all duration-300 hover:scale-[1.08] hover:rotate-1 animate-bounce select-none group"
                 style={{ animationDuration: '4s' }}
               >
                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl pointer-events-none" />
-                <Gamepad2 className="w-5 h-5 mx-auto text-white animate-pulse" />
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🍭</span>
+                  <span className="text-sm animate-pulse">🎮</span>
+                </div>
                 <span className="text-2xs text-white block font-black uppercase tracking-wide">
-                  {currentLang === "ar" ? "ألعاب تعليمية 🍭" : "Educational Games 🍭"}
+                  {currentLang === "ar" ? "ألعاب تعليمية" : "Educational Games"}
                 </span>
               </div>
             )}
@@ -3224,8 +3214,9 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                className="flex items-center gap-1.5 sm:gap-2.5 px-3 py-1.5 sm:px-5 sm:py-2.5 rounded-2xl bg-gradient-to-r from-pink-500 via-purple-500 to-amber-500 text-white font-black text-[11px] sm:text-xs shadow-md border-2 border-white/40 hover:border-white transition-all duration-300 hover:scale-[1.08] hover:rotate-1 cursor-pointer select-none animate-bounce"
                                style={{ animationDuration: '4s' }}
                             >
+                               <span className="text-xs sm:text-sm">🍭</span>
+                               <span>{currentLang === "ar" ? "ألعاب تعليمية" : "Educational Games"}</span>
                                <span className="text-xs sm:text-sm animate-pulse">🎮</span>
-                               <span>{currentLang === "ar" ? "ألعاب تعليمية 🍭" : "Educational Games 🍭"}</span>
                             </button>
                          )}
                          
@@ -5020,7 +5011,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       disabled={userModalTab === "profile"}
                       value={userEmail}
                       onChange={(e) => setUserEmail(e.target.value)}
-                      placeholder={loginRole === "admin" && userModalTab === "login" ? "admin@sudan.edu" : "student@example.com"}
+                      placeholder={loginRole === "admin" && userModalTab === "login" ? "admin@example.com" : "student@example.com"}
                       className={`w-full border border-slate-800 rounded-xl p-3 text-xs outline-none transition-all font-sans text-left ${userModalTab === "profile" ? "bg-slate-950/60 text-slate-400 pointer-events-none" : "bg-slate-950 text-slate-100 focus:border-indigo-600"}`}
                       dir="ltr"
                     />
