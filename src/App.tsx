@@ -2597,14 +2597,12 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 className={`inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl shadow-sm transition-all duration-305 cursor-pointer relative ${
                   showTopSearch 
                     ? "bg-[#5C2C16] text-[#FAF5EC] ring-2 ring-[#5C2C16]/20" 
-                    : siteTheme === "sudanese"
-                      ? "bg-[#d3c7bc] hover:bg-cream/50 border-mud/25 text-mud hover:border-[#5C2C16]/60"
-                      : "bg-[#d3c7bc] hover:bg-slate-900 border-slate-800 hover:border-emerald-500/40 text-[#5C2C16]"
+                    : "bg-[#D4AF37] hover:bg-[#D4AF37]/90 border border-[#D4AF37]/20 text-white shadow-md shadow-[#D4AF37]/10"
                 }`}
-                style={!showTopSearch ? { backgroundColor: '#d3c7bc' } : {}}
+                style={!showTopSearch ? { backgroundColor: '#D4AF37' } : {}}
                 title={currentLang === "ar" ? "البحث السريع والترشيح" : "Quick Search & Filter"}
               >
-                <Search className="w-3.5 h-3.5 text-[#0b2f7e]" style={{ color: '#0b2f7e' }} />
+                <Search className="w-3.5 h-3.5 text-white" style={{ color: '#ffffff' }} />
               </button>
 
               <AnimatePresence>
