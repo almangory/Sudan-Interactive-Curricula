@@ -179,7 +179,7 @@ export default function App() {
       if (isAdminLoggedIn) {
         const newUrl = prompt(
           currentLang === "ar"
-            ? "أدخل رابط موقع الألعاب التعليمية الجديد لحفظه:"
+            ? "أدخل رابط الألعاب التعليمية الجديد لحفظه:"
             : "Enter new Educational Games URL to save:",
           "https://naqla-game.vercel.app/"
         );
