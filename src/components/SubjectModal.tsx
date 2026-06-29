@@ -912,6 +912,39 @@ export default function SubjectModal({
                   <h2 className={`text-xl md:text-2xl font-black ${
                     siteTheme === "sudanese" ? "text-mud" : "text-slate-100"
                   }`}>{t(subject.name)}</h2>
+                  
+                  {hasInteractiveLink && (
+                    <div className="pt-2">
+                      <a 
+                        href={subject.interactiveUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full font-black text-xs transition-all cursor-pointer relative overflow-hidden shadow-lg border animate-pulse hover:animate-none hover:scale-[1.03] active:scale-95 group"
+                        style={{
+                          background: siteTheme === "sudanese" 
+                            ? "linear-gradient(135deg, #059669 0%, #0d9488 100%)" 
+                            : "linear-gradient(135deg, #10b981 0%, #06b6d4 100%)",
+                          borderColor: siteTheme === "sudanese" ? "#047857" : "#34d399",
+                          color: "#ffffff",
+                          boxShadow: siteTheme === "sudanese"
+                            ? "0 4px 15px rgba(5, 150, 105, 0.4)"
+                            : "0 4px 15px rgba(16, 185, 129, 0.4)"
+                        }}
+                      >
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-300"></span>
+                        </span>
+                        <Compass className="w-4 h-4 animate-spin text-emerald-100 shrink-0" style={{ animationDuration: '6s' }} />
+                        <span className="tracking-wide text-right font-black">
+                          {currentLang === "ar" 
+                            ? `دخول الموقع التفاعلي: ${subject.interactiveLabel || "اضغط هنا"}` 
+                            : `Open Interactive: ${subject.interactiveLabel || "Click here"}`}
+                        </span>
+                        <ExternalLink className="w-3.5 h-3.5 text-emerald-200 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1225,15 +1258,17 @@ export default function SubjectModal({
 
                 <div className="pt-1">
                   {hasInteractiveLink ? (
-                    <a 
-                      href={subject.interactiveUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-555 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer hover:shadow-emerald-900/20"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>{currentLang === "ar" ? `دخول الموقع التفاعلي: ${subject.interactiveLabel}` : `Open Interactive Portal: ${subject.interactiveLabel}`}</span>
-                    </a>
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400 font-bold">
+                      <span className="relative flex h-2 w-2 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      <span>
+                        {currentLang === "ar"
+                          ? "⚡ تم نقل زر دخول الموقع التفاعلي السريع إلى أعلى الصفحة تحت اسم المادة مباشرة لتسهيل الوصول الفوري وجعله ملفتاً!"
+                          : "⚡ The interactive portal link has been moved to the top of the page under the subject name for prominent instant access!"}
+                      </span>
+                    </div>
                   ) : (
                     <button 
                       disabled

@@ -23,6 +23,71 @@ interface Friendship {
   status: "pending" | "accepted";
 }
 
+const getAvatarGradient = (username: string) => {
+  const gradients = [
+    "from-pink-500 to-rose-500 text-white shadow-rose-500/20",
+    "from-purple-500 to-indigo-500 text-white shadow-indigo-500/20",
+    "from-blue-500 to-cyan-500 text-white shadow-cyan-500/20",
+    "from-emerald-500 to-teal-500 text-white shadow-teal-500/20",
+    "from-amber-500 to-orange-500 text-white shadow-orange-500/20",
+    "from-violet-500 to-fuchsia-500 text-white shadow-fuchsia-500/20",
+    "from-red-500 to-orange-500 text-white shadow-red-500/20",
+    "from-sky-500 to-indigo-500 text-white shadow-sky-500/20"
+  ];
+  
+  let hash = 0;
+  const name = username || "Student";
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % gradients.length;
+  return gradients[index];
+};
+
+interface UserAvatarProps {
+  username: string;
+  role: string;
+  size?: "sm" | "md" | "lg" | "xl";
+  siteTheme?: string;
+  showStatus?: boolean;
+  statusColor?: string;
+  style?: React.CSSProperties;
+}
+
+export function UserAvatar({ username, role, size = "md", siteTheme = "sudanese", showStatus = false, statusColor = "bg-emerald-500", style }: UserAvatarProps) {
+  const isTeacher = role === "teacher";
+  const isAdmin = role === "admin";
+  
+  const sizeClasses = {
+    sm: "w-7 h-7 text-[11px]",
+    md: "w-10 h-10 text-sm",
+    lg: "w-12 h-12 text-base",
+    xl: "w-16 h-16 text-xl"
+  };
+  
+  const roleBadge = () => {
+    if (isAdmin) return "👑";
+    if (isTeacher) return "👨‍🏫";
+    return null;
+  };
+
+  const initial = username ? username.trim().charAt(0).toUpperCase() : "🎓";
+  const gradient = getAvatarGradient(username);
+  
+  return (
+    <div className="relative shrink-0 select-none" style={style}>
+      <div 
+        className={`rounded-full bg-gradient-to-tr ${gradient} flex items-center justify-center font-black shadow-sm border border-white/80 transition-all duration-300 hover:scale-105 active:scale-95 ${sizeClasses[size]}`}
+      >
+        {roleBadge() || initial}
+      </div>
+      {showStatus && (
+        <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white shadow-sm ring-1 ring-black/5 animate-pulse ${statusColor}`} />
+      )}
+    </div>
+  );
+}
+
 interface StudentChatRoomProps {
   currentUser: AppUser | null;
   currentLang: "ar" | "en";
@@ -59,6 +124,22 @@ export default function StudentChatRoom({
 
   const [activeChatWith, setActiveChatWith] = useState<AppUser | null>(null);
   const [selectedPeerDetails, setSelectedPeerDetails] = useState<AppUser | null>(null);
+
+  const handleOpenUserDetails = (msg: ChatMessage) => {
+    const foundPeer = allUsers.find(u => String(u.id) === String(msg.userId));
+    if (foundPeer) {
+      setSelectedPeerDetails(foundPeer);
+    } else {
+      setSelectedPeerDetails({
+        id: msg.userId,
+        username: msg.username,
+        email: "",
+        provider: "email",
+        user_role: msg.userRole,
+        grade_name: msg.gradeName || undefined,
+      } as AppUser);
+    }
+  };
 
   const cleanMessageText = (text: string): string => {
     if (text.startsWith("[DM:")) {
@@ -780,6 +861,29 @@ export default function StudentChatRoom({
     const nameMatch = user.username.toLowerCase().includes(userSearchText.toLowerCase());
     const gradeMatch = user.grade_name && user.grade_name.toLowerCase().includes(userSearchText.toLowerCase());
     return nameMatch || gradeMatch;
+  }).sort((a, b) => {
+    const aStage = getStageOfGrade(a.grade_id);
+    const bStage = getStageOfGrade(b.grade_id);
+    const aSame = aStage === myStageId;
+    const bSame = bStage === myStageId;
+    
+    const aIsFriend = activeFriendIds.has(String(a.id));
+    const bIsFriend = activeFriendIds.has(String(b.id));
+    
+    // 1. Same educational stage first
+    if (aSame && !bSame) return -1;
+    if (!aSame && bSame) return 1;
+
+    // 2. Friends first
+    if (aIsFriend && !bIsFriend) return -1;
+    if (!aIsFriend && bIsFriend) return 1;
+    
+    // 3. Teachers first
+    if (a.user_role === "teacher" && b.user_role !== "teacher") return -1;
+    if (a.user_role !== "teacher" && b.user_role === "teacher") return 1;
+    
+    // 4. Alphabetically by username
+    return a.username.localeCompare(b.username, "ar");
   });
 
   return (
@@ -931,14 +1035,16 @@ export default function StudentChatRoom({
                   {currentLang === "ar" ? "أصدقاؤك المقبولين 🟢" : "My Friends 🟢"}
                 </h4>
                 <div className="space-y-2 max-h-[190px] overflow-y-auto">
-                  {allUsers.filter(u => activeFriendIds.has(u.id)).length === 0 ? (
+                  {allUsers.filter(u => activeFriendIds.has(String(u.id)) || activeFriendIds.has(u.id)).length === 0 ? (
                     <p className={`text-5xs italic leading-relaxed ${
                       siteTheme === "sudanese" ? "text-mud/50" : "text-slate-500"
                     }`}>
                       {currentLang === "ar" ? "لا يوجد أصدقاء بعد. تصفح دليل الطلاب وأرسل لهم طلبات صداقة!" : "No friends added. Use Finder to add peers!"}
                     </p>
                   ) : (
-                    allUsers.filter(u => activeFriendIds.has(u.id)).map(friend => (
+                    allUsers.filter(u => activeFriendIds.has(String(u.id)) || activeFriendIds.has(u.id))
+                      .sort((a, b) => a.username.localeCompare(b.username, "ar"))
+                      .map((friend, idx) => (
                       <div 
                         key={friend.id}
                         className={`p-2.5 rounded-xl border flex items-center justify-between gap-1.5 text-3xs font-bold group relative ${
@@ -946,15 +1052,10 @@ export default function StudentChatRoom({
                             ? "bg-cream border-mud/10 text-mud"
                             : "bg-slate-900/60 border border-slate-800 text-slate-350"
                         }`}
+                        style={idx === 0 ? { height: "95.264px" } : undefined}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center font-black shrink-0 ${
-                            siteTheme === "sudanese"
-                              ? "bg-earthgold/10 text-mud border border-mud/10"
-                              : "bg-indigo-950/40 text-indigo-400"
-                          }`}>
-                            {friend.username.charAt(0).toUpperCase()}
-                          </div>
+                          <UserAvatar username={friend.username} role={friend.user_role || "student"} size="sm" siteTheme={siteTheme} showStatus={true} />
                           <div className="min-w-0 text-right">
                             <span className={`block truncate text-4xs ${
                               siteTheme === "sudanese" ? "text-mud font-black" : "text-slate-205"
@@ -1013,11 +1114,7 @@ export default function StudentChatRoom({
                           siteTheme === "sudanese" ? "bg-cream border-mud/10" : "bg-slate-955/85 border border-slate-850/80"
                         }`}>
                           <div className="flex items-center gap-2">
-                            <div className={`w-5 h-5 rounded-md flex items-center justify-center font-black text-4xs ${
-                              siteTheme === "sudanese" ? "bg-earthgold/10 text-mud" : "bg-indigo-950/50 text-indigo-405"
-                            }`}>
-                              {sender.username.charAt(0).toUpperCase()}
-                            </div>
+                            <UserAvatar username={sender.username} role={sender.user_role || "student"} size="sm" siteTheme={siteTheme} />
                             <span className={`text-4xs font-bold truncate block max-w-[100px] ${
                               siteTheme === "sudanese" ? "text-mud" : "text-slate-200"
                             }`}>{sender.username}</span>
@@ -1079,58 +1176,64 @@ export default function StudentChatRoom({
                   }`}
                 >
                   <Users className="w-3.5 h-3.5" />
-                  <span>{currentLang === "ar" ? "💬 المجموعة العامة" : "💬 Public Stage Chat"}</span>
+                  <span>{currentLang === "ar" ? "💬  عام" : "💬 Public "}</span>
                 </button>
 
                 {/* Friends List Button Mapping for Private Chat selection */}
-                {friendsList.map(friend => {
-                  const isSelected = activeChatWith !== null && String(activeChatWith.id) === String(friend.id);
-                  const hasDMs = messages.some(msg => 
-                    String(msg.userId) === String(friend.id) && 
-                    msg.text.startsWith(`[DM:${currentUser.id}]`)
-                  );
+                <div className="flex items-center gap-2 shrink-0" style={{ width: "auto", height: "auto" }}>
+                  {friendsList.map((friend, idx) => {
+                    const isSelected = activeChatWith !== null && String(activeChatWith.id) === String(friend.id);
+                    const hasDMs = messages.some(msg => 
+                      String(msg.userId) === String(friend.id) && 
+                      msg.text.startsWith(`[DM:${currentUser.id}]`)
+                    );
 
-                  return (
-                    <button
-                      key={friend.id}
-                      onClick={() => {
-                        setActiveChatWith(friend);
-                        setTimeout(() => scrollToBottom("smooth"), 120);
-                      }}
-                      className={`px-3 py-1.5 rounded-xl text-3xs font-black transition-all flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 duration-200 relative ${
-                        isSelected
-                          ? siteTheme === "sudanese"
-                            ? "bg-earthgold text-mud border-mud/30 shadow-sm"
-                            : "bg-indigo-900/60 border border-indigo-500 text-indigo-300"
-                          : siteTheme === "sudanese"
-                            ? "bg-white border border-mud/10 text-mud hover:bg-[#FCFAF3]"
-                            : "bg-slate-900/80 border border-slate-805 text-slate-350 hover:text-slate-100"
-                      }`}
-                    >
-                      <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black shrink-0 ${
-                        isSelected
-                          ? siteTheme === "sudanese"
-                            ? "bg-mud text-white"
-                            : "bg-indigo-500 text-white"
-                          : siteTheme === "sudanese"
-                            ? "bg-mud/10 text-[#5C2C16]"
-                            : "bg-slate-800 text-slate-300"
-                      }`}>
-                        {friend.username.charAt(0).toUpperCase()}
+                    const isSecondFriend = idx === 1;
+
+                    return (
+                      <div
+                        key={friend.id}
+                        role="button"
+                        onClick={() => {
+                          setActiveChatWith(friend);
+                          setTimeout(() => scrollToBottom("smooth"), 120);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-3xs font-black transition-all flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 duration-200 relative ${
+                          isSelected
+                            ? siteTheme === "sudanese"
+                              ? "bg-earthgold text-mud border-mud/30 shadow-sm"
+                              : "bg-indigo-900/60 border border-indigo-500 text-indigo-300"
+                            : siteTheme === "sudanese"
+                              ? "bg-white border border-mud/10 text-mud hover:bg-[#FCFAF3]"
+                              : "bg-slate-900/80 border border-slate-805 text-slate-350 hover:text-slate-100"
+                        }`}
+                      >
+                        <UserAvatar 
+                          username={friend.username} 
+                          role={friend.user_role || "student"} 
+                          size="sm" 
+                          siteTheme={siteTheme} 
+                          style={isSecondFriend ? { width: "auto", height: "auto" } : undefined}
+                        />
+                        
+                        <span 
+                          className="truncate max-w-[80px]"
+                          style={isSecondFriend ? { fontSize: "8px" } : undefined}
+                        >
+                          {friend.username.split(" ")[0]}
+                        </span>
+
+                        {/* Online Status Marker Dot */}
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-sm shrink-0" />
+
+                        {/* Realtime DM Presence Unread/New Message Alert Badge */}
+                        {hasDMs && !isSelected && (
+                          <span className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping" />
+                        )}
                       </div>
-                      
-                      <span className="truncate max-w-[80px]">{friend.username.split(" ")[0]}</span>
-
-                      {/* Online Status Marker Dot */}
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-sm shrink-0" />
-
-                      {/* Realtime DM Presence Unread/New Message Alert Badge */}
-                      {hasDMs && !isSelected && (
-                        <span className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping" />
-                      )}
-                    </button>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
               {censorshipWarning && (
                 <div 
@@ -1199,55 +1302,16 @@ export default function StudentChatRoom({
                           isMyMsg ? "mr-auto flex-row-reverse text-left" : "ml-auto"
                         }`}
                       >
-                        <div className={`w-10 h-10 rounded-xl shrink-0 border flex items-center justify-center text-xs font-bold relative ${
-                          isMyMsg 
-                            ? siteTheme === "sudanese"
-                              ? "bg-earthgold/10 text-mud border-earthgold"
-                              : "bg-indigo-900/20 text-indigo-350 border-indigo-805" 
-                            : isMsgAdmin 
-                            ? "bg-red-955/20 text-red-400 border-red-900/40"
-                            : isMsgTeacher
-                            ? "bg-emerald-950/20 text-emerald-400 border-emerald-900/40"
-                            : siteTheme === "sudanese"
-                            ? "bg-[#FAF5EC] border-mud/10 text-mud"
-                            : "bg-slate-900 text-slate-300 border-slate-800"
-                        }`}
-                        title={msg.username}
+                        {/* Clickable Name Icon (UserAvatar) */}
+                        <div 
+                          onClick={() => handleOpenUserDetails(msg)}
+                          className="cursor-pointer hover:scale-105 active:scale-95 duration-150 transition-all shrink-0"
+                          title={currentLang === "ar" ? "اضغط لعرض تفاصيل المستخدم" : "Click to view user details"}
                         >
-                          {isMsgAdmin ? "🔑" : isMsgTeacher ? "👨‍🏫" : msg.username.charAt(0).toUpperCase()}
+                          <UserAvatar username={msg.username} role={msg.userRole} size="md" siteTheme={siteTheme} />
                         </div>
 
                         <div className="space-y-1 flex-1 min-w-0">
-                          <div className={`flex items-center flex-wrap gap-1.5 text-[11px] mb-1 ${
-                            isMyMsg ? "flex-row-reverse" : "justify-start text-right"
-                          }`}>
-                            <span className={`font-extrabold text-xs shrink-0 ${siteTheme === "sudanese" ? "text-mud font-black" : "text-slate-200"}`}>
-                              {msg.username}
-                            </span>
-
-                            {isMsgAdmin ? (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-950/40 text-red-400 border border-red-900/30 whitespace-nowrap">
-                                {t.adminBadge}
-                              </span>
-                            ) : isMsgTeacher ? (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/40 text-emerald-400 border border-emerald-900/30 whitespace-nowrap">
-                                {t.teacherBadge}
-                              </span>
-                            ) : (
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap ${
-                                siteTheme === "sudanese"
-                                  ? "bg-earthgold/10 text-mud border-earthgold/30"
-                                  : "bg-slate-900 text-slate-350 border-slate-800"
-                              }`}>
-                                {t.studentBadge} {msg.gradeName ? `(${msg.gradeName})` : ""}
-                              </span>
-                            )}
-
-                            <span className={`font-mono text-[9px] shrink-0 ${siteTheme === "sudanese" ? "text-mud/50" : "text-slate-500"}`}>
-                              {formatTime(msg.timestamp)}
-                            </span>
-                          </div>
-
                           <div className={`p-3 px-4 rounded-2xl break-words text-xs sm:text-[13px] leading-relaxed font-medium select-text text-right shadow-2xs border ${
                             isMyMsg 
                               ? siteTheme === "sudanese"
@@ -1262,6 +1326,13 @@ export default function StudentChatRoom({
                               : "bg-slate-900 border-slate-850 text-slate-100 rounded-tr-none"
                           }`}>
                             {cleanMessageText(msg.text)}
+
+                            {/* Message timestamp shown neatly inside the bubble */}
+                            <div className={`text-[9.5px] opacity-60 font-mono mt-1 text-left select-none ${
+                              isMyMsg ? "text-indigo-200" : siteTheme === "sudanese" ? "text-mud/50" : "text-slate-400"
+                            }`}>
+                              {formatTime(msg.timestamp)}
+                            </div>
                           </div>
 
                           {isAdminLoggedIn && (
@@ -1373,153 +1444,41 @@ export default function StudentChatRoom({
                 {t.noUsers}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 select-none">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 select-none">
                 {renderedUsers.map(peer => {
                   const peerStage = getStageOfGrade(peer.grade_id);
                   const isSameStage = peerStage === myStageId;
                   
-                  // Friendship Status computation
-                  const isFriend = activeFriendIds.has(String(peer.id));
-                  const sentPending = pendingOutgoing.some(f => String(f.receiver_id) === String(peer.id));
-                  const receivedPending = pendingIncoming.some(f => String(f.sender_id) === String(peer.id));
-
                   return (
-                      <div 
-                        key={peer.id}
-                      className={`p-4 rounded-2xl border transition-all duration-300 relative ${
+                    <div 
+                      key={peer.id}
+                      onClick={() => setSelectedPeerDetails(peer)}
+                      className={`p-4 rounded-2xl border transition-all duration-300 relative flex flex-col items-center justify-center cursor-pointer hover:scale-105 hover:shadow-md active:scale-95 text-center ${
                         siteTheme === "sudanese"
                           ? isSameStage 
                             ? "bg-white border-mud/10 hover:border-mud/30 text-mud shadow-sm" 
                             : "bg-[#FAFAF6]/80 border-mud/5 opacity-80"
                           : isSameStage 
-                            ? "bg-slate-900/50 border-slate-850 hover:border-indigo-650/50 hover:bg-slate-900" 
-                            : "bg-slate-925/25 border-slate-900/70 opacity-60"
+                            ? "bg-slate-900/50 border-slate-850 hover:border-indigo-650/50 hover:bg-slate-900 text-slate-100" 
+                            : "bg-slate-925/25 border-slate-900/70 opacity-60 text-slate-400"
                       }`}
+                      title={currentLang === "ar" ? "اضغط لعرض تفاصيل الطالب" : "Click to view student details"}
                     >
-                      <div className="flex items-start gap-3">
-                        {/* Avatar */}
-                        <div className={`w-10 h-10 rounded-xl shrink-0 border flex items-center justify-center font-bold text-xs ${
-                          siteTheme === "sudanese"
-                            ? isSameStage 
-                              ? "bg-mud/10 text-mud border-mud/20 font-black" 
-                              : "bg-mud/5 text-mud/40 border-mud/5"
-                            : isSameStage 
-                              ? "bg-indigo-950/30 text-indigo-405 border-indigo-900/30" 
-                              : "bg-slate-900 text-slate-505 border-slate-850"
+                      {/* Avatar name icon */}
+                      <UserAvatar username={peer.username} role={peer.user_role || "student"} size="lg" siteTheme={siteTheme} showStatus={isSameStage} />
+
+                      {/* Details */}
+                      <div className="mt-3 space-y-0.5 w-full">
+                        <h4 className={`font-extrabold text-2xs truncate ${
+                          siteTheme === "sudanese" ? "text-mud font-black" : "text-slate-100"
                         }`}>
-                          {peer.user_role === "teacher" ? "👨‍🏫" : peer.username.charAt(0).toUpperCase()}
-                        </div>
-
-                        {/* Details */}
-                        <div className="space-y-1 flex-1 min-w-0 text-right">
-                          <h4 className={`font-extrabold text-xs truncate ${
-                            siteTheme === "sudanese" ? "text-mud font-black" : "text-slate-100"
-                          }`}>
-                            {peer.username}
-                          </h4>
-                          <span className={`block text-5xs font-bold ${
-                            siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"
-                          }`}>
-                            {peer.grade_name || "صف دراسي غير محدد"} ( {getStageLabel(peerStage)} )
-                          </span>
-
-                          <div className="pt-2 flex flex-wrap gap-1.5 items-center">{isFriend && <button onClick={() => { setActiveChatWith(peer); setActiveCategoryTab("chat"); setTimeout(() => scrollToBottom("smooth"), 120); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-5xs font-black cursor-pointer select-none active:scale-95 duration-150 transition-all ${siteTheme === "sudanese" ? "bg-mud hover:bg-mud/90 hover:scale-105 text-[#FDFBF7]" : "bg-indigo-650 hover:bg-indigo-505 hover:scale-105 text-[#F1F5F9]"}`}><MessageSquare className="w-2.5 h-2.5" /><span>{currentLang === "ar" ? "دردشة خاصة 💬" : "Direct DM 💬"}</span></button>}
-                            {/* Actions / Status pills */}
-                             {isFriend ? (
-                               <div className="flex items-center gap-2 flex-wrap">
-                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-950/20 border border-emerald-900/40 rounded-xl text-5xs font-bold text-emerald-400">
-                                   <UserCheck className="w-2.5 h-2.5 text-emerald-400" />
-                                   <span>{t.friendsNow}</span>
-                                 </span>
-                                 <button
-                                   onClick={() => {
-                                     const friendRel = friendships.find(f => 
-                                       f.status === "accepted" && (
-                                         (String(f.sender_id) === String(currentUser.id) && String(f.receiver_id) === String(peer.id)) ||
-                                         (String(f.sender_id) === String(peer.id) && String(f.receiver_id) === String(currentUser.id))
-                                       )
-                                     );
-                                     if (friendRel) {
-                                       if (window.confirm(currentLang === "ar" ? `هل أنت متأكد من إلغاء الصداقة مع ${peer.username}؟` : `Are you sure you want to unfriend ${peer.username}?`)) {
-                                         handleDeclineFriend(friendRel.id);
-                                       }
-                                     }
-                                   }}
-                                   className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-rose-950/30 hover:bg-rose-900/40 border border-rose-900/30 hover:border-rose-700/50 text-rose-400 rounded-lg text-5xs font-extrabold transition-all cursor-pointer select-none active:scale-95"
-                                   title={currentLang === "ar" ? "إلغاء الصداقة" : "Unfriend"}
-                                 >
-                                   <X className="w-2.5 h-2.5" />
-                                   <span>{currentLang === "ar" ? "الغاء" : "Unfriend"}</span>
-                                 </button>
-                               </div>
-                             ) : sentPending ? (
-                               <div className="flex items-center gap-2 flex-wrap">
-                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-950/20 border border-amber-900/40 rounded-xl text-5xs font-bold text-amber-405">
-                                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                   <span>{t.pendingRequest}</span>
-                                 </span>
-                                 <button
-                                   onClick={() => {
-                                     const friendRel = pendingOutgoing.find(f => String(f.receiver_id) === String(peer.id));
-                                     if (friendRel) {
-                                       handleDeclineFriend(friendRel.id);
-                                     }
-                                   }}
-                                   className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-slate-800 hover:bg-slate-700 hover:text-slate-200 border border-slate-700 text-slate-400 rounded-lg text-5xs font-extrabold transition-all cursor-pointer select-none active:scale-95"
-                                   title={currentLang === "ar" ? "تراجع عن الطلب" : "Cancel request"}
-                                 >
-                                   <X className="w-2.5 h-2.5" />
-                                   <span>{currentLang === "ar" ? "تراجع" : "Cancel"}</span>
-                                 </button>
-                               </div>
-                            ) : receivedPending ? (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => {
-                                    const friendObj = pendingIncoming.find(f => String(f.sender_id) === String(peer.id));
-                                    if (friendObj) handleAcceptFriend(friendObj.id, peer);
-                                  }}
-                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-100 text-5xs font-extrabold rounded-lg cursor-pointer flex items-center gap-1 select-none active:scale-95"
-                                >
-                                  <Check className="w-3 h-3 text-white" />
-                                  <span>{t.acceptBtn}</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    const friendObj = pendingIncoming.find(f => String(f.sender_id) === String(peer.id));
-                                    if (friendObj) handleDeclineFriend(friendObj.id);
-                                  }}
-                                  className="px-2.5 py-1 bg-rose-950/40 hover:bg-rose-900/40 text-rose-400 border border-rose-900/35 text-5xs font-black rounded-lg cursor-pointer flex items-center gap-1 select-none active:scale-95"
-                                >
-                                  <X className="w-3 h-3" />
-                                  <span>{t.declineBtn}</span>
-                                </button>
-                              </div>
-                            ) : isSameStage ? (
-                              <div className="flex gap-1.5 flex-wrap">
-                                <button
-                                  onClick={() => handleAddFriend(peer)}
-                                  className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-slate-50 text-[10px] sm:text-5xs font-extrabold rounded-xl cursor-pointer inline-flex items-center gap-1 select-none active:scale-95 duration-200"
-                                >
-                                  <UserPlus className="w-3 h-3 text-white" />
-                                  <span>{t.addFriend}</span>
-                                </button>
-                                
-                                <button
-                                  onClick={() => handleSimulateIncomingRequest(peer)}
-                                  className="px-2 py-1.5 bg-amber-950/20 hover:bg-amber-900/10 border border-amber-900/30 text-amber-400 text-[10px] sm:text-5xs font-extrabold rounded-xl cursor-pointer inline-flex items-center gap-1 select-none active:scale-95 duration-200"
-                                  title="اضغط لتجربة واستقبال طلب صداقة وهمي من هذا الطالب على حسابك"
-                                >
-                                  <span>محاكاة استلام طلب 📥</span>
-                                </button>
-                              </div>
-                            ) : (
-                              <span className="inline-flex py-1 text-5xs font-bold text-rose-500 bg-rose-950/10 px-2 rounded-lg leading-none select-none">
-                                {t.differentStage}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                          {peer.username}
+                        </h4>
+                        <span className={`block text-6xs font-bold truncate opacity-85 ${
+                          siteTheme === "sudanese" ? "text-mud/75" : "text-slate-400"
+                        }`}>
+                          {peer.grade_name || "عام"}
+                        </span>
                       </div>
                     </div>
                   );
@@ -1555,9 +1514,7 @@ export default function StudentChatRoom({
                         className="p-3 bg-slate-900/80 border border-slate-805 rounded-xl flex items-center justify-between gap-3 text-xs"
                       >
                         <div className="flex items-center gap-2.5 min-w-0 text-right">
-                          <div className="w-8 h-8 rounded-lg bg-indigo-950/40 text-indigo-405 flex items-center justify-center font-bold">
-                            {sender.username.charAt(0).toUpperCase()}
-                          </div>
+                          <UserAvatar username={sender.username} role={sender.user_role || "student"} size="sm" siteTheme={siteTheme} />
                           <div className="truncate min-w-0">
                             <span className="block text-slate-100 font-extrabold truncate text-xs">{sender.username}</span>
                             <span className="block text-5xs text-slate-400 font-medium">{sender.grade_name || "صف دراسي"}</span>
@@ -1609,9 +1566,7 @@ export default function StudentChatRoom({
                         className="p-3 bg-slate-900/45 border border-slate-900/60 rounded-xl flex items-center justify-between gap-3 text-xs"
                       >
                         <div className="flex items-center gap-2.5 min-w-0 text-right">
-                          <div className="w-8 h-8 rounded-lg bg-slate-950/50 text-slate-400 flex items-center justify-center font-bold">
-                            {receiver.username.charAt(0).toUpperCase()}
-                          </div>
+                          <UserAvatar username={receiver.username} role={receiver.user_role || "student"} size="sm" siteTheme={siteTheme} />
                           <div className="truncate min-w-0">
                             <span className="block text-slate-205 font-extrabold truncate text-xs">{receiver.username}</span>
                             <span className="block text-5xs text-slate-500 font-medium">{receiver.grade_name || "صف دراسي"}</span>
@@ -1665,25 +1620,14 @@ export default function StudentChatRoom({
 
                 {/* Main Identity Info */}
                 <div className="flex flex-col items-center text-center mt-4 mb-6">
-                  <div className={`w-16 h-16 rounded-full border-2 flex items-center justify-center text-xl font-black mb-3.5 relative ${
-                    siteTheme === "sudanese"
-                      ? "bg-mud/10 border-mud/30 text-mud"
-                      : "bg-indigo-950/40 border-indigo-500/30 text-indigo-400"
-                  }`}>
-                    {selectedPeerDetails.user_role === "teacher" ? "👨‍🏫" : selectedPeerDetails.username.charAt(0).toUpperCase()}
-
-                    <span 
-                      className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 ${
-                        siteTheme === "sudanese" ? "border-[#FCFAF6]" : "border-slate-925"
-                      } ${
-                        isPeerSameStage ? "bg-emerald-500" : "bg-rose-500"
-                      }`}
-                      title={isPeerSameStage 
-                        ? (currentLang === "ar" ? "متاح للإضافة (نفس المرحلة)" : "Available (Same Stage)")
-                        : (currentLang === "ar" ? "غير متاح للإضافة" : "Unavailable (Different Stage)")
-                      }
-                    />
-                  </div>
+                  <UserAvatar 
+                    username={selectedPeerDetails.username} 
+                    role={selectedPeerDetails.user_role || "student"} 
+                    size="xl" 
+                    siteTheme={siteTheme} 
+                    showStatus={true} 
+                    statusColor={isPeerSameStage ? "bg-emerald-500" : "bg-rose-500"}
+                  />
 
                   <h3 className={`text-sm font-black mb-1 ${
                     siteTheme === "sudanese" ? "text-mud font-black" : "text-white"
