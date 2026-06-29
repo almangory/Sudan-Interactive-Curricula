@@ -354,6 +354,51 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<SyncRes
     if (success) {
       console.log("Successfully saved row-by-row into curricula_links!");
 
+      // Also save/update the legacy single-row "curriculum" JSON record to keep them 100% in sync
+      try {
+        let singleRowSuccess = false;
+        let singleRowAttempts = 0;
+        let singleRowData: any = {
+          id: "curriculum",
+          stages: stages,
+          config: stages,
+          updated_at: new Date().toISOString()
+        };
+
+        while (singleRowAttempts < 3 && !singleRowSuccess) {
+          const { error: singleRowErr } = await client
+            .from("curricula_links")
+            .upsert(singleRowData);
+
+          if (!singleRowErr) {
+            singleRowSuccess = true;
+            console.log("Successfully saved legacy single-row 'curriculum' record as well!");
+            break;
+          }
+
+          const errMsg = singleRowErr.message || "";
+          let missingColumn: string | null = null;
+          const match1 = errMsg.match(/Could not find the '([^']+)' column/i);
+          const match2 = errMsg.match(/column "([^"]+)" of relation .*(?:does not exist|not found)/i);
+          const match3 = errMsg.match(/column ([a-zA-Z0-9_]+) of relation .*(?:does not exist|not found)/i);
+
+          if (match1) missingColumn = match1[1];
+          else if (match2) missingColumn = match2[1];
+          else if (match3) missingColumn = match3[1];
+
+          if (missingColumn && missingColumn in singleRowData) {
+            console.log(`Self-healing active: Removing unsupported column '${missingColumn}' from single-row upsert and retrying...`);
+            delete singleRowData[missingColumn];
+            singleRowAttempts++;
+          } else {
+            console.warn("Failed legacy single-row 'curriculum' sync:", errMsg);
+            break;
+          }
+        }
+      } catch (e) {
+        console.warn("Exception during legacy single-row 'curriculum' sync:", e);
+      }
+
       // Clean up deleted subjects that are no longer in our curriculum tree safely via diffing
       const currentIds = flatRows.map(row => row.id);
       try {
