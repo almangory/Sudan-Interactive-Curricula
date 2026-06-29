@@ -5,6 +5,7 @@ import {
   CheckCircle, XCircle, Info, Trophy, ChevronRight, UserCheck, BookOpen 
 } from "lucide-react";
 import { Subject } from "../data/curriculum";
+import { getApiUrl } from "../lib/supabase";
 
 interface AITutorProps {
   stageName: string;
@@ -72,7 +73,7 @@ export default function AITutor({ stageName, gradeName, subjectName, subject, on
       // Map frontend history format to backend format
       const history = messages.map(m => ({ role: m.role, text: m.text }));
       
-      const response = await fetch("/api/tutor/chat", {
+      const response = await fetch(getApiUrl("/api/tutor/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -122,7 +123,7 @@ export default function AITutor({ stageName, gradeName, subjectName, subject, on
     setQuizScore(0);
 
     try {
-      const response = await fetch("/api/tutor/quiz", {
+      const response = await fetch(getApiUrl("/api/tutor/quiz"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

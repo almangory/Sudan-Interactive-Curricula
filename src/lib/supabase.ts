@@ -47,6 +47,19 @@ export function saveSupabaseConfig(url: string, anonKey: string) {
   }
 }
 
+/**
+ * Dynamically resolves the full URL of the backend API based on static/vercel hosting or configured backend setting.
+ */
+export function getApiUrl(path: string): string {
+  const localBackend = localStorage.getItem("sudan_backend_url") || "";
+  if (localBackend) {
+    const base = localBackend.endsWith("/") ? localBackend.slice(0, -1) : localBackend;
+    const cleanPath = path.startsWith("/") ? path : `/${path}`;
+    return `${base}${cleanPath}`;
+  }
+  return path;
+}
+
 // Cache-holding singleton variables for Supabase client
 let cachedClient: any = null;
 let cachedActiveUrl = "";

@@ -90,6 +90,7 @@ export default function AdminDashboard({
   // Supabase states
   const [sbUrl, setSbUrl] = useState("");
   const [sbAnonKey, setSbAnonKey] = useState("");
+  const [backendUrlState, setBackendUrlState] = useState("");
   const [sbStatus, setSbStatus] = useState<string | null>(null);
   const [isSbLoading, setIsSbLoading] = useState(false);
   const [showSqlBlock, setShowSqlBlock] = useState(false);
@@ -255,6 +256,7 @@ export default function AdminDashboard({
     const config = getSupabaseConfig();
     setSbUrl(config.url);
     setSbAnonKey(config.anonKey);
+    setBackendUrlState(localStorage.getItem("sudan_backend_url") || "");
   }, []);
 
   const cancelForm = () => {
@@ -456,6 +458,11 @@ export default function AdminDashboard({
     setSbStatus(null);
     try {
       saveSupabaseConfig(sbUrl, sbAnonKey);
+      if (backendUrlState) {
+        localStorage.setItem("sudan_backend_url", backendUrlState.trim());
+      } else {
+        localStorage.removeItem("sudan_backend_url");
+      }
       
       const testResult = testSupabaseConnection(sbUrl, sbAnonKey);
       if (!testResult.success) {
@@ -1273,6 +1280,20 @@ NOTIFY pgrst, 'reload schema';`;
                 className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-600 rounded-xl p-3 text-xs text-slate-200 outline-none transition-all font-mono"
               />
             </div>
+          </div>
+
+          <div className="space-y-2 text-right">
+            <label className="text-xs font-bold text-indigo-300 block">رابط الخادم الخلفي (Backend URL - اختياري لمنصات الاستضافة الثابتة مثل Vercel):</label>
+            <input
+              type="url"
+              value={backendUrlState}
+              onChange={(e) => setBackendUrlState(e.target.value)}
+              placeholder="https://sudan-interactive-curricula.run.app"
+              className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-600 rounded-xl p-3 text-xs text-slate-200 outline-none transition-all font-mono"
+            />
+            <p className="text-3xs text-slate-400">
+              مفيد إذا قمت بإنشاء خادم خارجي مستقل (Express) لتشغيل ميزات الذكاء الاصطناعي (المدرس الذكي) والاختبارات على Vercel. اترك الحقل فارغاً للاعتماد على المسار الافتراضي للموقع.
+            </p>
           </div>
 
           {showSqlBlock && (
