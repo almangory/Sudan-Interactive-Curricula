@@ -268,6 +268,40 @@ app.get("/api/config/supabase", (req, res) => {
   }
 });
 
+// قائمة عملاء SSE النشطين لاستقبال التحديثات الفورية
+let sseClients: any[] = [];
+
+// 1.1 استقبال اتصالات SSE للمزامنة الفورية من المتصفحات
+app.get("/api/events", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  sseClients.push(res);
+
+  req.on("close", () => {
+    sseClients = sseClients.filter(client => client !== res);
+  });
+});
+
+// 1.2 استقبال إشعارات الويب هوك من سوبابيس وإرسالها فورياً لجميع المتصفحات المتصلة
+app.post("/api/webhooks/supabase", (req, res) => {
+  console.log("🔔 Received Webhook from Supabase:", req.body);
+  
+  // إرسال إشعار تحديث لجميع العملاء المتصلين
+  const message = JSON.stringify({ type: "reload_curriculum" });
+  sseClients.forEach(client => {
+    try {
+      client.write(`data: ${message}\n\n`);
+    } catch (err) {
+      console.warn("Failed to write to SSE client:", err);
+    }
+  });
+
+  res.json({ success: true, notifiedCount: sseClients.length });
+});
+
 // 2. جلب الطلبات المعلقة الحية مباشرة من جدول سوبابيس
 app.get("/api/friendships/pending", async (req, res) => {
   try {

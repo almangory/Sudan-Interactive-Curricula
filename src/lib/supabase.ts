@@ -938,6 +938,11 @@ export async function checkUserExistsAndActive(userId: string): Promise<{ exists
     return { exists: true, active: true };
   }
 
+  // Guard against guest accounts and non-numeric strings if DB has integer keys
+  if (!userId || String(userId).startsWith("guest_") || isNaN(Number(userId))) {
+    return { exists: true, active: true };
+  }
+
   try {
     const { data, error } = await client
       .from("users")

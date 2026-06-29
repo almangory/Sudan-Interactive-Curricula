@@ -179,7 +179,7 @@ export default function App() {
       if (isAdminLoggedIn) {
         const newUrl = prompt(
           currentLang === "ar"
-            ? "أدخل رابط الألعاب التعليمية الجديد لحفظه:"
+            ? "أدخل رابط موقع الألعاب التعليمية الجديد لحفظه:"
             : "Enter new Educational Games URL to save:",
           "https://naqla-game.vercel.app/"
         );
@@ -878,6 +878,7 @@ export default function App() {
     // 3. Realtime Supabase channel (if configured)
     const client = getSupabaseClient();
     let channel: any = null;
+    let curriculaDebounceTimer: any = null;
     
     if (client) {
       channel = client
@@ -907,16 +908,21 @@ export default function App() {
           "postgres_changes",
           { event: "*", schema: "public", table: "curricula_links" },
           async () => {
-            console.log("⚡ Realtime Update: Curriculum links updated on Supabase, refreshing data...");
-            try {
-              const freshData = await fetchCurriculumFromSupabase();
-              if (freshData && Array.isArray(freshData) && freshData.length > 0) {
-                setCurriculumData(freshData);
-                localStorage.setItem("sudan_custom_curriculum_v3", JSON.stringify(freshData));
-              }
-            } catch (err) {
-              console.warn("Realtime curriculum refresh failed:", err);
+            if (curriculaDebounceTimer) {
+              clearTimeout(curriculaDebounceTimer);
             }
+            curriculaDebounceTimer = setTimeout(async () => {
+              console.log("⚡ Realtime Update: Curriculum links updated on Supabase, refreshing data...");
+              try {
+                const freshData = await fetchCurriculumFromSupabase();
+                if (freshData && Array.isArray(freshData) && freshData.length > 0) {
+                  setCurriculumData(freshData);
+                  localStorage.setItem("sudan_custom_curriculum_v3", JSON.stringify(freshData));
+                }
+              } catch (err) {
+                console.warn("Realtime curriculum refresh failed:", err);
+              }
+            }, 1000); // 1 second debounce
           }
         )
         .on(
@@ -938,6 +944,9 @@ export default function App() {
     return () => {
       window.removeEventListener("sudan_edu_notification_update", handleLocalNotificationUpdate);
       clearInterval(timer);
+      if (curriculaDebounceTimer) {
+        clearTimeout(curriculaDebounceTimer);
+      }
       if (client && channel) {
         client.removeChannel(channel);
       }
@@ -5091,7 +5100,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             <p className="font-semibold text-slate-300">🇸🇩 منصة المناهج السودانية التفاعلية لعام 2026</p>
           </div>
           <p className="max-w-xl mx-auto text-2xs text-slate-500 leading-relaxed">
-            تم تطوير هذا المنصة بواسطة عثمان المنقوري لمساعدة المنظومة التعليمية وطلاب السودان الأحباء لتسهيل التعلم .
+             تم تطوير هذا المنصة بواسطة عثمان المنقوري لمساعدة المنظومة التعليمية وطلاب السودان الأحباء لتسهيل التعلم ولملاحظاتكم واستفساراتكم يمكنكم التواصل على البريد الالكتروني  amangoryo@gmail.com               .
           </p>
         </div>
       </footer>
