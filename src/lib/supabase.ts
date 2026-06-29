@@ -193,9 +193,16 @@ export async function fetchCurriculumFromSupabase(): Promise<Stage[] | null> {
       listData.forEach(row => {
         const stageId = row.stage_id || row.stage || "";
         const gradeId = row.grade_id || row.grade || "";
-        const id = row.id || row.subject_id || "";
+        let id = row.subject_id || row.id || "";
 
         if (!stageId || !gradeId || !id) return;
+
+        // If the subject ID was saved with a composite unique prefix "stageId_gradeId_",
+        // we strip it to restore the clean local subject ID (e.g., "math")
+        const prefix = `${stageId}_${gradeId}_`;
+        if (id.startsWith(prefix)) {
+          id = id.substring(prefix.length);
+        }
 
         // Try to find stage
         let stage = currentStages.find(s => s.id === stageId);
@@ -284,7 +291,8 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<SyncRes
       stage.grades.forEach(grade => {
         grade.subjects.forEach(subj => {
           flatRows.push({
-            id: subj.id,
+            id: `${stage.id}_${grade.id}_${subj.id}`, // Guaranteed unique composite ID
+            subject_id: subj.id, // Store original short ID (e.g. math)
             stage_id: stage.id,
             stage_name: stage.name,
             stage_description: stage.description,
