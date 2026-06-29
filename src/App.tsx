@@ -1027,10 +1027,37 @@ export default function App() {
       setUserModalTab("login");
       return;
     }
-    setActiveSubject(subject);
+
+    // Resolve correct stageId, gradeId, and gradeName by searching curriculumData tree
+    let resolvedStageId = subject.stageId || "";
+    let resolvedGradeId = subject.gradeId || "";
+    let resolvedGradeName = subject.gradeName || "";
+
+    let found = false;
+    for (const stage of curriculumData) {
+      for (const grade of stage.grades) {
+        if (grade.subjects.some(sub => sub.id === subject.id)) {
+          resolvedStageId = stage.id;
+          resolvedGradeId = grade.id;
+          resolvedGradeName = grade.name;
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+
+    const enrichedSubject = {
+      ...subject,
+      stageId: resolvedStageId,
+      gradeId: resolvedGradeId,
+      gradeName: resolvedGradeName
+    };
+
+    setActiveSubject(enrichedSubject);
     setRecentSubjects(prev => {
       const filtered = prev.filter(s => s.id !== subject.id);
-      const updated = [subject, ...filtered].slice(0, 3);
+      const updated = [enrichedSubject, ...filtered].slice(0, 3);
       try {
         localStorage.setItem("sudan_edu_recent_subjects", JSON.stringify(updated));
       } catch (err) {
@@ -1862,12 +1889,29 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
   };
 
   const updateSubject = async (stageId: string, gradeId: string, subjectId: string, updatedFields: Partial<Subject>) => {
+    let finalStageId = stageId;
+    let finalGradeId = gradeId;
+
+    // Auto-resolve correct stageId and gradeId from curriculum tree to avoid mismatch
+    let found = false;
+    for (const stage of curriculumData) {
+      for (const grade of stage.grades) {
+        if (grade.subjects.some(sub => sub.id === subjectId)) {
+          finalStageId = stage.id;
+          finalGradeId = grade.id;
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+
     const newData = curriculumData.map(stg => {
-      if (stg.id !== stageId) return stg;
+      if (stg.id !== finalStageId) return stg;
       return {
         ...stg,
         grades: stg.grades.map(grd => {
-          if (grd.id !== gradeId) return grd;
+          if (grd.id !== finalGradeId) return grd;
           return {
             ...grd,
             subjects: grd.subjects.map(sub => {
@@ -1909,12 +1953,29 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
   };
 
   const deleteSubject = async (stageId: string, gradeId: string, subjectId: string) => {
+    let finalStageId = stageId;
+    let finalGradeId = gradeId;
+
+    // Auto-resolve correct stageId and gradeId from curriculum tree to avoid mismatch
+    let found = false;
+    for (const stage of curriculumData) {
+      for (const grade of stage.grades) {
+        if (grade.subjects.some(sub => sub.id === subjectId)) {
+          finalStageId = stage.id;
+          finalGradeId = grade.id;
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+
     const newData = curriculumData.map(stg => {
-      if (stg.id !== stageId) return stg;
+      if (stg.id !== finalStageId) return stg;
       return {
         ...stg,
         grades: stg.grades.map(grd => {
-          if (grd.id !== gradeId) return grd;
+          if (grd.id !== finalGradeId) return grd;
           return {
             ...grd,
             subjects: grd.subjects.filter(sub => sub.id !== subjectId)

@@ -317,6 +317,24 @@ export default function AdminDashboard({
       return;
     }
 
+    let finalStageId = selectedStageId;
+    let finalGradeId = selectedGradeId;
+
+    if (editingSubjectId) {
+      let found = false;
+      for (const stage of stages) {
+        for (const grade of stage.grades) {
+          if (grade.subjects.some(sub => sub.id === editingSubjectId)) {
+            finalStageId = stage.id;
+            finalGradeId = grade.id;
+            found = true;
+            break;
+          }
+        }
+        if (found) break;
+      }
+    }
+
     let updatedStages = [...stages];
     
     if (isAddingNew) {
@@ -335,11 +353,11 @@ export default function AdminDashboard({
       };
 
       updatedStages = stages.map(stg => {
-        if (stg.id !== selectedStageId) return stg;
+        if (stg.id !== finalStageId) return stg;
         return {
           ...stg,
           grades: stg.grades.map(grd => {
-            if (grd.id !== selectedGradeId) return grd;
+            if (grd.id !== finalGradeId) return grd;
             return {
               ...grd,
               subjects: [...grd.subjects, newSubj]
@@ -351,11 +369,11 @@ export default function AdminDashboard({
       showFeedback("تمت إضافة المادة التفاعلية الجديدة بنجاح! 🎉", "success");
     } else if (editingSubjectId) {
       updatedStages = stages.map(stg => {
-        if (stg.id !== selectedStageId) return stg;
+        if (stg.id !== finalStageId) return stg;
         return {
           ...stg,
           grades: stg.grades.map(grd => {
-            if (grd.id !== selectedGradeId) return grd;
+            if (grd.id !== finalGradeId) return grd;
             return {
               ...grd,
               subjects: grd.subjects.map(sub => {
@@ -391,12 +409,28 @@ export default function AdminDashboard({
       return;
     }
 
+    let finalStageId = selectedStageId;
+    let finalGradeId = selectedGradeId;
+
+    let found = false;
+    for (const stage of stages) {
+      for (const grade of stage.grades) {
+        if (grade.subjects.some(sub => sub.id === subjectId)) {
+          finalStageId = stage.id;
+          finalGradeId = grade.id;
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+
     const updatedStages = stages.map(stg => {
-      if (stg.id !== selectedStageId) return stg;
+      if (stg.id !== finalStageId) return stg;
       return {
         ...stg,
         grades: stg.grades.map(grd => {
-          if (grd.id !== selectedGradeId) return grd;
+          if (grd.id !== finalGradeId) return grd;
           return {
             ...grd,
             subjects: grd.subjects.filter(sub => sub.id !== subjectId)
