@@ -1430,67 +1430,69 @@ export default function StudentChatRoom({
               />
             </div>
 
-            {/* Students List Grid */}
-            {isRelationsLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 hover:scale-100 gap-4">
-                {[1, 2, 3, 4].map(idx => (
-                  <div key={idx} className={`p-4 rounded-xl border h-20 animate-pulse ${
-                    siteTheme === "sudanese" ? "bg-mud/5 border-mud/10" : "bg-slate-900/30 border-slate-850"
-                  }`} />
-                ))}
-              </div>
-            ) : renderedUsers.length === 0 ? (
-              <div className={`text-center p-12 italic text-sm ${siteTheme === "sudanese" ? "text-mud/50" : "text-slate-505"}`}>
-                {t.noUsers}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 select-none">
-                {renderedUsers.map(peer => {
-                  const peerStage = getStageOfGrade(peer.grade_id);
-                  const isSameStage = peerStage === myStageId;
-                  
-                  return (
-                    <div 
-                      key={peer.id}
-                      onClick={() => setSelectedPeerDetails(peer)}
-                      className={`p-4 rounded-2xl border transition-all duration-300 relative flex flex-col items-center justify-center cursor-pointer hover:scale-105 hover:shadow-md active:scale-95 text-center ${
-                        siteTheme === "sudanese"
-                          ? isSameStage 
-                            ? "bg-white border-mud/10 hover:border-mud/30 text-mud shadow-sm" 
-                            : "bg-[#FAFAF6]/80 border-mud/5 opacity-80"
-                          : isSameStage 
-                            ? "bg-slate-900/50 border-slate-850 hover:border-indigo-650/50 hover:bg-slate-900 text-slate-100" 
-                            : "bg-slate-925/25 border-slate-900/70 opacity-60 text-slate-400"
-                      }`}
-                      title={currentLang === "ar" ? "اضغط لعرض تفاصيل الطالب" : "Click to view student details"}
-                    >
-                      {/* Avatar name icon */}
-                      <UserAvatar username={peer.username} role={peer.user_role || "student"} size="lg" siteTheme={siteTheme} showStatus={isSameStage} />
+            {/* Students List Grid with Scrollable Wrapper */}
+            <div className="max-h-[50vh] sm:max-h-[460px] overflow-y-auto overscroll-contain pr-1 scrollbar-thin">
+              {isRelationsLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 hover:scale-100 gap-4">
+                  {[1, 2, 3, 4].map(idx => (
+                    <div key={idx} className={`p-4 rounded-xl border h-20 animate-pulse ${
+                      siteTheme === "sudanese" ? "bg-mud/5 border-mud/10" : "bg-slate-900/30 border-slate-850"
+                    }`} />
+                  ))}
+                </div>
+              ) : renderedUsers.length === 0 ? (
+                <div className={`text-center p-12 italic text-sm ${siteTheme === "sudanese" ? "text-mud/50" : "text-slate-505"}`}>
+                  {t.noUsers}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 select-none pb-4">
+                  {renderedUsers.map(peer => {
+                    const peerStage = getStageOfGrade(peer.grade_id);
+                    const isSameStage = peerStage === myStageId;
+                    
+                    return (
+                      <div 
+                        key={peer.id}
+                        onClick={() => setSelectedPeerDetails(peer)}
+                        className={`p-4 rounded-2xl border transition-all duration-300 relative flex flex-col items-center justify-center cursor-pointer hover:scale-105 hover:shadow-md active:scale-95 text-center ${
+                          siteTheme === "sudanese"
+                            ? isSameStage 
+                              ? "bg-white border-mud/10 hover:border-mud/30 text-mud shadow-sm" 
+                              : "bg-[#FAFAF6]/80 border-mud/5 opacity-80"
+                            : isSameStage 
+                              ? "bg-slate-900/50 border-slate-850 hover:border-indigo-650/50 hover:bg-slate-900 text-slate-100" 
+                              : "bg-slate-925/25 border-slate-900/70 opacity-60 text-slate-400"
+                        }`}
+                        title={currentLang === "ar" ? "اضغط لعرض تفاصيل الطالب" : "Click to view student details"}
+                      >
+                        {/* Avatar name icon */}
+                        <UserAvatar username={peer.username} role={peer.user_role || "student"} size="lg" siteTheme={siteTheme} showStatus={isSameStage} />
 
-                      {/* Details */}
-                      <div className="mt-3 space-y-0.5 w-full">
-                        <h4 className={`font-extrabold text-2xs truncate ${
-                          siteTheme === "sudanese" ? "text-mud font-black" : "text-slate-100"
-                        }`}>
-                          {peer.username}
-                        </h4>
-                        <span className={`block text-6xs font-bold truncate opacity-85 ${
-                          siteTheme === "sudanese" ? "text-mud/75" : "text-slate-400"
-                        }`}>
-                          {peer.grade_name || "عام"}
-                        </span>
+                        {/* Details */}
+                        <div className="mt-3 space-y-0.5 w-full">
+                          <h4 className={`font-extrabold text-2xs truncate ${
+                            siteTheme === "sudanese" ? "text-mud font-black" : "text-slate-100"
+                          }`}>
+                            {peer.username}
+                          </h4>
+                          <span className={`block text-6xs font-bold truncate opacity-85 ${
+                            siteTheme === "sudanese" ? "text-mud/75" : "text-slate-400"
+                          }`}>
+                            {peer.grade_name || "عام"}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {/* TAB 3: FRIEND REQUESTS TAB (INCOMING & OUTGOING SUB-DIVISIONS) */}
         {activeCategoryTab === "requests" && (
-          <div className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-6 select-none">
+          <div className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-6 select-none max-h-[50vh] sm:max-h-[460px] overflow-y-auto overscroll-contain scrollbar-thin">
             {/* Left Column: Pending Incoming Requests */}
             <div className="space-y-3">
               <h4 className="text-3xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
