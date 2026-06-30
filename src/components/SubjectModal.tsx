@@ -924,8 +924,8 @@ export default function SubjectModal({
                           background: siteTheme === "sudanese" 
                             ? "linear-gradient(135deg, #059669 0%, #0d9488 100%)" 
                             : "linear-gradient(135deg, #10b981 0%, #06b6d4 100%)",
-                          borderColor: siteTheme === "sudanese" ? "#047857" : "#34d399",
-                          color: "#ffffff",
+                          borderColor: siteTheme === "sudanese" ? "#0b512b" : "#34d399",
+                          color: siteTheme === "sudanese" ? "#2b742c" : "#ffffff",
                           boxShadow: siteTheme === "sudanese"
                             ? "0 4px 15px rgba(5, 150, 105, 0.4)"
                             : "0 4px 15px rgba(16, 185, 129, 0.4)"
@@ -948,22 +948,7 @@ export default function SubjectModal({
                 </div>
               </div>
 
-              {/* Study Mode Quick Start Banner */}
-              <div className="bg-gradient-to-r from-indigo-950/45 via-purple-950/20 to-slate-900 border border-indigo-500/30 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
-                <div className="space-y-1 text-center sm:text-right">
-                  <span className="text-3xs text-indigo-400 font-black tracking-wide block uppercase">⚡ {currentLang === "ar" ? "وضع المذاكرة التفاعلي والتركيز" : "Interactive Study & Focus Mode"}</span>
-                  <h4 className="text-xs font-black text-slate-205">{currentLang === "ar" ? "ادرس في بيئة هادئة ومكبرة خالية من المشتتات" : "Study in a quiet and magnified environment free from distractions"}</h4>
-                  <p className="text-[10px] text-slate-400">{currentLang === "ar" ? "شاشة مخصصة لعرض الكتاب بمساحة أكبر مع مؤقت ذكي يتابع تقدمك." : "A dedicated wider screen displaying textbooks side-by-side with a focus timer."}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={enterStudyMode}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-l from-indigo-650 to-indigo-600 hover:from-indigo-600 hover:to-indigo-550 border border-indigo-500/40 text-white rounded-xl text-xs font-black shadow-md cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1.5 shrink-0"
-                >
-                  <Clock className="w-4 h-4 text-indigo-300 animate-pulse" />
-                  <span>{t("دخول وضع المذاكرة والتركيز ⏱️")}</span>
-                </button>
-              </div>
+
 
               {/* Study session completed success alert */}
               {studySessionCompleted && (
@@ -1179,26 +1164,20 @@ export default function SubjectModal({
                         <div className="text-[10px] text-slate-450 font-extrabold">✏️ إدارة حصص المادة المجدولة حالياً:</div>
                         {subjectLiveLessons.map((lesson) => (
                           <div key={lesson.id} className="p-2.5 rounded-xl bg-slate-950/20 border border-slate-850 flex items-center justify-between text-3xs">
-                            <span className="font-bold text-slate-300">📅 {lesson.title} - ({new Date(lesson.scheduledTime).toLocaleDateString()})</span>
+                            <span className="font-bold text-slate-200">{lesson.title}</span>
                             <button
                               type="button"
                               onClick={async () => {
-                                if (window.confirm(`هل تريد بالتأكيد إلغاء وحفظ حصة "${lesson.title}"؟`)) {
+                                if (window.confirm(currentLang === "ar" ? "هل أنت متأكد من حذف هذه الحصة؟" : "Are you sure you want to delete this lesson?")) {
                                   const res = await deleteLiveLessonFromSupabase(lesson.id);
-                                  if (res.success) {
-                                    setSubjectFeedback("✅ تم إلغاء وحذف الحصة بنجاح!");
-                                    setTimeout(() => setSubjectFeedback(null), 3000);
-                                    if (onRefreshLiveLessons) {
-                                      onRefreshLiveLessons();
-                                    }
-                                  } else {
-                                    setSubjectFeedback("❌ فشل حذف الحصة: " + res.error);
+                                  if (res.success && onRefreshLiveLessons) {
+                                    onRefreshLiveLessons();
                                   }
                                 }
                               }}
-                              className="px-2 py-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded-lg font-bold border border-red-900/20 cursor-pointer"
+                              className="px-2 py-1 bg-rose-950/30 hover:bg-rose-900/30 text-rose-400 border border-rose-900/35 rounded-lg text-4xs font-bold transition-all cursor-pointer"
                             >
-                              إلغاء الحصة 🗑️
+                              {currentLang === "ar" ? "حذف" : "Delete"}
                             </button>
                           </div>
                         ))}
@@ -1206,83 +1185,6 @@ export default function SubjectModal({
                     )}
                   </div>
                 )}
-              </div>
-
-              {/* Curriculum Summary Card */}
-              <div className={`p-5 rounded-2xl border space-y-3 ${
-                siteTheme === "sudanese" 
-                  ? "bg-[#FCFAF3] border-mud/10" 
-                  : "bg-slate-950/60 border-slate-800/80"
-              }`}>
-                <h4 className={`text-sm font-bold flex items-center gap-2 ${
-                  siteTheme === "sudanese" ? "text-mud" : "text-slate-200"
-                }`}>
-                  <BookOpen className={`w-4 h-4 ${
-                    siteTheme === "sudanese" ? "text-earthgold-700" : "text-emerald-400"
-                  }`} />
-                  <span>{t("المنهج السوداني المقرر للمادة:")}</span>
-                </h4>
-                <p className={`text-xs md:text-sm leading-relaxed ${
-                  siteTheme === "sudanese" ? "text-mud/80" : "text-slate-300"
-                }`}>
-                  {subject.curriculumSummary}
-                </p>
-              </div>
-
-              {/* Interactive Website (Al-Manhaf) */}
-              <div className={`p-5 rounded-2xl border space-y-4 ${
-                siteTheme === "sudanese"
-                  ? "bg-[#F3FAF5] border-emerald-900/15"
-                  : "bg-gradient-to-br from-emerald-950/30 via-slate-900 to-slate-950/55 border-emerald-900/35"
-              }`}>
-                <div className="space-y-1.5">
-                  <span className={`text-[10px] uppercase tracking-wider block font-bold ${
-                    siteTheme === "sudanese" ? "text-emerald-700" : "text-emerald-400"
-                  }`}>{t("بوابة المعامل والألعاب التفاعلية المقترحة")}</span>
-                  <h4 className={`text-sm font-bold flex items-center gap-2 ${
-                    siteTheme === "sudanese" ? "text-mud" : "text-slate-205"
-                  }`}>
-                    <Compass className={`w-4 h-4 ${
-                      siteTheme === "sudanese" ? "text-emerald-700" : "text-emerald-400"
-                    }`} />
-                    <span>{t("محاكاة ومواقع عالمية تفاعلية:")}</span>
-                  </h4>
-                  <p className={`text-xs leading-relaxed ${
-                    siteTheme === "sudanese" ? "text-mud/75" : "text-slate-400"
-                  }`}>
-                    {hasInteractiveLink
-                      ? (currentLang === "ar" ? "هذا الرابط المعتمد ينقلك مباشرة لمنصة تفاعلية مخصصة لتجربة المفاهيم عملياً بالرسوم والتحريك التفاعلي." : "This certified link directs you to an interactive platform to experience concepts hands-on with digital animations.")
-                      : (currentLang === "ar" ? "البوابة التفاعلية غير نشطة حالياً لهذا المقرر (لم يتم تزويد الرابط بعد من قبل المعلم)." : "The interactive portal is currently offline for this subject (no link has been added by your teacher yet).")}
-                  </p>
-                </div>
-
-                <div className="pt-1">
-                  {hasInteractiveLink ? (
-                    <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400 font-bold">
-                      <span className="relative flex h-2 w-2 shrink-0">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                      </span>
-                      <span>
-                        {currentLang === "ar"
-                          ? "⚡ تم نقل زر دخول الموقع التفاعلي السريع إلى أعلى الصفحة تحت اسم المادة مباشرة لتسهيل الوصول الفوري وجعله ملفتاً!"
-                          : "⚡ The interactive portal link has been moved to the top of the page under the subject name for prominent instant access!"}
-                      </span>
-                    </div>
-                  ) : (
-                    <button 
-                      disabled
-                      className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border cursor-not-allowed opacity-60 ${
-                        siteTheme === "sudanese"
-                          ? "bg-mud/5 text-mud/40 border-mud/10"
-                          : "bg-slate-800 text-slate-500 border-slate-700/60"
-                      }`}
-                    >
-                      <X className={`w-3.5 h-3.5 ${siteTheme === "sudanese" ? "text-mud/40" : "text-slate-500"}`} />
-                      <span>{t("البوابة غير نشطة (الرابط غير متوفر حالياً)")}</span>
-                    </button>
-                  )}
-                </div>
               </div>
 
               {/* E-Book, PDF Memo, and Video Showcase Card */}
@@ -1580,13 +1482,7 @@ export default function SubjectModal({
                 </div>
               </div>
 
-              {/* Tutor Action Replacement Text */}
-              <div className="w-full py-4 px-5 bg-slate-950/50 border border-slate-800/80 rounded-xl text-center flex flex-col items-center justify-center gap-2">
-                <Sparkles className="w-4 h-4 text-emerald-450" />
-                <span className="text-xs font-black text-emerald-400">
-                  {t("للدخول وسؤال الأستاذ ادخل على رابط الموقع التفاعلي")}
-                </span>
-              </div>
+
             </div>
           )}
         </div>

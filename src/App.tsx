@@ -3098,7 +3098,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               </span>
             </div>
 
-            {(selectedStage?.id === "kindergarten" || selectedStage?.id === "primary") && (
+            {(selectedStage?.id === "kindergarten" || selectedStage?.id === "primary" || (currentUser?.user_role === "student" && (currentUser?.grade_id?.startsWith("pri-") || currentUser?.grade_id?.startsWith("kg-")))) && (
               <div 
                 onClick={handleGamesClick}
                 className="relative bg-gradient-to-br from-pink-500 via-purple-500 to-amber-500 p-4 border border-white/20 rounded-2xl text-center flex flex-col justify-center items-center gap-2 min-w-[140px] shadow-lg cursor-pointer transition-all duration-300 hover:scale-[1.08] hover:rotate-1 animate-bounce select-none group"
@@ -3290,7 +3290,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                             </span>
                          </button>
 
-                         {(selectedStage?.id === "kindergarten" || selectedStage?.id === "primary") && (
+                         {(selectedStage?.id === "kindergarten" || selectedStage?.id === "primary" || (currentUser?.user_role === "student" && (currentUser?.grade_id?.startsWith("pri-") || currentUser?.grade_id?.startsWith("kg-")))) && (
                             <button 
                                onClick={handleGamesClick}
                                className="flex items-center gap-1.5 sm:gap-2.5 px-3 py-1.5 sm:px-5 sm:py-2.5 rounded-2xl bg-gradient-to-r from-pink-500 via-purple-500 to-amber-500 text-white font-black text-[11px] sm:text-xs shadow-md border-2 border-white/40 hover:border-white transition-all duration-300 hover:scale-[1.08] hover:rotate-1 cursor-pointer select-none animate-bounce"
