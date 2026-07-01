@@ -112,6 +112,215 @@ export default function App() {
   const [showStudyCamp, setShowStudyCamp] = useState(false);
   const [showEducationalMindMap, setShowEducationalMindMap] = useState(false);
   const [showStudentChat, setShowStudentChat] = useState(false);
+  const [showGamesSidebar, setShowGamesSidebar] = useState(false);
+  const [showUserSettingsIcons, setShowUserSettingsIcons] = useState(false);
+  const [activeMiniGame, setActiveMiniGame] = useState<string | null>(null);
+
+  // States for Math Kid Wizard game
+  const [mathQuestion, setMathQuestion] = useState<{ questionText: string; answer: number; options: number[] } | null>(null);
+  const [mathScore, setMathScore] = useState(0);
+  const [mathStreak, setMathStreak] = useState(0);
+  const [mathFeedback, setMathFeedback] = useState<string | null>(null);
+  const [mathStatus, setMathStatus] = useState<"unanswered" | "correct" | "incorrect">("unanswered");
+
+  // States for Word Hero game
+  const [wordPuzzleIndex, setWordPuzzleIndex] = useState(0);
+  const [wordScore, setWordScore] = useState(0);
+  const [wordFeedback, setWordFeedback] = useState<string | null>(null);
+  const [wordStatus, setWordStatus] = useState<"unanswered" | "correct" | "incorrect">("unanswered");
+
+  // States for Memory Cards game
+  const [memoryCards, setMemoryCards] = useState<{ id: number; symbol: string; isFlipped: boolean; isMatched: boolean }[]>([]);
+  const [memoryMoves, setMemoryMoves] = useState(0);
+  const [memoryMatchedCount, setMemoryMatchedCount] = useState(0);
+  const [memoryActiveIndices, setMemoryActiveIndices] = useState<number[]>([]);
+  const [memoryStatus, setMemoryStatus] = useState<"playing" | "won">("playing");
+
+  // States for Little Painter pixel art coloring game
+  const [currentColor, setCurrentColor] = useState("#ec4899"); // Default to hot pink
+  const [pixelGrid, setPixelGrid] = useState<string[]>(Array(64).fill("#1e293b")); // 8x8 slate-800 default
+
+  // Generate random Math question
+  const generateNewMathQuestion = () => {
+    const isAddition = Math.random() > 0.5;
+    const num1 = Math.floor(Math.random() * 9) + 1; // 1-9
+    const num2 = Math.floor(Math.random() * 9) + 1; // 1-9
+    const questionText = isAddition ? `${num1} + ${num2}` : `${Math.max(num1, num2)} - ${Math.min(num1, num2)}`;
+    const answer = isAddition ? num1 + num2 : Math.max(num1, num2) - Math.min(num1, num2);
+    
+    const optionsSet = new Set<number>();
+    optionsSet.add(answer);
+    while (optionsSet.size < 3) {
+      const offset = Math.floor(Math.random() * 5) + 1;
+      const fakeAnswer = Math.max(1, answer + (Math.random() > 0.5 ? offset : -offset));
+      optionsSet.add(fakeAnswer);
+    }
+    const options = Array.from(optionsSet).sort(() => Math.random() - 0.5);
+    
+    setMathQuestion({ questionText, answer, options });
+    setMathFeedback(null);
+    setMathStatus("unanswered");
+  };
+
+  // Reset/Initialize Math game
+  const initMathGame = () => {
+    setMathScore(0);
+    setMathStreak(0);
+    generateNewMathQuestion();
+  };
+
+  // Word Puzzles list
+  const wordPuzzles = [
+    { word: "تفـ_حة", missing: "ا", options: ["ا", "و", "ي"], display: "تُفّاحة 🍎" },
+    { word: "أسـ_د", missing: "ـد", options: ["ـد", "ـر", "ـب"], display: "أَسَد 🦁" },
+    { word: "كـ_اب", missing: "ت", options: ["ت", "ب", "ج"], display: "كِتاب 📚" },
+    { word: "مـ_رسة", missing: "د", options: ["د", "ر", "س"], display: "مَدْرَسة 🏫" },
+    { word: "جـ_ل", missing: "م", options: ["م", "ب", "ت"], display: "جَمَل 🐪" },
+    { word: "قـ_م", missing: "ل", options: ["ل", "ر", "m"], display: "قَلَم ✏️" },
+    { word: "شـ_س", missing: "م", options: ["م", "و", "ج"], display: "شَمْس ☀️" },
+    { word: "هـ_ال", missing: "ل", options: ["ل", "م", "ف"], display: "هِلَال 🌙" }
+  ];
+
+  // Initialize Word game
+  const initWordGame = () => {
+    setWordPuzzleIndex(0);
+    setWordScore(0);
+    setWordFeedback(null);
+    setWordStatus("unanswered");
+  };
+
+  // Initialize Memory game
+  const initMemoryGame = () => {
+    const symbols = ["🍎", "🦁", "📚", "🏫", "🌟", "🎈", "🐪", "🎨"];
+    const duplicated = [...symbols, ...symbols];
+    const shuffled = duplicated
+      .map((symbol, index) => ({ id: index, symbol, isFlipped: false, isMatched: false }))
+      .sort(() => Math.random() - 0.5);
+    setMemoryCards(shuffled);
+    setMemoryMoves(0);
+    setMemoryMatchedCount(0);
+    setMemoryActiveIndices([]);
+    setMemoryStatus("playing");
+  };
+
+  // Initialize Pixel Art game
+  const initPixelGame = () => {
+    setPixelGrid(Array(64).fill("#1e293b"));
+  };
+
+  useEffect(() => {
+    if (activeMiniGame === "math") {
+      initMathGame();
+    } else if (activeMiniGame === "word") {
+      initWordGame();
+    } else if (activeMiniGame === "memory") {
+      initMemoryGame();
+    } else if (activeMiniGame === "color") {
+      initPixelGame();
+    }
+  }, [activeMiniGame]);
+
+  const handleMathAnswer = (selected: number) => {
+    if (mathStatus !== "unanswered" || !mathQuestion) return;
+    
+    if (selected === mathQuestion.answer) {
+      setMathScore(prev => prev + 10);
+      setMathStreak(prev => prev + 1);
+      setMathStatus("correct");
+      setMathFeedback(currentLang === "ar" ? "أحسنت يا بطل! إجابة صحيحة عبقرية 🎉" : "Excellent work, champion! Genius correct answer 🎉");
+      setTimeout(() => {
+        generateNewMathQuestion();
+      }, 1500);
+    } else {
+      setMathStreak(0);
+      setMathStatus("incorrect");
+      setMathFeedback(currentLang === "ar" ? "حاول مجدداً يا بطل، أنت قادر على حلها! 💪" : "Try again, champion, you can do this! 💪");
+      setTimeout(() => {
+        setMathStatus("unanswered");
+        setMathFeedback(null);
+      }, 1500);
+    }
+  };
+
+  const handleWordAnswer = (selected: string) => {
+    if (wordStatus !== "unanswered") return;
+    const currentPuzzle = wordPuzzles[wordPuzzleIndex];
+    
+    if (selected === currentPuzzle.missing) {
+      setWordScore(prev => prev + 10);
+      setWordStatus("correct");
+      setWordFeedback(currentLang === "ar" ? `أحسنت! الكلمة كاملة هي: ${currentPuzzle.display} ✨` : `Great! The completed word is: ${currentPuzzle.display} ✨`);
+      setTimeout(() => {
+        if (wordPuzzleIndex < wordPuzzles.length - 1) {
+          setWordPuzzleIndex(prev => prev + 1);
+          setWordStatus("unanswered");
+          setWordFeedback(null);
+        } else {
+          setWordFeedback(currentLang === "ar" ? "🏆 تهانينا! لقد أكملت كل كلمات الحروف الهجائية بنجاح!" : "🏆 Congratulations! You have completed all words successfully!");
+        }
+      }, 2000);
+    } else {
+      setWordStatus("incorrect");
+      setWordFeedback(currentLang === "ar" ? "حاول مجدداً، اختر الحرف الصحيح لتكتمل الكلمة 🌟" : "Try again, pick the correct letter to complete the word 🌟");
+      setTimeout(() => {
+        setWordStatus("unanswered");
+        setWordFeedback(null);
+      }, 1500);
+    }
+  };
+
+  const handleMemoryCardClick = (clickedIndex: number) => {
+    if (memoryStatus === "won" || memoryActiveIndices.length >= 2) return;
+    const clickedCard = memoryCards[clickedIndex];
+    if (clickedCard.isFlipped || clickedCard.isMatched) return;
+
+    // Flip the clicked card
+    const updated = [...memoryCards];
+    updated[clickedIndex].isFlipped = true;
+    setMemoryCards(updated);
+
+    const newActive = [...memoryActiveIndices, clickedIndex];
+    setMemoryActiveIndices(newActive);
+
+    if (newActive.length === 2) {
+      setMemoryMoves(prev => prev + 1);
+      const [firstIdx, secondIdx] = newActive;
+      const firstCard = memoryCards[firstIdx];
+      const secondCard = memoryCards[secondIdx];
+
+      if (firstCard.symbol === secondCard.symbol) {
+        // Match found!
+        setTimeout(() => {
+          const matched = [...updated];
+          matched[firstIdx].isMatched = true;
+          matched[secondIdx].isMatched = true;
+          setMemoryCards(matched);
+          setMemoryActiveIndices([]);
+          const newMatchedCount = memoryMatchedCount + 1;
+          setMemoryMatchedCount(newMatchedCount);
+          if (newMatchedCount === 8) {
+            setMemoryStatus("won");
+          }
+        }, 600);
+      } else {
+        // Not a match, flip back
+        setTimeout(() => {
+          const reverted = [...updated];
+          reverted[firstIdx].isFlipped = false;
+          reverted[secondIdx].isFlipped = false;
+          setMemoryCards(reverted);
+          setMemoryActiveIndices([]);
+        }, 1000);
+      }
+    }
+  };
+
+  const handlePixelCellClick = (index: number) => {
+    const updated = [...pixelGrid];
+    updated[index] = updated[index] === currentColor ? "#1e293b" : currentColor;
+    setPixelGrid(updated);
+  };
+
   const [categoryFilter, setCategoryFilter] = useState<"all" | "books" | "videos" | "interactive">("all");
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
@@ -173,34 +382,8 @@ export default function App() {
       return;
     }
 
-    if (educationalGamesUrl) {
-      window.open(educationalGamesUrl, "_blank");
-    } else {
-      if (isAdminLoggedIn) {
-        const newUrl = prompt(
-          currentLang === "ar"
-            ? "أدخل رابط موقع الألعاب التعليمية الجديد لحفظه:"
-            : "Enter new Educational Games URL to save:",
-          "https://naqla-game.vercel.app/"
-        );
-        if (newUrl !== null) {
-          setEducationalGamesUrl(newUrl);
-          localStorage.setItem("sudan_educational_games_url", newUrl);
-          setSaveStatus(
-            currentLang === "ar"
-              ? "🎉 تم حفظ رابط الألعاب التعليمية بنجاح!"
-              : "🎉 Educational Games link saved successfully!"
-          );
-          setTimeout(() => setSaveStatus(null), 4000);
-        }
-      } else {
-        alert(
-          currentLang === "ar"
-            ? "🎈 ألعاب تعليمية مشوقة:\nسيتم إضافة رابط موقع الألعاب التفاعلية قريباً من قبل إدارة المنصة! ترقبوا أروع الألعاب التعليمية الترفيهية للأطفال. ✨"
-            : "🎈 Interactive Educational Games:\nThe link will be added soon by the platform administration! Stay tuned for awesome, fun educational games for kids. ✨"
-        );
-      }
-    }
+    setShowGamesSidebar(true);
+    setActiveMiniGame(null); // default view shows the vertical games list
   };
 
   // 📢 Breaking News & Live Broadcasting Settings
@@ -2423,588 +2606,595 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           ? "bg-white shadow-sm shadow-[#5C2C16]/5 border-mud/10 text-mud"
           : "bg-slate-900/90 border-slate-800/60 text-slate-100"
       }`}>
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-center">
-          <div className="flex items-center justify-center gap-1.5 sm:gap-2 shrink-0">
-            <div className="flex items-center gap-1">
-              <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-ping' : 'bg-amber-500 animate-pulse'}`}></span>
-            </div>
-            
-            {/* Elegant Offline Indicator Badge */}
-            <div 
-              className={`inline-flex items-center justify-center p-1.5 rounded-xl border transition-all duration-300 ${
-                isOnline 
-                  ? 'bg-emerald-950/20 text-emerald-400 border-emerald-900/30' 
-                  : 'bg-amber-950/20 text-amber-400 border-amber-900/40 animate-pulse'
-              }`}
-              title={isOnline ? "مزامنة ذكية مفعلة - جميع المواد المفتوحة تُحمل تلقائياً" : "وضع عدم الاتصال مفعل - تصفح ما تم فتحه مسبقاً بدقة عالية"}
-            >
-              {isOnline ? (
-                <Wifi className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
-              ) : (
-                <WifiOff className="w-3.5 h-3.5 text-amber-400 stroke-[3]" />
-              )}
-            </div>
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 w-full" dir="ltr">
+          
+          {/* LEFT SIDE: Helper Icons Group (Positioned next to the left side of the page and hidden until user settings is clicked) */}
+          <div className="flex items-center gap-2">
+            <AnimatePresence>
+              {showUserSettingsIcons && (
+                <motion.div
+                  initial={{ opacity: 0, x: -20, scale: 0.95 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: -20, scale: 0.95 }}
+                  className="flex items-center flex-wrap gap-1.5 sm:gap-2"
+                  dir={currentLang === "ar" ? "rtl" : "ltr"}
+                >
+                  {/* Elegant Offline Indicator Badge & Wifi Indicator */}
+                  <div className="flex items-center gap-1">
+                    <span className={`w-1 h-1 rounded-full ${isOnline ? 'bg-emerald-500 animate-ping' : 'bg-amber-500 animate-pulse'}`}></span>
+                    <div 
+                      className={`inline-flex items-center justify-center p-1.5 rounded-xl border transition-all duration-300 ${
+                        isOnline 
+                          ? 'bg-emerald-950/20 text-emerald-400 border-emerald-900/30' 
+                          : 'bg-amber-950/20 text-amber-400 border-amber-900/40 animate-pulse'
+                      }`}
+                      title={isOnline ? "مزامنة ذكية مفعلة - جميع المواد المفتوحة تُحمل تلقائياً" : "وضع عدم الاتصال مفعل - تصفح ما تم فتحه مسبقاً بدقة عالية"}
+                    >
+                      {isOnline ? (
+                        <Wifi className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
+                      ) : (
+                        <WifiOff className="w-3.5 h-3.5 text-amber-400 stroke-[3]" />
+                      )}
+                    </div>
+                  </div>
 
-            {/* Username next to Wifi on mobile/tablet */}
-            {currentUser && (
-              <button
-                onClick={triggerEditProfile}
-                className="md:hidden inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-3xs font-black text-indigo-300 select-none hover:border-indigo-500/50 transition-colors"
-                title={t("editProfile")}
-              >
+                  {/* Page Refresh Button */}
+                  <button
+                    onClick={() => {
+                      window.location.reload();
+                    }}
+                    className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
+                      siteTheme === "sudanese"
+                        ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-earthgold/60"
+                        : "bg-slate-950/60 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/60 text-slate-200"
+                    }`}
+                    title={currentLang === "ar" ? "تحديث الصفحة" : "Refresh Page"}
+                  >
+                    <RotateCw className="w-3.5 h-3.5 text-earthgold-600" />
+                  </button>
+
+                  {/* Theme Switcher Button */}
+                  <button
+                    onClick={toggleSiteTheme}
+                    className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
+                      siteTheme === "sudanese"
+                        ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-earthgold/60"
+                        : "bg-slate-950/60 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/60 text-slate-200"
+                    }`}
+                    title={currentLang === "ar" ? "تغيير المظهر (المظهر الداكن)" : "Switch Theme (Legacy Dark)"}
+                  >
+                    <span className="text-[14px]">🎨</span>
+                    <span className="hidden sm:inline">
+                      {currentLang === "ar" 
+                        ? (siteTheme === "sudanese" ? "التصميم السوداني" : "التصميم الداكن") 
+                        : (siteTheme === "sudanese" ? "Sudanese Style" : "Dark Legacy")}
+                    </span>
+                  </button>
+
+                  {/* Language Toggle Button */}
+                  <button
+                    onClick={() => {
+                      const nextLang = currentLang === "ar" ? "en" : "ar";
+                      setCurrentLang(nextLang);
+                      localStorage.setItem("sudan_edu_lang", nextLang);
+                    }}
+                    className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
+                      siteTheme === "sudanese"
+                        ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-earthgold/60"
+                        : "bg-slate-950/60 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/60 text-slate-200"
+                    }`}
+                    title={currentLang === "ar" ? "Switch to English" : "التحويل للغة العربية"}
+                  >
+                    <Globe className={`w-3.5 h-3.5 ${siteTheme === "sudanese" ? "text-earthgold" : "text-emerald-400"}`} />
+                    <span className="text-[10px] font-black ml-1 sm:hidden">{currentLang === "ar" ? "EN" : "AR"}</span>
+                    <span className="hidden sm:inline">{currentLang === "ar" ? " English" : " العربية"}</span>
+                  </button>
+
+                  {/* Kid Mode (البراعم) Playful Toggle Button - only visible to registered primary/kindergarten stage students */}
+                  {currentUser && currentUser.user_role === "student" && (currentUser?.grade_id?.startsWith("pri-") || currentUser?.grade_id?.startsWith("kg-")) && (
+                    <button
+                      onClick={() => {
+                        const nextVal = !isKidModeActive;
+                        setKidModeOverride(nextVal);
+                        playKidChime(nextVal ? 'success' : 'click');
+                      }}
+                      className={`relative rounded-full shadow-lg transition-all duration-305 cursor-pointer flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 shrink-0 ${
+                        isKidModeActive
+                          ? "bg-pink-500/25 border-2 border-pink-400 ring-4 ring-pink-500/35 scale-110 shadow-pink-500/30 animate-bounce"
+                          : "bg-slate-950/75 border border-slate-800 hover:border-pink-500/60 hover:scale-110 shadow-inner"
+                      }`}
+                      title={currentLang === "ar" ? "اضغط على البالون للانتقال لواجهة الأطفال اللطيفة! 🎈" : "Click the balloon to launch children mode! 🎈"}
+                    >
+                      <span className={`text-[16px] sm:text-[20px] select-none transition-all duration-300 ${isKidModeActive ? "scale-110" : "hover:scale-115"}`} style={{ transformOrigin: 'center' }}>
+                        🎈
+                      </span>
+                      {isKidModeActive && (
+                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                      )}
+                    </button>
+                  )}
+
+                  {/* Live Student Chat Tab */}
+                  {currentUser && currentUser.user_role !== "guest" && (
+                    <button
+                      onClick={() => {
+                        const targetState = !showStudentChat;
+                        setShowStudentChat(targetState);
+                        
+                        // Clear unread indicator
+                        const nowStr = new Date().toISOString();
+                        localStorage.setItem("sudan_chat_last_read", nowStr);
+                        setLastCheckedChat(nowStr);
+
+                        // Seamless mobile focus scroll
+                        if (targetState && window.innerWidth < 1024) {
+                          setTimeout(() => {
+                            const chatEl = document.getElementById("friends-chat-dashboard") || document.getElementById("chat-visitor-blocked");
+                            chatEl?.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }, 250);
+                        }
+                      }}
+                      className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 border font-sans font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer ${
+                        showStudentChat
+                          ? "bg-indigo-650/25 border-indigo-500 text-indigo-300 ring-2 ring-indigo-500/20"
+                          : "bg-slate-950/60 border-slate-800 hover:bg-slate-900 hover:border-indigo-500/50 text-slate-200"
+                      }`}
+                      title={currentLang === "ar" ? "الدردشة الطلابية" : "Student Chat"}
+                    >
+                      <MessagesSquare className="w-4 h-4 text-indigo-400" />
+                      <span className="hidden sm:inline">
+                        {currentLang === "ar" ? " الدردشة" : " Chat"}
+                      </span>
+                    </button>
+                  )}
+
+                  {/* Search Lens Button and Popover */}
+                  <div className="relative">
+                    <button
+                      onClick={() => {
+                        setShowTopSearch(prev => !prev);
+                        setShowNotificationsDropdown(false);
+                      }}
+                      className={`inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl shadow-sm transition-all duration-305 cursor-pointer relative ${
+                        showTopSearch 
+                          ? "bg-[#5C2C16] text-[#FAF5EC] ring-2 ring-[#5C2C16]/20" 
+                          : "bg-[#D4AF37] hover:bg-[#D4AF37]/90 border border-[#D4AF37]/20 text-white shadow-md shadow-[#D4AF37]/10"
+                      }`}
+                      style={!showTopSearch ? { backgroundColor: '#D4AF37' } : {}}
+                      title={currentLang === "ar" ? "البحث السريع والترشيح" : "Quick Search & Filter"}
+                    >
+                      <Search className="w-3.5 h-3.5 text-white" style={{ color: '#ffffff' }} />
+                    </button>
+
+                    <AnimatePresence>
+                      {showTopSearch && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          className={`absolute left-0 mt-3 w-80 sm:w-96 rounded-2xl shadow-2xl p-5 z-[9999] text-right font-sans border ${
+                            siteTheme === "sudanese"
+                              ? "bg-white border-mud/15 text-mud"
+                              : "bg-slate-900 border-slate-800 text-slate-100"
+                          }`}
+                          dir={currentLang === "ar" ? "rtl" : "ltr"}
+                        >
+                          <div className="flex items-center justify-between border-b border-mud/10 pb-2.5 mb-4">
+                            <div className="flex items-center gap-1.5 font-bold">
+                              <Search className={`w-4 h-4 ${siteTheme === "sudanese" ? "text-earthgold" : "text-emerald-400"}`} />
+                              <h5 className="text-xs font-black">
+                                {currentLang === "ar" ? "البحث والترشيح السريع 🔍" : "Quick Search & Filter 🔍"}
+                              </h5>
+                            </div>
+                            <button
+                              onClick={() => setShowTopSearch(false)}
+                              className="text-[10px] text-mud/50 hover:text-mud transition-colors cursor-pointer"
+                            >
+                              {currentLang === "ar" ? "إغلاق ✕" : "Close ✕"}
+                            </button>
+                          </div>
+
+                          <div className="space-y-4 text-right" dir="rtl">
+                            {/* Search Input Box */}
+                            <div className="space-y-1">
+                              <label className="text-xs font-bold block mb-1">
+                                {currentLang === "ar" ? "كلمة البحث" : "Search Query"}
+                              </label>
+                              <div className={`relative flex items-center rounded-xl p-2.5 border shadow-inner ${
+                                siteTheme === "sudanese" ? "bg-[#FDFBF7] border-mud/15 text-mud" : "bg-slate-950 border-slate-800 text-slate-200"
+                              }`}>
+                                <Search className="w-4 h-4 opacity-50 shrink-0 select-none ml-2" />
+                                <input
+                                  type="text"
+                                  value={searchQuery}
+                                  onChange={(e) => setSearchQuery(e.target.value)}
+                                  placeholder={currentLang === "ar" ? "اكتب اسم المادة..." : "Type subject..."}
+                                  className="bg-transparent w-full outline-none text-xs font-semibold text-right"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Stage selection */}
+                            <div className="space-y-1">
+                              <label className="text-xs font-bold block mb-1">
+                                {currentLang === "ar" ? "المرحلة الدراسية" : "Educational Level"}
+                              </label>
+                              <div className={`relative flex items-center rounded-xl p-2.5 border shadow-inner ${
+                                siteTheme === "sudanese" ? "bg-[#FDFBF7] border-mud/15 text-mud" : "bg-slate-950 border-slate-800 text-slate-200"
+                              }`}>
+                                <select
+                                  value={selectedStage ? selectedStage.id : ""}
+                                  onChange={(e) => {
+                                    const stageId = e.target.value;
+                                    if (stageId === "") {
+                                      setSelectedStage(null);
+                                      setActiveGrade(null);
+                                    } else {
+                                      const stg = curriculumData.find(s => s.id === stageId);
+                                      if (stg) {
+                                        setSelectedStage(stg);
+                                        setActiveGrade(null);
+                                        setShowOnlyFavorites(false);
+                                        setShowStudyCamp(false);
+                                        setShowEducationalMindMap(false);
+                                      }
+                                    }
+                                  }}
+                                  className="w-full bg-transparent outline-none appearance-none text-xs font-bold cursor-pointer text-right"
+                                >
+                                  <option value="" className="text-slate-855">{currentLang === "ar" ? "جميع المراحل التعليمية" : "All Stages"}</option>
+                                  {curriculumData.map(st => (
+                                    <option key={st.id} value={st.id} className="text-slate-855">
+                                      {st.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <ChevronDown className="absolute left-3 w-4 h-4 opacity-60 pointer-events-none" />
+                              </div>
+                            </div>
+
+                            {/* Grade selection */}
+                            <div className="space-y-1">
+                              <label className="text-xs font-bold block mb-1">
+                                {currentLang === "ar" ? "الصف الدراسي" : "Class / Grade"}
+                              </label>
+                              <div className={`relative flex items-center rounded-xl p-2.5 border shadow-inner ${
+                                siteTheme === "sudanese" ? "bg-[#FDFBF7] border-mud/15 text-mud" : "bg-slate-950 border-slate-800 text-slate-200"
+                              }`}>
+                                <select
+                                  value={activeGrade ? activeGrade.id : ""}
+                                  onChange={(e) => {
+                                    const gradeId = e.target.value;
+                                    if (gradeId === "") {
+                                      setActiveGrade(null);
+                                    } else {
+                                      if (selectedStage) {
+                                        const gr = selectedStage.grades.find(g => g.id === gradeId);
+                                        if (gr) {
+                                          setActiveGrade(gr);
+                                        }
+                                      } else {
+                                        let fs = null;
+                                        let fg = null;
+                                        curriculumData.forEach(st => {
+                                          const gr = st.grades.find(g => g.id === gradeId);
+                                          if (gr) {
+                                            fs = st;
+                                            fg = gr;
+                                          }
+                                        });
+                                        if (fs && fg) {
+                                          setSelectedStage(fs);
+                                          setActiveGrade(fg);
+                                        }
+                                      }
+                                    }
+                                  }}
+                                  className="w-full bg-transparent outline-none appearance-none text-xs font-bold cursor-pointer text-right"
+                                >
+                                  <option value="" className="text-slate-855">{currentLang === "ar" ? "اختر الصف الدراسي..." : "Select Class..."}</option>
+                                  {(selectedStage ? selectedStage.grades : curriculumData.flatMap(st => st.grades)).map(gr => (
+                                    <option key={gr.id} value={gr.id} className="text-slate-855">
+                                      {gr.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <ChevronDown className="absolute left-3 w-4 h-4 opacity-60 pointer-events-none" />
+                              </div>
+                            </div>
+
+                            {/* Subject selection */}
+                            <div className="space-y-1">
+                              <label className="text-xs font-bold block mb-1">
+                                {currentLang === "ar" ? "قائمة المواد" : "Subject Filter"}
+                              </label>
+                              <div className={`relative flex items-center rounded-xl p-2.5 border shadow-inner ${
+                                siteTheme === "sudanese" ? "bg-[#FDFBF7] border-mud/15 text-mud" : "bg-slate-950 border-slate-800 text-slate-200"
+                              }`}>
+                                <select
+                                  value={activeSubject ? activeSubject.id : ""}
+                                  onChange={(e) => {
+                                    const subId = e.target.value;
+                                    if (subId) {
+                                      let foundSub = null;
+                                      curriculumData.forEach(st => {
+                                        st.grades.forEach(g => {
+                                          const sub = g.subjects.find(s => s.id === subId);
+                                          if (sub) foundSub = sub;
+                                        });
+                                      });
+                                      if (foundSub) handleOpenSubject(foundSub);
+                                    }
+                                  }}
+                                  className="w-full bg-transparent outline-none appearance-none text-xs font-bold cursor-pointer text-right"
+                                >
+                                  <option value="" className="text-slate-855">{currentLang === "ar" ? "تصفح المواد..." : "Go to Subject..."}</option>
+                                  {(activeGrade ? activeGrade.subjects : curriculumData.flatMap(st => st.grades.flatMap(g => g.subjects))).map(s => (
+                                    <option key={s.id} value={s.id} className="text-slate-855">
+                                      {s.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <ChevronDown className="absolute left-3 w-4 h-4 opacity-60 pointer-events-none" />
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Notification Bell Dropdown Component */}
+                  {currentUser && currentUser.user_role !== "guest" && (
+                    <div className="relative" ref={notificationDropdownRef}>
+                      <button
+                        onClick={() => {
+                          setShowNotificationsDropdown(prev => !prev);
+                          setShowTopSearch(false);
+                          if (!showNotificationsDropdown) {
+                            const nowStr = new Date().toISOString();
+                            localStorage.setItem("sudan_updates_last_read", nowStr);
+                            setLastCheckedUpdates(nowStr);
+                          }
+                        }}
+                        className={`inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl shadow-sm transition-all duration-300 cursor-pointer relative ${
+                          showNotificationsDropdown 
+                            ? "bg-amber-955/35 border-amber-500 text-amber-300 ring-2 ring-amber-500/20" 
+                            : "bg-slate-950/60 border-slate-800 hover:bg-slate-900 border-slate-800 hover:border-amber-500/40 text-slate-200"
+                        }`}
+                        title={currentLang === "ar" ? "الإشعارات" : "Notifications"}
+                      >
+                        <Bell className={`w-3.5 h-3.5 ${unreadCount > 0 ? "text-amber-400 animate-bounce" : "text-slate-400"}`} />
+                        {unreadCount > 0 && (
+                          <span 
+                            className="absolute -top-1 -right-1 z-20 min-w-[16px] h-4 text-[9px] font-black text-white rounded-full flex items-center justify-center border border-slate-950 animate-pulse px-1"
+                            style={{ backgroundColor: '#8a1111', zIndex: 20 }}
+                          >
+                            {unreadCount}
+                          </span>
+                        )}
+                      </button>
+
+                      <AnimatePresence>
+                        {showNotificationsDropdown && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            className="absolute left-0 mt-3 w-80 sm:w-96 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-4 z-[9999] text-right font-sans"
+                            dir={currentLang === "ar" ? "rtl" : "ltr"}
+                          >
+                            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                              <div className="flex items-center gap-1.5">
+                                <Bell className="w-4 h-4 text-amber-500" />
+                                <h5 className="text-xs font-black text-slate-100">
+                                  {currentLang === "ar" ? "الإشعارات والتحديثات 🔔" : "Notifications & Updates 🔔"}
+                                </h5>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  const nowStr = new Date().toISOString();
+                                  localStorage.setItem("sudan_chat_last_read", nowStr);
+                                  setLastCheckedChat(nowStr);
+                                  localStorage.setItem("sudan_updates_last_read", nowStr);
+                                  setLastCheckedUpdates(nowStr);
+                                  setShowNotificationsDropdown(false);
+                                }}
+                                className="text-[9px] text-slate-400 hover:text-white transition-colors cursor-pointer"
+                              >
+                                {currentLang === "ar" ? "تحديد كالمقروءة وإغلاق ✓" : "Mark read & close ✓"}
+                              </button>
+                            </div>
+
+                            <div className="mt-3 space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                              {formattedNotifications.length === 0 ? (
+                                <div className="py-8 text-center text-slate-500 text-2xs space-y-1">
+                                  <p className="font-extrabold text-slate-400">
+                                    {currentLang === "ar" ? "لا توجد إشعارات جديدة حالياً." : "No new notifications yet."}
+                                  </p>
+                                  <p className="text-[10px] text-slate-500">
+                                    {currentLang === "ar" 
+                                      ? "سيتم تنبيهك هنا عند تلقي طلب صداقة، رسائل جديدة، أو إضافة مواد وروابط." 
+                                      : "You will be notified of requests, replies, new subjects, or resource links here."}
+                                  </p>
+                                </div>
+                              ) : (
+                                formattedNotifications.map(item => (
+                                  <div
+                                    key={item.id}
+                                    onClick={() => handleNotificationClick(item)}
+                                    className={`p-2.5 rounded-xl border text-right transition-all cursor-pointer ${
+                                      item.isUnread
+                                        ? "bg-amber-955/5 border-amber-900/40 hover:bg-slate-850 hover:border-amber-500/30"
+                                        : "bg-slate-950/40 border-slate-900/40 hover:bg-slate-850"
+                                    }`}
+                                  >
+                                    <div className="flex gap-2.5 items-start">
+                                      <div className={`p-1.5 rounded-lg shrink-0 ${item.iconBg}`}>
+                                        {item.icon}
+                                      </div>
+                                      <div className="space-y-1 min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                          <span className="text-[10px] font-black text-slate-100 truncate block">{item.title}</span>
+                                          {item.isUnread && (
+                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                          )}
+                                        </div>
+                                        <p className="text-[9px] text-slate-350 leading-normal font-medium whitespace-pre-line text-right">
+                                          {item.body}
+                                        </p>
+                                        <span className="text-[8px] text-slate-500 block pt-0.5 font-mono text-right">{item.timeLabel}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
+
+                  {/* Admin Portal Lock Icon next to User / Wifi */}
+                  <div className="relative">
+                    {isAdminLoggedIn ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] text-emerald-400 font-bold bg-emerald-950/20 px-1.5 py-0.5 rounded-lg border border-emerald-900/30">إدارة</span>
+                        <button
+                          onClick={handleAdminLogout}
+                          className="p-1 bg-rose-955/20 hover:bg-rose-900/20 border border-rose-900/40 text-rose-450 hover:text-rose-350 rounded-lg transition-all duration-300 cursor-pointer shadow-sm active:scale-95"
+                          title={t("logout")}
+                        >
+                          <LogOut className="w-3 h-3 text-rose-500" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setShowAdminLogin(prev => !prev);
+                          setAdminLoginError("");
+                          setAdminUsername("");
+                          setAdminPassword("");
+                        }}
+                        className="inline-flex items-center justify-center p-1.5 bg-red-950/20 hover:bg-red-900/20 border border-red-900/40 text-red-500 hover:text-red-400 rounded-xl shadow-sm transition-all duration-300 cursor-pointer animate-pulse"
+                        title={currentLang === "ar" ? "دخول المسؤول المفوّض" : "Authorized Administrator Portal Login"}
+                      >
+                        <Lock className="w-3.5 h-3.5 text-[#8a1111]" style={{ color: '#8a1111' }} />
+                      </button>
+                    )}
+
+                    {/* Admin Login Dialog dropdown */}
+                    <AnimatePresence>
+                      {showAdminLogin && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          className="absolute left-0 mt-2 w-64 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-4 z-[9999] space-y-3 font-sans text-right"
+                          style={{ direction: 'rtl' }}
+                        >
+                          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                            <h5 className="text-[10px] font-black text-slate-100 flex items-center gap-1.5">
+                              <Lock className="w-3 h-3 text-emerald-400" />
+                              <span>دخول إدارة المنهج التعليمي 🇸🇩</span>
+                            </h5>
+                            <button 
+                              onClick={() => setShowAdminLogin(false)}
+                              className="p-1 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-slate-300 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+
+                          <form 
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              handleAdminLoginSubmit(e);
+                            }} 
+                            className="space-y-2.5"
+                          >
+                            <div>
+                              <label className="block text-[9px] text-slate-400 mb-0.5 font-bold">اسم المسؤول</label>
+                              <input
+                                type="text"
+                                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 outline-none focus:border-emerald-500/50 text-right"
+                                value={adminUsername}
+                                onChange={(e) => setAdminUsername(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[9px] text-slate-400 mb-0.5 font-bold">كلمة المرور</label>
+                              <input
+                                type="password"
+                                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 outline-none focus:border-emerald-500/50 text-right"
+                                value={adminPassword}
+                                onChange={(e) => setAdminPassword(e.target.value)}
+                              />
+                            </div>
+
+                            {adminLoginError && (
+                              <p className="text-[9px] text-rose-400 font-bold bg-rose-950/20 px-2 py-0.5 rounded border border-rose-900/30 text-right">
+                                {adminLoginError}
+                              </p>
+                            )}
+
+                            <button
+                              type="submit"
+                              className="w-full py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-black text-[10px] rounded-lg shadow transition-all active:scale-95"
+                            >
+                              تسجيل الدخول كمسؤول
+                            </button>
+                          </form>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* RIGHT SIDE: User settings & login pill */}
+          <div className="flex items-center gap-2 shrink-0" dir={currentLang === "ar" ? "rtl" : "ltr"}>
+            {currentUser ? (
+              <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-slate-950 px-2 sm:px-3 py-1.5 border border-slate-800 rounded-xl shadow-inner select-none">
                 <span className="relative flex h-1.5 w-1.5 shrink-0">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-indigo-500"></span>
                 </span>
-                <User className="w-3.5 h-3.5 text-indigo-455 shrink-0" />
-                <span className="truncate max-w-[85px]">{currentUser.username}</span>
-              </button>
-            )}
-
-            {/* Admin Portal Lock Icon next to User / Wifi */}
-            <div className="relative">
-              {isAdminLoggedIn ? (
-                <div className="flex items-center gap-1">
-                  <span className="text-[9px] text-emerald-400 font-bold bg-emerald-950/20 px-1.5 py-0.5 rounded-lg border border-emerald-900/30">إدارة</span>
-                  <button
-                    onClick={handleAdminLogout}
-                    className="p-1 bg-rose-955/20 hover:bg-rose-900/20 border border-rose-900/40 text-rose-450 hover:text-rose-350 rounded-lg transition-all duration-300 cursor-pointer shadow-sm active:scale-95"
-                    title={t("logout")}
-                  >
-                    <LogOut className="w-3 h-3 text-rose-500" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => {
-                    setShowAdminLogin(prev => !prev);
-                    setAdminLoginError("");
-                    setAdminUsername("");
-                    setAdminPassword("");
-                  }}
-                  className="inline-flex items-center justify-center p-1.5 bg-red-950/20 hover:bg-red-900/20 border border-red-900/40 text-red-500 hover:text-red-400 rounded-xl shadow-sm transition-all duration-300 cursor-pointer animate-pulse"
-                  title={currentLang === "ar" ? "دخول المسؤول المفوّض" : "Authorized Administrator Portal Login"}
-                >
-                  <Lock className="w-3.5 h-3.5 text-[#8a1111]" style={{ color: '#8a1111' }} />
-                </button>
-              )}
-
-              {/* Admin Login Dialog dropdown (positioned beautifully under top lock button) */}
-              <AnimatePresence>
-                {showAdminLogin && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute -left-16 sm:left-auto sm:-right-4 mt-2 w-64 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-4 z-[9999] space-y-3 font-sans text-right"
-                    style={{ direction: 'rtl' }}
-                  >
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                      <h5 className="text-[10px] font-black text-slate-100 flex items-center gap-1.5">
-                        <Lock className="w-3 h-3 text-emerald-400" />
-                        <span>دخول إدارة المنهج التعليمي 🇸🇩</span>
-                      </h5>
-                      <button 
-                        onClick={() => setShowAdminLogin(false)}
-                        className="p-1 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-slate-300 transition-colors"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-
-                    <form 
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        handleAdminLoginSubmit(e);
-                      }} 
-                      className="space-y-2.5"
-                    >
-                      <div>
-                        <label className="block text-[9px] text-slate-400 mb-0.5 font-bold">اسم المسؤول</label>
-                        <input
-                          type="text"
-                          className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 outline-none focus:border-emerald-500/50 text-right"
-                          value={adminUsername}
-                          onChange={(e) => setAdminUsername(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[9px] text-slate-400 mb-0.5 font-bold">كلمة المرور</label>
-                        <input
-                          type="password"
-                          className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 outline-none focus:border-emerald-500/50 text-right"
-                          value={adminPassword}
-                          onChange={(e) => setAdminPassword(e.target.value)}
-                        />
-                      </div>
-
-                      {adminLoginError && (
-                        <p className="text-[9px] text-rose-400 font-bold bg-rose-950/20 px-2 py-0.5 rounded border border-rose-900/30 text-right">
-                          {adminLoginError}
-                        </p>
-                      )}
-
-                      <button
-                        type="submit"
-                        className="w-full py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-black text-[10px] rounded-lg shadow transition-all active:scale-95"
-                      >
-                        تسجيل الدخول كمسؤول
-                      </button>
-                    </form>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 relative w-auto h-auto">
-            {/* Page Refresh Button */}
-            <button
-              onClick={() => {
-                window.location.reload();
-              }}
-              className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
-                siteTheme === "sudanese"
-                  ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-earthgold/60"
-                  : "bg-slate-950/60 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/60 text-slate-200"
-              }`}
-              title={currentLang === "ar" ? "تحديث الصفحة" : "Refresh Page"}
-            >
-              <RotateCw className="w-3.5 h-3.5 text-earthgold-600" />
-              <span className="hidden sm:inline">
-                {currentLang === "ar" ? " " : " "}
-              </span>
-            </button>
-
-            {/* Theme Switcher Button */}
-            <button
-              onClick={toggleSiteTheme}
-              className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
-                siteTheme === "sudanese"
-                  ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-earthgold/60"
-                  : "bg-slate-950/60 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/60 text-slate-200"
-              }`}
-              title={currentLang === "ar" ? "تغيير المظهر (المظهر الداكن)" : "Switch Theme (  Legacy Dark)"}
-            >
-              <span className="text-[14px]">🎨</span>
-              <span className="hidden sm:inline">
-                {currentLang === "ar" 
-                  ? (siteTheme === "sudanese" ? "  " : " التصميم الداكن") 
-                  : (siteTheme === "sudanese" ? " Sudanese Style" : " Dark Legacy")}
-              </span>
-            </button>
-
-            {/* Language Toggle Button */}
-            <button
-              onClick={() => {
-                const nextLang = currentLang === "ar" ? "en" : "ar";
-                setCurrentLang(nextLang);
-                localStorage.setItem("sudan_edu_lang", nextLang);
-              }}
-              className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
-                siteTheme === "sudanese"
-                  ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-earthgold/60"
-                  : "bg-slate-950/60 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/60 text-slate-200"
-              }`}
-              title={currentLang === "ar" ? "Switch to English" : "التحويل للغة العربية"}
-            >
-              <Globe className={`w-3.5 h-3.5 ${siteTheme === "sudanese" ? "text-earthgold" : "text-emerald-400"}`} />
-              <span className="text-[10px] font-black ml-1 sm:hidden">{currentLang === "ar" ? "EN" : "AR"}</span>
-              <span className="hidden sm:inline">{currentLang === "ar" ? " English" : " العربية"}</span>
-            </button>
-
-            {/* Kid Mode (البراعم) Playful Toggle Button - only visible to registered primary/kindergarten stage students */}
-            {currentUser && currentUser.user_role === "student" && (currentUser?.grade_id?.startsWith("pri-") || currentUser?.grade_id?.startsWith("kg-")) && (
-              <button
-                onClick={() => {
-                  const nextVal = !isKidModeActive;
-                  setKidModeOverride(nextVal);
-                  playKidChime(nextVal ? 'success' : 'click');
-                }}
-                className={`relative rounded-full shadow-lg transition-all duration-305 cursor-pointer flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 shrink-0 ${
-                  isKidModeActive
-                    ? "bg-pink-500/25 border-2 border-pink-400 ring-4 ring-pink-500/35 scale-110 shadow-pink-500/30 animate-bounce"
-                    : "bg-slate-950/75 border border-slate-800 hover:border-pink-500/60 hover:scale-110 shadow-inner"
-                }`}
-                title={currentLang === "ar" ? "اضغط على البالون للانتقال لواجهة الأطفال اللطيفة! 🎈" : "Click the balloon to launch children mode! 🎈"}
-              >
-                <span className={`text-[16px] sm:text-[20px] select-none transition-all duration-300 ${isKidModeActive ? "scale-110" : "hover:scale-115"}`} style={{ transformOrigin: 'center' }}>
-                  🎈
-                </span>
-                {isKidModeActive && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
-                )}
-              </button>
-            )}
-
-            {/* Live Student Chat Tab at Top */}
-            {currentUser && currentUser.user_role !== "guest" && (
-              <button
-                onClick={() => {
-                  const targetState = !showStudentChat;
-                  setShowStudentChat(targetState);
-                  
-                  // Clear unread indicator
-                  const nowStr = new Date().toISOString();
-                  localStorage.setItem("sudan_chat_last_read", nowStr);
-                  setLastCheckedChat(nowStr);
-
-                  // Seamless mobile focus scroll
-                  if (targetState && window.innerWidth < 1024) {
-                    setTimeout(() => {
-                      const chatEl = document.getElementById("friends-chat-dashboard") || document.getElementById("chat-visitor-blocked");
-                      chatEl?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }, 250);
-                  }
-                }}
-                className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 border font-sans font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer ${
-                  showStudentChat
-                    ? "bg-indigo-650/25 border-indigo-500 text-indigo-300 ring-2 ring-indigo-500/20"
-                    : "bg-slate-950/60 border-slate-800 hover:bg-slate-900 hover:border-indigo-500/50 text-slate-200"
-                }`}
-                title={currentLang === "ar" ? "الدردشة الطلابية" : "Student Chat"}
-              >
-                <MessagesSquare className="w-[23px] h-[24px] text-indigo-400" />
-                <span className="hidden sm:inline text-[#001126]">
-                  {currentLang === "ar" ? " " : " "}
-                </span>
-              </button>
-            )}
-
-            {/* Search Lens Button and Popover */}
-            <div className="relative">
-              <button
-                onClick={() => {
-                  setShowTopSearch(prev => !prev);
-                  setShowNotificationsDropdown(false);
-                }}
-                className={`inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl shadow-sm transition-all duration-305 cursor-pointer relative ${
-                  showTopSearch 
-                    ? "bg-[#5C2C16] text-[#FAF5EC] ring-2 ring-[#5C2C16]/20" 
-                    : "bg-[#D4AF37] hover:bg-[#D4AF37]/90 border border-[#D4AF37]/20 text-white shadow-md shadow-[#D4AF37]/10"
-                }`}
-                style={!showTopSearch ? { backgroundColor: '#D4AF37' } : {}}
-                title={currentLang === "ar" ? "البحث السريع والترشيح" : "Quick Search & Filter"}
-              >
-                <Search className="w-3.5 h-3.5 text-white" style={{ color: '#ffffff' }} />
-              </button>
-
-              <AnimatePresence>
-                {showTopSearch && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className={`absolute left-0 mt-3 w-80 sm:w-96 rounded-2xl shadow-2xl p-5 z-[9999] text-right font-sans border ${
-                      siteTheme === "sudanese"
-                        ? "bg-white border-mud/15 text-mud"
-                        : "bg-slate-900 border-slate-800 text-slate-100"
-                    }`}
-                    dir={currentLang === "ar" ? "rtl" : "ltr"}
-                  >
-                    <div className="flex items-center justify-between border-b border-mud/10 pb-2.5 mb-4">
-                      <div className="flex items-center gap-1.5 font-bold">
-                        <Search className={`w-4 h-4 ${siteTheme === "sudanese" ? "text-earthgold" : "text-emerald-400"}`} />
-                        <h5 className="text-xs font-black">
-                          {currentLang === "ar" ? "البحث والترشيح السريع 🔍" : "Quick Search & Filter 🔍"}
-                        </h5>
-                      </div>
-                      <button
-                        onClick={() => setShowTopSearch(false)}
-                        className="text-[10px] text-mud/50 hover:text-mud transition-colors cursor-pointer"
-                      >
-                        {currentLang === "ar" ? "إغلاق ✕" : "Close ✕"}
-                      </button>
-                    </div>
-
-                    <div className="space-y-4 text-right" dir="rtl">
-                      {/* Search Input Box */}
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold block mb-1">
-                          {currentLang === "ar" ? "كلمة البحث" : "Search Query"}
-                        </label>
-                        <div className={`relative flex items-center rounded-xl p-2.5 border shadow-inner ${
-                          siteTheme === "sudanese" ? "bg-[#FDFBF7] border-mud/15 text-mud" : "bg-slate-950 border-slate-800 text-slate-200"
-                        }`}>
-                          <Search className="w-4 h-4 opacity-50 shrink-0 select-none ml-2" />
-                          <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder={currentLang === "ar" ? "اكتب اسم المادة..." : "Type subject..."}
-                            className="bg-transparent w-full outline-none text-xs font-semibold text-right"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Stage selection */}
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold block mb-1">
-                          {currentLang === "ar" ? "المرحلة الدراسية" : "Educational Level"}
-                        </label>
-                        <div className={`relative flex items-center rounded-xl p-2.5 border shadow-inner ${
-                          siteTheme === "sudanese" ? "bg-[#FDFBF7] border-mud/15 text-mud" : "bg-slate-950 border-slate-800 text-slate-200"
-                        }`}>
-                          <select
-                            value={selectedStage ? selectedStage.id : ""}
-                            onChange={(e) => {
-                              const stageId = e.target.value;
-                              if (stageId === "") {
-                                setSelectedStage(null);
-                                setActiveGrade(null);
-                              } else {
-                                const stg = curriculumData.find(s => s.id === stageId);
-                                if (stg) {
-                                  setSelectedStage(stg);
-                                  setActiveGrade(null);
-                                  setShowOnlyFavorites(false);
-                                  setShowStudyCamp(false);
-                                  setShowEducationalMindMap(false);
-                                }
-                              }
-                            }}
-                            className="w-full bg-transparent outline-none appearance-none text-xs font-bold cursor-pointer text-right"
-                          >
-                            <option value="" className="text-slate-855">{currentLang === "ar" ? "جميع المراحل التعليمية" : "All Stages"}</option>
-                            {curriculumData.map(st => (
-                              <option key={st.id} value={st.id} className="text-slate-855">
-                                {st.name}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="absolute left-3 w-4 h-4 opacity-60 pointer-events-none" />
-                        </div>
-                      </div>
-
-                      {/* Grade selection */}
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold block mb-1">
-                          {currentLang === "ar" ? "الصف الدراسي" : "Class / Grade"}
-                        </label>
-                        <div className={`relative flex items-center rounded-xl p-2.5 border shadow-inner ${
-                          siteTheme === "sudanese" ? "bg-[#FDFBF7] border-mud/15 text-mud" : "bg-slate-950 border-slate-800 text-slate-200"
-                        }`}>
-                          <select
-                            value={activeGrade ? activeGrade.id : ""}
-                            onChange={(e) => {
-                              const gradeId = e.target.value;
-                              if (gradeId === "") {
-                                setActiveGrade(null);
-                              } else {
-                                if (selectedStage) {
-                                  const gr = selectedStage.grades.find(g => g.id === gradeId);
-                                  if (gr) {
-                                    setActiveGrade(gr);
-                                  }
-                                } else {
-                                  let fs = null;
-                                  let fg = null;
-                                  curriculumData.forEach(st => {
-                                    const gr = st.grades.find(g => g.id === gradeId);
-                                    if (gr) {
-                                      fs = st;
-                                      fg = gr;
-                                    }
-                                  });
-                                  if (fs && fg) {
-                                    setSelectedStage(fs);
-                                    setActiveGrade(fg);
-                                  }
-                                }
-                              }
-                            }}
-                            className="w-full bg-transparent outline-none appearance-none text-xs font-bold cursor-pointer text-right"
-                          >
-                            <option value="" className="text-slate-855">{currentLang === "ar" ? "اختر الصف الدراسي..." : "Select Class..."}</option>
-                            {(selectedStage ? selectedStage.grades : curriculumData.flatMap(st => st.grades)).map(gr => (
-                              <option key={gr.id} value={gr.id} className="text-slate-855">
-                                {gr.name}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="absolute left-3 w-4 h-4 opacity-60 pointer-events-none" />
-                        </div>
-                      </div>
-
-                      {/* Subject selection */}
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold block mb-1">
-                          {currentLang === "ar" ? "قائمة المواد" : "Subject Filter"}
-                        </label>
-                        <div className={`relative flex items-center rounded-xl p-2.5 border shadow-inner ${
-                          siteTheme === "sudanese" ? "bg-[#FDFBF7] border-mud/15 text-mud" : "bg-slate-950 border-slate-800 text-slate-200"
-                        }`}>
-                          <select
-                            value={activeSubject ? activeSubject.id : ""}
-                            onChange={(e) => {
-                              const subId = e.target.value;
-                              if (subId) {
-                                let foundSub = null;
-                                curriculumData.forEach(st => {
-                                  st.grades.forEach(g => {
-                                    const sub = g.subjects.find(s => s.id === subId);
-                                    if (sub) foundSub = sub;
-                                  });
-                                });
-                                if (foundSub) handleOpenSubject(foundSub);
-                              }
-                            }}
-                            className="w-full bg-transparent outline-none appearance-none text-xs font-bold cursor-pointer text-right"
-                          >
-                            <option value="" className="text-slate-855">{currentLang === "ar" ? "تصفح المواد..." : "Go to Subject..."}</option>
-                            {(activeGrade ? activeGrade.subjects : curriculumData.flatMap(st => st.grades.flatMap(g => g.subjects))).map(s => (
-                              <option key={s.id} value={s.id} className="text-slate-855">
-                                {s.name}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="absolute left-3 w-4 h-4 opacity-60 pointer-events-none" />
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Notification Bell Dropdown Component */}
-            {currentUser && currentUser.user_role !== "guest" && (
-              <div className="relative" ref={notificationDropdownRef}>
-                <button
-                  onClick={() => {
-                    setShowNotificationsDropdown(prev => !prev);
-                    setShowTopSearch(false);
-                    if (!showNotificationsDropdown) {
-                      const nowStr = new Date().toISOString();
-                      localStorage.setItem("sudan_updates_last_read", nowStr);
-                      setLastCheckedUpdates(nowStr);
-                    }
-                  }}
-                  className={`inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl shadow-sm transition-all duration-300 cursor-pointer relative ${
-                    showNotificationsDropdown 
-                      ? "bg-amber-955/35 border-amber-500 text-amber-300 ring-2 ring-amber-500/20" 
-                      : "bg-slate-950/60 border-slate-800 hover:bg-slate-900 border-slate-800 hover:border-amber-500/40 text-slate-200"
-                  }`}
-                  title={currentLang === "ar" ? "الإشعارات" : "Notifications"}
-                >
-                  <Bell className={`w-3.5 h-3.5 ${unreadCount > 0 ? "text-amber-400 animate-bounce" : "text-slate-400"}`} />
-                  {unreadCount > 0 && (
-                    <span 
-                      className="absolute -top-1 -right-1 z-20 min-w-[16px] h-4 text-[9px] font-black text-white rounded-full flex items-center justify-center border border-slate-950 animate-pulse px-1"
-                      style={{ backgroundColor: '#8a1111', zIndex: 20 }}
-                    >
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-
-                <AnimatePresence>
-                  {showNotificationsDropdown && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute left-0 mt-3 w-80 sm:w-96 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-4 z-[9999] text-right font-sans"
-                      dir={currentLang === "ar" ? "rtl" : "ltr"}
-                    >
-                      <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                        <div className="flex items-center gap-1.5">
-                          <Bell className="w-4 h-4 text-amber-500" />
-                          <h5 className="text-xs font-black text-slate-100">
-                            {currentLang === "ar" ? "الإشعارات والتحديثات 🔔" : "Notifications & Updates 🔔"}
-                          </h5>
-                        </div>
-                        <button
-                          onClick={() => {
-                            const nowStr = new Date().toISOString();
-                            localStorage.setItem("sudan_chat_last_read", nowStr);
-                            setLastCheckedChat(nowStr);
-                            localStorage.setItem("sudan_updates_last_read", nowStr);
-                            setLastCheckedUpdates(nowStr);
-                            setShowNotificationsDropdown(false);
-                          }}
-                          className="text-[9px] text-slate-400 hover:text-white transition-colors cursor-pointer"
-                        >
-                          {currentLang === "ar" ? "تحديد كالمقروءة وإغلاق ✓" : "Mark read & close ✓"}
-                        </button>
-                      </div>
-
-                      <div className="mt-3 space-y-2 max-h-[320px] overflow-y-auto pr-1">
-                        {formattedNotifications.length === 0 ? (
-                          <div className="py-8 text-center text-slate-500 text-2xs space-y-1">
-                            <p className="font-extrabold text-slate-400">
-                              {currentLang === "ar" ? "لا توجد إشعارات جديدة حالياً." : "No new notifications yet."}
-                            </p>
-                            <p className="text-[10px] text-slate-500">
-                              {currentLang === "ar" 
-                                ? "سيتم تنبيهك هنا عند تلقي طلب صداقة، رسائل جديدة، أو إضافة مواد وروابط." 
-                                : "You will be notified of requests, replies, new subjects, or resource links here."}
-                            </p>
-                          </div>
-                        ) : (
-                          formattedNotifications.map(item => (
-                            <div
-                              key={item.id}
-                              onClick={() => handleNotificationClick(item)}
-                              className={`p-2.5 rounded-xl border text-right transition-all cursor-pointer ${
-                                item.isUnread
-                                  ? "bg-amber-955/5 border-amber-900/40 hover:bg-slate-850 hover:border-amber-500/30"
-                                  : "bg-slate-950/40 border-slate-900/40 hover:bg-slate-850"
-                              }`}
-                            >
-                              <div className="flex gap-2.5 items-start">
-                                <div className={`p-1.5 rounded-lg shrink-0 ${item.iconBg}`}>
-                                  {item.icon}
-                                </div>
-                                <div className="space-y-1 min-w-0 flex-1">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[10px] font-black text-slate-100 truncate block">{item.title}</span>
-                                    {item.isUnread && (
-                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                                    )}
-                                  </div>
-                                  <p className="text-[9px] text-slate-350 leading-normal font-medium whitespace-pre-line text-right">
-                                    {item.body}
-                                  </p>
-                                  <span className="text-[8px] text-slate-500 block pt-0.5 font-mono text-right">{item.timeLabel}</span>
-                                </div>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            )}
-
-            {/* Student / user login trigger */}
-            {currentUser ? (
-              <div className="inline-flex items-center gap-1.5 sm:gap-2.5 bg-slate-950 px-2 sm:px-3.5 py-1.5 border border-slate-800 rounded-xl shadow-inner select-none">
-                <span className="relative md:flex h-1.5 w-1.5 shrink-0 hidden">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-indigo-500"></span>
-                </span>
                 
-                <span className="md:inline-flex items-center gap-1 text-3xs md:text-2xs text-indigo-300 font-extrabold max-w-[80px] xs:max-w-[130px] truncate hidden">
-                  <User className="w-3.5 h-3.5 text-indigo-455 shrink-0" />
-                  <span className="truncate">{currentUser.username}</span>
-                </span>
-
-                <div className="h-4 w-px bg-slate-800 shrink-0 hidden md:block" />
-
+                {/* Clickable Username to edit profile */}
                 <button
                   onClick={triggerEditProfile}
-                  className="inline-flex items-center gap-1 text-[9px] text-amber-500 hover:text-amber-400 transition-colors cursor-pointer font-extrabold"
+                  className="inline-flex items-center gap-1 text-3xs sm:text-2xs text-indigo-300 hover:text-indigo-200 transition-colors font-extrabold max-w-[90px] sm:max-w-[130px] truncate cursor-pointer"
                   title={t("editProfile")}
                 >
-                  <Settings className="w-3 h-3 text-amber-500" />
-                  <span className="hidden xs:inline">{t("editProfile")}</span>
+                  <User className="w-3.5 h-3.5 text-indigo-455 shrink-0" />
+                  <span className="truncate">{currentUser.username}</span>
                 </button>
 
                 <div className="h-4 w-px bg-slate-800 shrink-0" />
 
+                {/* Settings Toggle for Hidden Icons (اعدادات المستخدم) */}
+                <button
+                  onClick={() => setShowUserSettingsIcons(prev => !prev)}
+                  className={`inline-flex items-center gap-1 text-3xs sm:text-2xs transition-all duration-300 cursor-pointer font-extrabold px-1 rounded-lg ${
+                    showUserSettingsIcons 
+                      ? "text-emerald-400 bg-emerald-950/30 border border-emerald-900/30" 
+                      : "text-amber-500 hover:text-amber-400"
+                  }`}
+                  title={currentLang === "ar" ? "أدوات وتعديلات المنصة" : "Platform Settings & Tools"}
+                >
+                  <Settings className={`w-3.5 h-3.5 ${showUserSettingsIcons ? "text-emerald-400 animate-spin-slow" : "text-amber-500"}`} />
+                  <span className="hidden sm:inline">
+                    {currentLang === "ar" ? "الأدوات" : "Tools"}
+                  </span>
+                </button>
+
+                <div className="h-4 w-px bg-slate-800 shrink-0" />
+
+                {/* Logout Button */}
                 <button
                   onClick={() => {
                     setCurrentUser(null);
@@ -3016,34 +3206,48 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     setSaveStatus(t("logoutSuccess"));
                     setTimeout(() => setSaveStatus(null), 3000);
                   }}
-                  className="inline-flex items-center gap-1 text-[9px] text-rose-555 hover:text-rose-455 transition-colors cursor-pointer font-extrabold"
+                  className="inline-flex items-center gap-1 text-3xs sm:text-2xs text-rose-555 hover:text-rose-455 transition-colors cursor-pointer font-extrabold"
                   title={t("logout")}
                 >
                   <LogOut className="w-3 h-3 text-rose-500" />
-                  <span className="hidden xs:inline">{t("logout")}</span>
+                  <span className="hidden sm:inline">{t("logout")}</span>
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => {
-                  setShowUserModal(true);
-                  setUserModalTab("login");
-                  setUserEmail("");
-                  setUserPassword("");
-                  setUserUsername("");
-                  setUserAuthError("");
-                  setUserAuthSuccess("");
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-950/65 hover:bg-slate-900 border border-slate-800 hover:border-indigo-500/40 text-slate-200 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer"
-              >
-                <User className="w-3.5 h-3.5 text-indigo-455" />
-                <span className="hidden xs:inline">{t("studentAccount")}</span>
-                <span className="xs:hidden">{currentLang === "ar" ? "حسابي" : "Account"}</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Settings Toggle for Hidden Icons when logged out */}
+                <button
+                  onClick={() => setShowUserSettingsIcons(prev => !prev)}
+                  className={`inline-flex items-center justify-center p-1.5 rounded-xl border transition-all duration-305 cursor-pointer ${
+                    showUserSettingsIcons 
+                      ? "bg-emerald-955/35 border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/20" 
+                      : "bg-slate-950/60 border-slate-800 hover:border-slate-700 text-slate-350"
+                  }`}
+                  title={currentLang === "ar" ? "أدوات وتعديلات المنصة" : "Platform Settings & Tools"}
+                >
+                  <Settings className={`w-3.5 h-3.5 ${showUserSettingsIcons ? "animate-spin-slow" : ""}`} />
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowUserModal(true);
+                    setUserModalTab("login");
+                    setUserEmail("");
+                    setUserPassword("");
+                    setUserUsername("");
+                    setUserAuthError("");
+                    setUserAuthSuccess("");
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-950/65 hover:bg-slate-900 border border-slate-800 hover:border-indigo-500/40 text-slate-200 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer"
+                >
+                  <User className="w-3.5 h-3.5 text-indigo-455" />
+                  <span className="hidden xs:inline">{t("studentAccount")}</span>
+                  <span className="xs:hidden">{currentLang === "ar" ? "حسابي" : "Account"}</span>
+                </button>
+              </div>
             )}
-
-
           </div>
+
         </div>
       </div>
           {siteTheme === "legacy" && (
@@ -4729,6 +4933,414 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       onClose={() => setShowStudentChat(false)}
                     />
                   </div>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Sidebar Vertical Educational Games Space */}
+        <AnimatePresence>
+          {showGamesSidebar && (
+            <>
+              {/* Backdrop Overlay */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.5 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/70 z-45"
+                onClick={() => {
+                  setShowGamesSidebar(false);
+                  setActiveMiniGame(null);
+                }}
+              />
+
+              <motion.div
+                initial={{ opacity: 0, x: currentLang === "ar" ? 120 : -120 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: currentLang === "ar" ? 120 : -120 }}
+                transition={{ type: "spring", damping: 28, stiffness: 140 }}
+                className="fixed inset-y-0 right-0 z-50 w-full max-w-[460px] border-s border-slate-800/60 bg-slate-950/95 shadow-2xl flex flex-col font-sans text-slate-200"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between p-4 border-b border-slate-800/60 bg-slate-900/40">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🍭</span>
+                    <h3 className="font-black text-sm text-pink-400">
+                      {currentLang === "ar" ? "بوابة الألعاب التعليمية" : "Educational Games Portal"}
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowGamesSidebar(false);
+                      setActiveMiniGame(null);
+                    }}
+                    className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-200 transition-all cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Sidebar Body */}
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                  {activeMiniGame === null ? (
+                    /* GAMES LIST VIEW */
+                    <div className="space-y-4">
+                      <div className="bg-pink-500/10 border border-pink-500/20 rounded-2xl p-4 text-center space-y-2">
+                        <span className="text-3xl animate-bounce inline-block">🎮</span>
+                        <h4 className="font-extrabold text-xs text-pink-300">
+                          {currentLang === "ar" ? "أهلاً بك يا بطل في عالم المرح والتعلم!" : "Welcome champion to the world of fun & learning!"}
+                        </h4>
+                        <p className="text-3xs text-slate-400 leading-relaxed">
+                          {currentLang === "ar" 
+                            ? "اختر أي لعبة من القائمة بالأسفل لتبدأ اللعب فوراً وتنمي مهاراتك العبقرية!" 
+                            : "Choose any game from the list below to start playing immediately and grow your genius skills!"}
+                        </p>
+                      </div>
+
+                      <div className="space-y-3">
+                        {/* Game 1: Math Kid Wizard */}
+                        <div
+                          onClick={() => setActiveMiniGame("math")}
+                          className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-pink-500/30 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] flex items-center justify-between group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                              🧮
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="font-extrabold text-xs text-slate-200 block">
+                                {currentLang === "ar" ? "تحدي عباقرة الحساب" : "Math Kid Wizard"}
+                              </span>
+                              <span className="text-3xs text-slate-400 block">
+                                {currentLang === "ar" ? "مسائل حسابية بسيطة مع نقاط وهدايا" : "Simple math puzzles with scores & badges"}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-2xs font-extrabold text-pink-400 bg-pink-500/10 border border-pink-500/20 px-2 py-0.5 rounded-full">
+                            {currentLang === "ar" ? "العب 🚀" : "Play 🚀"}
+                          </span>
+                        </div>
+
+                        {/* Game 2: Word Hero */}
+                        <div
+                          onClick={() => setActiveMiniGame("word")}
+                          className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-purple-500/30 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] flex items-center justify-between group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                              ✏️
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="font-extrabold text-xs text-slate-200 block">
+                                {currentLang === "ar" ? "فرسان الحروف الهجائية" : "Word spelling Hero"}
+                              </span>
+                              <span className="text-3xs text-slate-400 block">
+                                {currentLang === "ar" ? "أكمل الكلمات العربية والإنجليزية الناقصة" : "Complete the missing letters to win"}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-2xs font-extrabold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">
+                            {currentLang === "ar" ? "العب 🚀" : "Play 🚀"}
+                          </span>
+                        </div>
+
+                        {/* Game 3: Smart Memory Cards */}
+                        <div
+                          onClick={() => setActiveMiniGame("memory")}
+                          className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/30 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] flex items-center justify-between group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                              🃏
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="font-extrabold text-xs text-slate-200 block">
+                                {currentLang === "ar" ? "بطاقات الذاكرة الذكية" : "Smart Memory Match"}
+                              </span>
+                              <span className="text-3xs text-slate-400 block">
+                                {currentLang === "ar" ? "درّب ذاكرتك وطابق البطاقات المتماثلة" : "Train your brain by matching cards"}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-2xs font-extrabold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                            {currentLang === "ar" ? "العب 🚀" : "Play 🚀"}
+                          </span>
+                        </div>
+
+                        {/* Game 4: Little Painter */}
+                        <div
+                          onClick={() => setActiveMiniGame("color")}
+                          className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-blue-500/30 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] flex items-center justify-between group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                              🎨
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="font-extrabold text-xs text-slate-200 block">
+                                {currentLang === "ar" ? "لوحة التلوين والبراعم" : "Little Painter Grid"}
+                              </span>
+                              <span className="text-3xs text-slate-400 block">
+                                {currentLang === "ar" ? "ارسم ولوّن لوحات بكسل إبداعية ولطيفة" : "Color and paint beautiful pixel drawings"}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-2xs font-extrabold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">
+                            {currentLang === "ar" ? "العب 🚀" : "Play 🚀"}
+                          </span>
+                        </div>
+
+                        {/* Game 5: Naqla Web Game Hub (External Portal) */}
+                        <div
+                          onClick={() => {
+                            if (educationalGamesUrl) {
+                              window.open(educationalGamesUrl, "_blank");
+                            }
+                          }}
+                          className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-emerald-500/30 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] flex items-center justify-between group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                              🌐
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="font-extrabold text-xs text-slate-200 block">
+                                {currentLang === "ar" ? "منصة ألعاب نقلة الشاملة 🇸🇩" : "Naqla Full Interactive Portal 🇸🇩"}
+                              </span>
+                              <span className="text-3xs text-slate-400 block">
+                                {currentLang === "ar" ? "افتح مئات الألعاب التفاعلية الخارجية المميزة" : "Access hundreds of external premium educational games"}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-2xs font-extrabold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                            {currentLang === "ar" ? "زيارة 🔗" : "Visit 🔗"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* SINGLE MINI-GAME INTERACTIVE PLAYGROUND VIEW */
+                    <div className="space-y-5">
+                      <button
+                        onClick={() => setActiveMiniGame(null)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 hover:text-slate-100 hover:bg-slate-800 transition-all cursor-pointer active:scale-95"
+                      >
+                        <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
+                        <span>{currentLang === "ar" ? "العودة لقائمة الألعاب" : "Back to Games"}</span>
+                      </button>
+
+                      {/* GAME 1: MATH GAME */}
+                      {activeMiniGame === "math" && mathQuestion && (
+                        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 text-center space-y-6">
+                          <div className="flex items-center justify-between text-2xs text-slate-400 border-b border-slate-800 pb-3">
+                            <span>🏆 {currentLang === "ar" ? `النقاط: ${mathScore}` : `Score: ${mathScore}`}</span>
+                            <span>🔥 {currentLang === "ar" ? `سلسلة الانتصارات: ${mathStreak}` : `Streak: ${mathStreak}`}</span>
+                          </div>
+
+                          <div className="space-y-2">
+                            <span className="text-4xs font-bold text-pink-400 uppercase tracking-widest block">
+                              {currentLang === "ar" ? "كم حاصل العملية التالية؟" : "What is the answer?"}
+                            </span>
+                            <div className="text-4xl font-black text-white py-4 tracking-wide font-mono bg-slate-950/40 rounded-2xl border border-slate-850">
+                              {mathQuestion.questionText}
+                            </div>
+                          </div>
+
+                          {mathFeedback && (
+                            <div className={`p-3 rounded-xl text-3xs font-black transition-all ${
+                              mathStatus === "correct" 
+                                ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" 
+                                : "bg-rose-500/10 border border-rose-500/20 text-rose-400"
+                            }`}>
+                              {mathFeedback}
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-3 gap-3">
+                            {mathQuestion.options.map((option, idx) => (
+                              <button
+                                key={idx}
+                                disabled={mathStatus !== "unanswered"}
+                                onClick={() => handleMathAnswer(option)}
+                                className={`p-4 rounded-xl font-bold font-mono text-base border transition-all cursor-pointer ${
+                                  mathStatus === "unanswered"
+                                    ? "bg-slate-950 hover:bg-slate-850 border-slate-800 text-pink-300 active:scale-95"
+                                    : option === mathQuestion.answer
+                                      ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
+                                      : "bg-slate-950/40 border-slate-900 text-slate-500"
+                                }`}
+                              >
+                                {option}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* GAME 2: WORD SPELLING HERO */}
+                      {activeMiniGame === "word" && (
+                        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 text-center space-y-6">
+                          <div className="flex items-center justify-between text-2xs text-slate-400 border-b border-slate-800 pb-3">
+                            <span>🏆 {currentLang === "ar" ? `النقاط: ${wordScore}` : `Score: ${wordScore}`}</span>
+                            <span>🧩 {currentLang === "ar" ? `اللغز: ${wordPuzzleIndex + 1} من ${wordPuzzles.length}` : `Puzzle: ${wordPuzzleIndex + 1} of ${wordPuzzles.length}`}</span>
+                          </div>
+
+                          <div className="space-y-3">
+                            <span className="text-4xs font-bold text-purple-400 uppercase tracking-widest block">
+                              {currentLang === "ar" ? "أكمل الحرف المفقود المناسب!" : "Choose the correct missing letter!"}
+                            </span>
+                            <div className="text-3xl font-black text-white py-4 tracking-wider bg-slate-950/40 rounded-2xl border border-slate-850">
+                              {wordPuzzles[wordPuzzleIndex].word}
+                            </div>
+                          </div>
+
+                          {wordFeedback && (
+                            <div className={`p-3 rounded-xl text-3xs font-black transition-all ${
+                              wordStatus === "correct"
+                                ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 animate-bounce"
+                                : "bg-rose-500/10 border border-rose-500/20 text-rose-400"
+                            }`}>
+                              {wordFeedback}
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-3 gap-3">
+                            {wordPuzzles[wordPuzzleIndex].options.map((option, idx) => (
+                              <button
+                                key={idx}
+                                disabled={wordStatus !== "unanswered"}
+                                onClick={() => handleWordAnswer(option)}
+                                className={`p-4 rounded-xl font-bold text-lg border transition-all cursor-pointer ${
+                                  wordStatus === "unanswered"
+                                    ? "bg-slate-950 hover:bg-slate-850 border-slate-800 text-purple-300 active:scale-95"
+                                    : option === wordPuzzles[wordPuzzleIndex].missing
+                                      ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
+                                      : "bg-slate-950/40 border-slate-900 text-slate-500"
+                                }`}
+                              >
+                                {option}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* GAME 3: SMART MEMORY MATCH */}
+                      {activeMiniGame === "memory" && (
+                        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 text-center space-y-4">
+                          <div className="flex items-center justify-between text-2xs text-slate-400 border-b border-slate-800 pb-3">
+                            <span>🧠 {currentLang === "ar" ? "تطابق ذكي" : "Brain Matching"}</span>
+                            <span>🔄 {currentLang === "ar" ? `عدد الحركات: ${memoryMoves}` : `Moves: ${memoryMoves}`}</span>
+                          </div>
+
+                          {memoryStatus === "won" ? (
+                            <div className="space-y-4 py-6 text-center">
+                              <span className="text-5xl block animate-bounce">🏆 🌟</span>
+                              <h4 className="font-extrabold text-xs text-amber-400">
+                                {currentLang === "ar" ? "أنت عبقري حقيقي بذاكرة حديدية! 🎉" : "You are a genius with a steel memory! 🎉"}
+                              </h4>
+                              <p className="text-3xs text-slate-400">
+                                {currentLang === "ar" 
+                                  ? `لقد تمكنت من حل اللغز في ${memoryMoves} خطوة فقط!` 
+                                  : `You solved the puzzle in only ${memoryMoves} moves!`}
+                              </p>
+                              <button
+                                onClick={initMemoryGame}
+                                className="px-5 py-2 rounded-xl bg-amber-500 text-slate-950 font-black text-3xs cursor-pointer active:scale-95 hover:bg-amber-400 transition-all"
+                              >
+                                {currentLang === "ar" ? "العب مرة أخرى 🔄" : "Play Again 🔄"}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-4 gap-2">
+                              {memoryCards.map((card, idx) => {
+                                const isOpen = card.isFlipped || card.isMatched;
+                                return (
+                                  <button
+                                    key={card.id}
+                                    onClick={() => handleMemoryCardClick(idx)}
+                                    className={`aspect-square rounded-xl flex items-center justify-center text-xl font-bold transition-all border duration-300 ${
+                                      isOpen
+                                        ? "bg-slate-950 border-amber-500/40 text-slate-100 rotate-180"
+                                        : "bg-gradient-to-br from-amber-500 to-yellow-600 border-white/20 text-white cursor-pointer hover:scale-105"
+                                    }`}
+                                  >
+                                    <span style={{ transform: isOpen ? "rotate(180deg)" : "none" }}>
+                                      {isOpen ? card.symbol : "⭐"}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* GAME 4: LITTLE PAINTER (Pixel Art 8x8 Grid) */}
+                      {activeMiniGame === "color" && (
+                        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 text-center space-y-4">
+                          <div className="flex items-center justify-between text-2xs text-slate-400 border-b border-slate-800 pb-2">
+                            <span>🎨 {currentLang === "ar" ? "مرسم الألوان للأطفال" : "Little Painter"}</span>
+                            <button
+                              onClick={initPixelGame}
+                              className="text-4xs text-rose-400 border border-rose-955/35 bg-rose-955/10 px-2 py-0.5 rounded-md hover:bg-rose-955/30 transition-all"
+                            >
+                              {currentLang === "ar" ? "مسح الرسم" : "Clear Canvas"}
+                            </button>
+                          </div>
+
+                          {/* Color Palette Row */}
+                          <div className="flex justify-center gap-2 py-1">
+                            {[
+                              "#ec4899", // hot pink
+                              "#3b82f6", // blue
+                              "#10b981", // emerald
+                              "#f59e0b", // amber
+                              "#8b5cf6", // purple
+                              "#ef4444", // red
+                              "#ffffff"  // white
+                            ].map((colorHex, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => setCurrentColor(colorHex)}
+                                className={`w-6 h-6 rounded-full border-2 transition-all cursor-pointer ${
+                                  currentColor === colorHex 
+                                    ? "border-yellow-400 scale-125 ring-2 ring-yellow-400/30" 
+                                    : "border-transparent hover:scale-110"
+                                }`}
+                                style={{ backgroundColor: colorHex }}
+                              />
+                            ))}
+                          </div>
+
+                          {/* 8x8 Grid */}
+                          <div className="mx-auto w-[200px] h-[200px] grid grid-cols-8 gap-1 bg-slate-955 p-1 rounded-xl border border-slate-800">
+                            {pixelGrid.map((cellColor, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => handlePixelCellClick(idx)}
+                                className="w-full h-full rounded-sm transition-colors border border-black/10 hover:opacity-85 cursor-pointer"
+                                style={{ backgroundColor: cellColor }}
+                              />
+                            ))}
+                          </div>
+
+                          <p className="text-4xs text-slate-400">
+                            {currentLang === "ar"
+                              ? "اختر لوناً من الأعلى ثم اضغط على المربعات لترسم لوحتك الخاصة المبدعة! 🌟"
+                              : "Choose a color from the palette, then tap on the grids to draw your masterpiece! 🌟"}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer status counter */}
+                <div className="p-4 border-t border-slate-800/60 bg-slate-900/40 flex items-center justify-between text-4xs text-slate-400">
+                  <span>🚀 {currentLang === "ar" ? "التعليم التفاعلي السوداني" : "Sudanese Interactive Education"}</span>
+                  <span className="text-pink-400 font-extrabold">🎖️ {currentLang === "ar" ? "الذكاء والتميز للبراعم" : "Smart Kids Platform"}</span>
                 </div>
               </motion.div>
             </>
