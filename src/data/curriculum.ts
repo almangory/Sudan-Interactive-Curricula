@@ -30,8 +30,8 @@ export interface Stage {
 export const stagesData: Stage[] = [
   {
     "id": "kindergarten",
-    "name": "مرحلة الروضة (التعليم المبكر)",
-    "description": "بناء اللبنات الأولى لشخصية الطفل عبر اللعب التفاعلي والألوان والمهارات الحركية والذهنية.",
+    "name": "مرحلة الروضة",
+    "description": "",
     "colorTheme": "from-pink-550 to-rose-450",
     "icon": "Baby",
     "grades": [
@@ -138,8 +138,8 @@ export const stagesData: Stage[] = [
   },
   {
     "id": "primary",
-    "name": "المرحلة الابتدائية (الأساس الجديد)",
-    "description": "التعليم التأسيسي الشامل لغرس المواد العلمية والأدبية، والتعرف الجغرافي والاجتماعي على السودان.",
+    "name": "المرحلة الابتدائية",
+    "description": "",
     "colorTheme": "from-emerald-550 to-teal-450",
     "icon": "GraduationCap",
     "grades": [
@@ -393,7 +393,7 @@ export const stagesData: Stage[] = [
   {
     "id": "intermediate",
     "name": "المرحلة المتوسطة",
-    "description": "مرحلة انتقالية هامة تركز على تمكين الطلاب من المفاهيم العلمية العميقة وقراءة وتحليل التاريخ والجغرافيا المعاصرة.",
+    "description": "",
     "colorTheme": "from-blue-550 to-indigo-455",
     "icon": "Compass",
     "grades": [
@@ -501,7 +501,7 @@ export const stagesData: Stage[] = [
   {
     "id": "secondary",
     "name": "المرحلة الثانوية",
-    "description": "إعداد متميز لخوض اختبار الشهادة السودانية مع تخصص علمي وأدبي يعزز قدرات الطلاب للاستعداد للتعليم الجامعي المرموق.",
+    "description": "",
     "colorTheme": "from-purple-550 to-indigo-550",
     "icon": "Award",
     "grades": [

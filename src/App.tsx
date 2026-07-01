@@ -5,7 +5,7 @@ import {
   Map, Sparkles, Star, ChevronLeft, ChevronDown, ChevronUp, CheckCircle, 
   Search, ShieldAlert, History, Globe, Plus, FileText, Video, Filter,
   Lock, Network, MessageSquare, X, Bell, MessagesSquare, UserCheck, Check, Link, ArrowLeftRight,
-  User, LogOut, Settings, Wifi, WifiOff, RotateCw, UserPlus, LogIn, Image, Pencil, Gamepad2
+  User, LogOut, Settings, Wifi, WifiOff, RotateCw, UserPlus, LogIn, Image, Pencil, Gamepad2, HelpCircle
 } from "lucide-react";
 import { stagesData, Stage, Grade, Subject } from "./data/curriculum";
 import SubjectModal from "./components/SubjectModal";
@@ -16,6 +16,7 @@ import AdminDashboard from "./components/AdminDashboard";
 import EducationalMindMap from "./components/EducationalMindMap";
 import StudentChatRoom from "./components/StudentChatRoom";
 import WebsiteLogo from "./components/WebsiteLogo";
+import { OnboardingGuide } from "./components/OnboardingGuide";
 import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile, fetchLiveLessonsFromSupabase, LiveLesson, checkUserExistsAndActive, getApiUrl } from "./lib/supabase";
 import { stageAndGradeTranslations, uiTranslations } from "./lib/translations";
 
@@ -115,6 +116,14 @@ export default function App() {
   const [showGamesSidebar, setShowGamesSidebar] = useState(false);
   const [showUserSettingsIcons, setShowUserSettingsIcons] = useState(false);
   const [activeMiniGame, setActiveMiniGame] = useState<string | null>(null);
+  const [showOnboardingGuide, setShowOnboardingGuide] = useState(() => {
+    return !localStorage.getItem("sudan_edu_guide_completed");
+  });
+
+  const handleCloseOnboarding = () => {
+    localStorage.setItem("sudan_edu_guide_completed", "true");
+    setShowOnboardingGuide(false);
+  };
 
   // States for Math Kid Wizard game
   const [mathQuestion, setMathQuestion] = useState<{ questionText: string; answer: number; options: number[] } | null>(null);
@@ -2690,6 +2699,22 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     <span className="hidden sm:inline">{currentLang === "ar" ? " English" : " العربية"}</span>
                   </button>
 
+                  {/* Platform User Guide (دليل المنصة) */}
+                  <button
+                    onClick={() => setShowOnboardingGuide(true)}
+                    className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
+                      siteTheme === "sudanese"
+                        ? "bg-[#FAF5EC] hover:bg-[#F3EFE6] border-mud/25 text-[#5C2C16] hover:border-earthgold/60"
+                        : "bg-emerald-950/20 hover:bg-emerald-900/35 border-emerald-500/40 text-emerald-300 hover:border-emerald-500/60"
+                    }`}
+                    title={currentLang === "ar" ? "دليل استخدام المنصة" : "Platform Guide"}
+                  >
+                    <HelpCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span className="hidden sm:inline ml-1">
+                      {currentLang === "ar" ? "دليل المنصة" : "Platform Guide"}
+                    </span>
+                  </button>
+
                   {/* Kid Mode (البراعم) Playful Toggle Button - only visible to registered primary/kindergarten stage students */}
                   {currentUser && currentUser.user_role === "student" && (currentUser?.grade_id?.startsWith("pri-") || currentUser?.grade_id?.startsWith("kg-")) && (
                     <button
@@ -3165,14 +3190,16 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 </span>
                 
                 {/* Clickable Username to edit profile */}
-                <button
+                <motion.button
                   onClick={triggerEditProfile}
                   className="inline-flex items-center gap-1 text-3xs sm:text-2xs text-indigo-300 hover:text-indigo-200 transition-colors font-extrabold max-w-[90px] sm:max-w-[130px] truncate cursor-pointer"
                   title={t("editProfile")}
+                  animate={{ scale: [1, 1.04, 1] }}
+                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
                 >
                   <User className="w-3.5 h-3.5 text-indigo-455 shrink-0" />
                   <span className="truncate">{currentUser.username}</span>
-                </button>
+                </motion.button>
 
                 <div className="h-4 w-px bg-slate-800 shrink-0" />
 
@@ -3216,17 +3243,20 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             ) : (
               <div className="flex items-center gap-2">
                 {/* Settings Toggle for Hidden Icons when logged out */}
-                <button
+                <motion.button
                   onClick={() => setShowUserSettingsIcons(prev => !prev)}
-                  className={`inline-flex items-center justify-center p-1.5 rounded-xl border transition-all duration-305 cursor-pointer ${
+                  className={`inline-flex items-center justify-center p-1.5 rounded-xl border transition-all duration-300 transform hover:scale-105 cursor-pointer ${
                     showUserSettingsIcons 
-                      ? "bg-emerald-955/35 border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/20" 
-                      : "bg-slate-950/60 border-slate-800 hover:border-slate-700 text-slate-350"
+                      ? "bg-emerald-955/35 hover:bg-emerald-900/50 border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/20" 
+                      : "bg-slate-950/60 hover:bg-slate-900/90 hover:border-slate-700 text-slate-350"
                   }`}
                   title={currentLang === "ar" ? "أدوات وتعديلات المنصة" : "Platform Settings & Tools"}
+                  animate={{ scale: [1, 1.04, 1] }}
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
                 >
                   <Settings className={`w-3.5 h-3.5 ${showUserSettingsIcons ? "animate-spin-slow" : ""}`} />
-                </button>
+                </motion.button>
 
                 <button
                   onClick={() => {
@@ -3836,9 +3866,11 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                 </div>
 
                                <h3 className="text-mud font-black text-xs md:text-sm line-clamp-1">{t(stage.name)}</h3>
-                               <p className="text-4xs text-mud/60 mt-1 leading-relaxed line-clamp-2 px-1">
-                                  {stage.description}
-                                </p>
+                               {stage.description && (
+                                 <p className="text-4xs text-mud/60 mt-1 leading-relaxed line-clamp-2 px-1">
+                                    {stage.description}
+                                 </p>
+                               )}
 
                                 <div className="mt-3 flex items-center gap-1 text-[9px] bg-[#FDFBF7] px-2 py-0.5 rounded-full border border-mud/5 text-mud/85 font-extrabold">
                                   <span>📚</span>
@@ -4105,19 +4137,21 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                             ? `🎈 ${t(stage.name)} 🍭`
                             : t(stage.name)}
                         </h3>
-                        <p className="text-[10px] sm:text-2xs text-slate-400 line-clamp-1">
-                          {currentLang === "ar" 
-                            ? stage.description 
-                            : (stage.id === "kindergarten" 
-                               ? "Kindergarten classes and infant development curriculum." 
-                               : stage.id === "elementary" 
-                                 ? "Comprehensive elementary primary school courses." 
-                                 : stage.id === "intermediate" 
-                                   ? "Intermediate general education classes." 
-                                   : stage.id === "secondary" 
-                                     ? "High school secondary general curricula." 
-                                     : stage.description)}
-                        </p>
+                        {((currentLang === "ar" && stage.description) || currentLang === "en") && (
+                          <p className="text-[10px] sm:text-2xs text-slate-400 line-clamp-1">
+                            {currentLang === "ar" 
+                              ? stage.description 
+                              : (stage.id === "kindergarten" 
+                                 ? "Kindergarten classes and infant development curriculum." 
+                                 : stage.id === "elementary" 
+                                   ? "Comprehensive elementary primary school courses." 
+                                   : stage.id === "intermediate" 
+                                     ? "Intermediate general education classes." 
+                                     : stage.id === "secondary" 
+                                       ? "High school secondary general curricula." 
+                                       : stage.description)}
+                          </p>
+                        )}
                         <span className="text-[9px] sm:text-3xs text-emerald-400 font-bold block mt-1">
                           {currentLang === "ar" 
                             ? `الصفوف: ${stage.grades.length}` 
@@ -6073,6 +6107,13 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           </div>
         )}
       </AnimatePresence>
+
+      <OnboardingGuide 
+        isOpen={showOnboardingGuide} 
+        onClose={handleCloseOnboarding} 
+        currentLang={currentLang} 
+        siteTheme={siteTheme} 
+      />
 
     </div>
   );

@@ -2,6 +2,8 @@ export const stageAndGradeTranslations: Record<string, string> = {
   // Stages name
   "مرحلة الروضة (التعليم المبكر)": "Kindergarten Stage (Early Education)",
   "المرحلة الابتدائية (الأساس الجديد)": "Elementary Stage (New Foundation)",
+  "مرحلة الروضة": "Kindergarten Stage",
+  "المرحلة الابتدائية": "Elementary Stage",
   "المرحلة المتوسطة": "Middle School Stage",
   "المرحلة الثانوية": "Secondary School Stage",
 
