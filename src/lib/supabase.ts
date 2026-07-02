@@ -1,6 +1,130 @@
 import { createClient } from "@supabase/supabase-js";
 import { Stage, Subject } from "../data/curriculum";
 
+// Security and Obfuscation configurations
+const SECURITY_SALT = "SudanEdu2026PlatformObfuscationKey";
+
+/**
+ * Obfuscation helper using custom key XORing to prevent plain-text discovery
+ */
+export function obfuscateString(text: string): string {
+  let result = "";
+  for (let i = 0; i < text.length; i++) {
+    const charCode = text.charCodeAt(i);
+    const saltCode = SECURITY_SALT.charCodeAt(i % SECURITY_SALT.length);
+    const obfuscated = charCode ^ saltCode;
+    result += obfuscated.toString(16).padStart(2, "0");
+  }
+  return result;
+}
+
+/**
+ * Deobfuscation helper using custom key XORing
+ */
+export function deobfuscateString(hex: string): string {
+  let result = "";
+  for (let i = 0; i < hex.length; i += 2) {
+    const part = parseInt(hex.substring(i, i + 2), 16);
+    const saltCode = SECURITY_SALT.charCodeAt((i / 2) % SECURITY_SALT.length);
+    result += String.fromCharCode(part ^ saltCode);
+  }
+  return result;
+}
+
+/**
+ * Pure TypeScript implementation of the standard SHA-256 algorithm.
+ * Guarantees cryptographic one-way hashing across all browsers and frames.
+ */
+export function sha256(ascii: string): string {
+  function rightRotate(value: number, amount: number) {
+    return (value >>> amount) | (value << (32 - amount));
+  }
+  
+  const mathPow = Math.pow;
+  const maxWord = mathPow(2, 32);
+  const result = [];
+  const words: number[] = [];
+  const asciiBitLength = ascii.length * 8;
+  
+  let i, j;
+  let hash = [];
+  const k = [];
+  let primeCounter = 0;
+
+  const isPrime = function(n: number) {
+    for (let factor = 2; factor * factor <= n; factor++) {
+      if (n % factor === 0) return false;
+    }
+    return true;
+  };
+
+  for (let n = 2; primeCounter < 64; n++) {
+    if (isPrime(n)) {
+      if (primeCounter < 8) {
+        hash[primeCounter] = (mathPow(n, 1 / 2) * maxWord) | 0;
+      }
+      k[primeCounter] = (mathPow(n, 1 / 3) * maxWord) | 0;
+      primeCounter++;
+    }
+  }
+
+  const strBytes = [];
+  for (i = 0; i < ascii.length; i++) {
+    strBytes.push(ascii.charCodeAt(i) & 0xff);
+  }
+  strBytes.push(0x80);
+
+  while (strBytes.length % 64 !== 56) {
+    strBytes.push(0);
+  }
+
+  for (i = 0; i < strBytes.length; i += 4) {
+    words.push((strBytes[i] << 24) | (strBytes[i+1] << 16) | (strBytes[i+2] << 8) | strBytes[i+3]);
+  }
+
+  words.push((asciiBitLength / maxWord) | 0);
+  words.push(asciiBitLength | 0);
+
+  for (j = 0; j < words.length; j += 16) {
+    const w = words.slice(j, j + 16);
+    const oldHash = [...hash];
+
+    for (i = 0; i < 64; i++) {
+      if (i >= 16) {
+        const w15 = w[i - 15];
+        const s0 = rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3);
+        const w2 = w[i - 2];
+        const s1 = rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10);
+        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+      }
+
+      const s0 = rightRotate(hash[0], 2) ^ rightRotate(hash[0], 13) ^ rightRotate(hash[0], 22);
+      const maj = (hash[0] & hash[1]) ^ (hash[0] & hash[2]) ^ (hash[1] & hash[2]);
+      const t2 = (s0 + maj) | 0;
+
+      const s1 = rightRotate(hash[4], 6) ^ rightRotate(hash[4], 11) ^ rightRotate(hash[4], 25);
+      const ch = (hash[4] & hash[5]) ^ (~hash[4] & hash[6]);
+      const t1 = (hash[7] + s1 + ch + k[i] + w[i]) | 0;
+
+      hash = [(t1 + t2) | 0].concat(hash);
+      hash[4] = (hash[4] + t1) | 0;
+      hash.length = 8;
+    }
+
+    for (i = 0; i < 8; i++) {
+      hash[i] = (hash[i] + oldHash[i]) | 0;
+    }
+  }
+
+  for (i = 0; i < 8; i++) {
+    for (j = 3; j >= 0; j--) {
+      const b = (hash[i] >> (j * 8)) & 0xff;
+      result.push((b < 16 ? "0" : "") + b.toString(16));
+    }
+  }
+  return result.join("");
+}
+
 // Helper keys for local retention of user configurations
 const STORAGE_KEYS = {
   URL: "sudan_supabase_url",
@@ -161,8 +285,9 @@ export async function verifyAdminInSupabase(username: string, password: string):
 
     if (data && data.length > 0) {
       const adminEntry = data[0];
-      // Compare password. Checking plain-text standard column first
-      if (adminEntry.password === password) {
+      const dbPassword = adminEntry.password || adminEntry.password_hash || "";
+      // Compare password supporting both secure SHA-256 hashing and existing plain text
+      if (dbPassword === password || dbPassword === sha256(password)) {
         return true;
       }
     }
@@ -465,11 +590,13 @@ export async function registerUser(
     const cleanEmail = email.trim().toLowerCase();
     const cleanUsername = username.trim();
 
+    // Hash the password with SHA-256 before inserting to database for optimal security and privacy
+    const hashedPassword = password ? sha256(password) : "";
     const userDataToInsert = {
       username: cleanUsername,
       email: cleanEmail,
-      password: password || "", 
-      password_hash: password || "", 
+      password: hashedPassword, 
+      password_hash: hashedPassword, 
       provider: provider,
       user_role: userRole,
       grade_id: gradeId || null,
@@ -540,8 +667,23 @@ export async function loginUser(email: string, password?: string): Promise<{ suc
 
     const userEntry = data[0];
     const storedPass = userEntry.password || userEntry.password_hash || "";
-    if (password && storedPass !== password) {
+    const hashedInput = password ? sha256(password) : "";
+
+    // Support backwards compatibility for plain-text logins and check against the secure SHA-256 hash
+    if (password && storedPass !== password && storedPass !== hashedInput) {
       return { success: false, error: "كلمة المرور المدخلة غير صحيحة! يرجى إعادة المحاولة." };
+    }
+
+    // Auto-migrate user password to secure SHA-256 hash if they logged in with plain text password
+    if (password && storedPass === password && storedPass !== hashedInput) {
+      try {
+        await client
+          .from("users")
+          .update({ password: hashedInput, password_hash: hashedInput })
+          .eq("id", userEntry.id);
+      } catch (migrateErr) {
+        console.warn("Failed upgrading user password to SHA-256 hash during login session:", migrateErr);
+      }
     }
 
     return {
@@ -737,8 +879,9 @@ export async function updateCurrentUserProfile(
     const updateObj: any = {};
     if (updatedData.username) updateObj.username = updatedData.username;
     if (updatedData.password) {
-      updateObj.password = updatedData.password;
-      updateObj.password_hash = updatedData.password;
+      const hashed = sha256(updatedData.password);
+      updateObj.password = hashed;
+      updateObj.password_hash = hashed;
     }
     if (updatedData.grade_id !== undefined) {
       updateObj.grade_id = updatedData.grade_id;

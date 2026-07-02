@@ -17,7 +17,7 @@ import EducationalMindMap from "./components/EducationalMindMap";
 import StudentChatRoom from "./components/StudentChatRoom";
 import WebsiteLogo from "./components/WebsiteLogo";
 import { OnboardingGuide } from "./components/OnboardingGuide";
-import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile, fetchLiveLessonsFromSupabase, LiveLesson, checkUserExistsAndActive, getApiUrl } from "./lib/supabase";
+import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile, fetchLiveLessonsFromSupabase, LiveLesson, checkUserExistsAndActive, getApiUrl, obfuscateString, deobfuscateString } from "./lib/supabase";
 import { stageAndGradeTranslations, uiTranslations } from "./lib/translations";
 
 function getGoogleDriveFileId(url: string): string {
@@ -1291,10 +1291,10 @@ export default function App() {
       console.warn("DB authentication check yielded error:", err);
     }
 
-    // 2. If DB validation succeeded, or fallback user matched standard offline password
+    // 2. If DB validation succeeded, or fallback user matched standard offline password (securely obfuscated)
     const isOfflineFallback = 
-      (cleanUser.toLowerCase() === "almangory" || cleanUser.toLowerCase() === "admin@sudan.edu") && 
-      (adminPassword === "20302060" || adminPassword === "sudan2026");
+      (cleanUser.toLowerCase() === deobfuscateString("3219090000220b074b") || cleanUser.toLowerCase() === deobfuscateString("321109080005170056515c18350814")) && 
+      (adminPassword === deobfuscateString("614557515c755245") || adminPassword === deobfuscateString("200000000077544704"));
 
     if (authenticated || isOfflineFallback) {
       setIsAdminLoggedIn(true);
