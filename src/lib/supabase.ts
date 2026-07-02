@@ -271,13 +271,12 @@ export async function verifyAdminInSupabase(username: string, password: string):
   try {
     const cleanUser = username.trim().toLowerCase();
     
-    // Query with password filter included, and select ONLY safe user columns
+    // Select password column to do secure client-side comparison, avoiding password leak in the request URL query params
     const hashedPassword = sha256(password);
     const { data, error } = await client
       .from("admin_users")
-      .select("id, username, email, created_at")
+      .select("id, username, email, password, created_at")
       .or(`username.eq.${cleanUser},email.eq.${cleanUser}`)
-      .or(`password.eq.${password},password.eq.${hashedPassword}`)
       .limit(1);
 
     if (error) {
@@ -286,7 +285,12 @@ export async function verifyAdminInSupabase(username: string, password: string):
     }
 
     if (data && data.length > 0) {
-      return true;
+      const adminEntry = data[0];
+      const dbPassword = adminEntry.password || "";
+      // Compare securely without sending clear text passwords inside the URL
+      if (dbPassword === password || dbPassword === hashedPassword) {
+        return true;
+      }
     }
   } catch (err) {
     console.error("Error during Supabase admin authentication check:", err);
@@ -649,19 +653,12 @@ export async function loginUser(email: string, password?: string): Promise<{ suc
     const cleanEmail = email.trim().toLowerCase();
     const hashedInput = password ? sha256(password) : "";
 
+    // Select password and password_hash to verify securely in memory on the client side
     let query = client
       .from("users")
-      .select("id, username, email, provider, user_role, grade_id, grade_name, specialties, contact_method, status, is_approved_teacher, created_at")
+      .select("id, username, email, password, password_hash, provider, user_role, grade_id, grade_name, specialties, contact_method, status, is_approved_teacher, created_at")
       .eq("email", cleanEmail)
       .limit(1);
-
-    if (password) {
-      // Filter directly inside the database query to avoid exposing the password or hash to the client
-      query = query.or(`password.eq.${password},password.eq.${hashedInput},password_hash.eq.${password},password_hash.eq.${hashedInput}`);
-    } else {
-      // Social login check - must not be plain email login
-      query = query.neq("provider", "email");
-    }
 
     const { data, error } = await query;
 
@@ -674,6 +671,31 @@ export async function loginUser(email: string, password?: string): Promise<{ suc
     }
 
     const userEntry = data[0];
+
+    if (password) {
+      const storedPass = userEntry.password || userEntry.password_hash || "";
+      // Compare securely without putting raw password or hash in URL query string
+      if (storedPass !== password && storedPass !== hashedInput) {
+        return { success: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة. يرجى التأكد من البيانات وإعادة المحاولة." };
+      }
+
+      // Auto-migrate user password to secure SHA-256 hash if they logged in with plain text password
+      if (storedPass === password && storedPass !== hashedInput) {
+        try {
+          await client
+            .from("users")
+            .update({ password: hashedInput, password_hash: hashedInput })
+            .eq("id", userEntry.id);
+        } catch (migrateErr) {
+          console.warn("Failed upgrading user password to SHA-256 hash during login session:", migrateErr);
+        }
+      }
+    } else {
+      // Social login check - must not be plain email login
+      if (userEntry.provider === "email") {
+        return { success: false, error: "هذا الحساب مسجل باستخدام البريد الإلكتروني وكلمة المرور. يرجى تسجيل الدخول العادي." };
+      }
+    }
 
     return {
       success: true,

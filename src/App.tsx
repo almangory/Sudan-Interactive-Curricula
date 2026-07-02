@@ -1303,6 +1303,10 @@ export default function App() {
       setShowAdminDashboard(true); // Automatically toggle on dynamic edit panel
       setAdminLoginError("");
       
+      // Clear password inputs immediately on success to prevent them from remaining in memory
+      setAdminPassword("");
+      setUserPassword("");
+
       const welcomeMsg = authenticated 
         ? `مرحباً بك يا ${cleanUser}! تم التحقق من هويتك سحابياً عبر جدول admin_users بنجاح 🔑`
         : `مرحباً بك يا أستاذ عثمان المنقوري! تم تفعيل دخول الإدارة والمزامنة بالهوية الاحتياطية بنجاح 🔑`;
@@ -1320,6 +1324,12 @@ export default function App() {
     setShowHiddenAdminGate(false);
     setTrimClickCount(0);
     localStorage.removeItem("sudan_edu_admin");
+    // Clear all credentials inputs to protect user data on shared devices
+    setAdminUsername("");
+    setAdminPassword("");
+    setUserEmail("");
+    setUserPassword("");
+    setUserUsername("");
     setSaveStatus("تم تسجيل الخروج من لوحة الإدارة بنجاح.");
     setTimeout(() => setSaveStatus(null), 4000);
   };
@@ -1622,30 +1632,34 @@ export default function App() {
         setCurrentUser(adminUser);
         localStorage.setItem("sudan_auth_user", JSON.stringify(adminUser));
 
+        // Clear password immediately on success to prevent it from remaining in memory
+        setUserPassword("");
+        setAdminPassword("");
+ 
         setUserAuthSuccess("🟢 تم تسجيل دخول المسؤول بنجاح! جاري تفعيل لوحة الإدارة...");
         setSaveStatus("مرحباً بك يا أستاذ عثمان المنقوري! تم تفعيل لوحة التحكم والمزامنة بالهوية الاحتياطية بنجاح 🔑");
         setTimeout(() => setSaveStatus(null), 6000);
-
+ 
         setTimeout(() => {
           setShowUserModal(false);
           setUserAuthSuccess("");
         }, 1500);
         return;
       }
-
+ 
       if (!userEmail.includes("@")) {
         setUserAuthError("⚠️ يرجى إدخال بريد إلكتروني صحيح.");
         setIsAuthLoading(false);
         return;
       }
-
+ 
       const checkConfig = getSupabaseConfig();
       if (!checkConfig.isConfigured) {
         setUserAuthError("⚠️ سوبابيس غير مهيأة بعد من قبل المسؤول.");
         setIsAuthLoading(false);
         return;
       }
-
+ 
       // Try table login
       const res = await loginUser(userEmail, userPassword);
       if (res.success && res.user) {
@@ -1653,9 +1667,13 @@ export default function App() {
         setCurrentUser(res.user);
         localStorage.setItem("sudan_auth_user", JSON.stringify(res.user));
         
+        // Clear password immediately on success to prevent it from remaining in memory
+        setUserPassword("");
+        setAdminPassword("");
+ 
         setSaveStatus(`👋 مرحبًا بك مجددًا يا ${res.user.username}! تصفح ممتع للمناهج السودانية.`);
         setTimeout(() => setSaveStatus(null), 5050);
-
+ 
         setTimeout(() => {
           setShowUserModal(false);
           setUserAuthSuccess("");
@@ -3152,6 +3170,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                               <label className="block text-[9px] text-slate-400 mb-0.5 font-bold">كلمة المرور</label>
                               <input
                                 type="password"
+                                autoComplete="new-password"
                                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 outline-none focus:border-emerald-500/50 text-right"
                                 value={adminPassword}
                                 onChange={(e) => setAdminPassword(e.target.value)}
@@ -3226,6 +3245,12 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   onClick={() => {
                     setCurrentUser(null);
                     localStorage.removeItem("sudan_auth_user");
+                    // Clear all credentials inputs to protect user data on shared devices
+                    setUserEmail("");
+                    setUserPassword("");
+                    setUserUsername("");
+                    setAdminUsername("");
+                    setAdminPassword("");
                     const client = getSupabaseClient();
                     if (client) {
                       client.auth.signOut();
@@ -5772,6 +5797,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                     </label>
                     <input
                       type="password"
+                      autoComplete="new-password"
                       required={userModalTab !== "profile"}
                       value={userPassword}
                       onChange={(e) => setUserPassword(e.target.value)}
