@@ -42,10 +42,11 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip web sockets, dev server hot-reload websocket, and Supabase real-time API
+  // Skip web sockets, dev server hot-reload websocket, dynamic api routes, and Supabase real-time API
   if (
     url.pathname.includes('socket') ||
     url.pathname.includes('websocket') ||
+    url.pathname.includes('/api/') ||
     url.hostname.includes('supabase') ||
     url.hostname.includes('supabase.co') ||
     request.method !== 'GET'
@@ -60,10 +61,31 @@ self.addEventListener('fetch', (event) => {
       .then((networkResponse) => {
         // If valid response, open cache and clone it
         if (networkResponse && networkResponse.status === 200) {
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseClone);
-          });
+          const contentType = networkResponse.headers.get('content-type') || '';
+          const isCacheable = 
+            request.url.startsWith(self.location.origin) && (
+              url.pathname === '/' || 
+              url.pathname.endsWith('.html') ||
+              url.pathname.endsWith('.js') ||
+              url.pathname.endsWith('.css') ||
+              url.pathname.endsWith('.json') ||
+              url.pathname.endsWith('.pdf') ||
+              url.pathname.endsWith('.png') ||
+              url.pathname.endsWith('.jpg') ||
+              url.pathname.endsWith('.svg') ||
+              url.pathname.endsWith('.ico') ||
+              contentType.includes('application/javascript') ||
+              contentType.includes('text/css') ||
+              contentType.includes('application/pdf') ||
+              contentType.includes('image/')
+            );
+
+          if (isCacheable) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, responseClone);
+            });
+          }
         }
         return networkResponse;
       })

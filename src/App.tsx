@@ -17,7 +17,7 @@ import EducationalMindMap from "./components/EducationalMindMap";
 import StudentChatRoom from "./components/StudentChatRoom";
 import WebsiteLogo from "./components/WebsiteLogo";
 import { OnboardingGuide } from "./components/OnboardingGuide";
-import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile, fetchLiveLessonsFromSupabase, LiveLesson, checkUserExistsAndActive, getApiUrl, obfuscateString, deobfuscateString } from "./lib/supabase";
+import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile, fetchLiveLessonsFromSupabase, LiveLesson, checkUserExistsAndActive, getApiUrl, obfuscateString, deobfuscateString, sha256 } from "./lib/supabase";
 import { stageAndGradeTranslations, uiTranslations } from "./lib/translations";
 
 function getGoogleDriveFileId(url: string): string {
@@ -1605,7 +1605,7 @@ export default function App() {
       const cleanEmail = userEmail.trim().toLowerCase();
       
       // Admin Login Option inside Student/User modal
-      if (cleanEmail === "admin@sudan.edu" && (userPassword === "20302060" || userPassword === "sudan2026")) {
+      if (cleanEmail === deobfuscateString("321109080005170056515c18350814") && (sha256(userPassword) === "7322a90b9246e190b817891970e4ed6fb2f622509e17eebfe33cfff81f69e0a2" || sha256(userPassword) === "99653fbcbba0a2b7e6b8a032c8beb3385e2fc85c0f6eb6484f4e48c00d607944")) {
         setIsAdminLoggedIn(true);
         localStorage.setItem("sudan_edu_admin", "true");
         setShowHiddenAdminGate(true);

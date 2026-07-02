@@ -5,6 +5,12 @@ import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import fs from "fs/promises";
 import { createRequire } from "module";
+import crypto from "crypto";
+
+function sha256(text: string): string {
+  if (!text) return "";
+  return crypto.createHash("sha256").update(text).digest("hex");
+}
 
 const requireNext = createRequire(path.resolve(process.cwd(), "server.ts"));
 const pdfModule = requireNext("pdf-parse");
@@ -358,7 +364,7 @@ app.post("/api/friendships/respond", async (req, res) => {
 app.post("/api/chat/delete", async (req, res) => {
   try {
     const { messageId, adminPassword } = req.body;
-    if (adminPassword !== "20302060") return res.status(403).json({ success: false, error: "صلاحية غير صالحة." });
+    if (sha256(adminPassword) !== "7322a90b9246e190b817891970e4ed6fb2f622509e17eebfe33cfff81f69e0a2") return res.status(403).json({ success: false, error: "صلاحية غير صالحة." });
     serverChatMessages = serverChatMessages.filter(m => m.id !== messageId);
     await saveChatMessages();
     res.json({ success: true, messageId });
@@ -502,7 +508,7 @@ app.post("/api/tutor/quiz", async (req, res) => {
 app.post("/api/curriculum/save", async (req, res) => {
   try {
     const { password, stages } = req.body;
-    if (password !== "20302060") return res.status(403).json({ error: "كلمة مرور خاطئة." });
+    if (sha256(password) !== "7322a90b9246e190b817891970e4ed6fb2f622509e17eebfe33cfff81f69e0a2") return res.status(403).json({ error: "كلمة مرور خاطئة." });
     const filePath = path.join(process.cwd(), "src", "data", "curriculum.ts");
     await fs.writeFile(filePath, `export const stagesData: any[] = ${JSON.stringify(stages, null, 2)};\n`, "utf8");
     res.json({ success: true });

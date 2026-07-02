@@ -666,8 +666,8 @@ DROP POLICY IF EXISTS "Allow insert update for all" ON admin_users;
 CREATE POLICY "Allow select for everyone" ON admin_users FOR SELECT USING (true);
 CREATE POLICY "Allow insert update for all" ON admin_users FOR ALL USING (true) WITH CHECK (true);
 
--- إضافة مستخدم إداري افتراضي:
-INSERT INTO admin_users (username, password) VALUES ('almangory', '20302060') ON CONFLICT (username) DO NOTHING;
+-- إضافة مستخدم إداري افتراضي (كلمة المرور مشفرة بـ SHA-256):
+INSERT INTO admin_users (username, password) VALUES ('almangory', '7322a90b9246e190b817891970e4ed6fb2f622509e17eebfe33cfff81f69e0a2') ON CONFLICT (username) DO NOTHING;
 
 -- 3. إنشاء جدول الطلاب والمستخدمين العامين وتراخيص الأساتذة (users)
 CREATE TABLE IF NOT EXISTS users (

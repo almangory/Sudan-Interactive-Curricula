@@ -10,7 +10,7 @@ import { Subject } from "../data/curriculum";
 import DynamicIcon from "./DynamicIcon";
 import AITutor from "./AITutor";
 import { stageAndGradeTranslations, uiTranslations } from "../lib/translations";
-import { saveLiveLessonToSupabase, deleteLiveLessonFromSupabase } from "../lib/supabase";
+import { saveLiveLessonToSupabase, deleteLiveLessonFromSupabase, sha256 } from "../lib/supabase";
 
 function getVideoEmbedUrl(url: string): { url: string; isYouTube: boolean; isDrive: boolean } | null {
   if (!url) return null;
@@ -337,7 +337,7 @@ export default function SubjectModal({
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordInput === "20302060") {
+    if (sha256(passwordInput) === "7322a90b9246e190b817891970e4ed6fb2f622509e17eebfe33cfff81f69e0a2") {
       setShowPasswordPrompt(false);
       setIsEditing(true);
       setPasswordError("");

@@ -7,6 +7,7 @@ import {
 import { Subject } from "../data/curriculum";
 import DynamicIcon from "./DynamicIcon";
 import { stageAndGradeTranslations, uiTranslations } from "../lib/translations";
+import { sha256 } from "../lib/supabase";
 
 interface AddSubjectModalProps {
   stageId: string;
@@ -77,7 +78,7 @@ export default function AddSubjectModal({ stageId, gradeId, gradeName, onClose, 
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordInput === "20302060") {
+    if (sha256(passwordInput) === "7322a90b9246e190b817891970e4ed6fb2f622509e17eebfe33cfff81f69e0a2") {
       setIsAuthenticated(true);
       setPasswordError("");
     } else {
