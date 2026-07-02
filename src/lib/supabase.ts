@@ -262,38 +262,21 @@ export function testSupabaseConnection(url: string, anonKey: string): { success:
  * Falls back to offline confirmation if the table doesn't exist or client is unconfigured.
  */
 export async function verifyAdminInSupabase(username: string, password: string): Promise<boolean> {
-  const client = getSupabaseClient();
-  if (!client) {
-    console.log("Supabase client not configured. Verification falling back to default credential.");
-    return false;
-  }
-
   try {
-    const cleanUser = username.trim().toLowerCase();
-    
-    // Select password column to do secure client-side comparison, avoiding password leak in the request URL query params
-    const hashedPassword = sha256(password);
-    const { data, error } = await client
-      .from("admin_users")
-      .select("id, username, email, password, created_at")
-      .or(`username.eq.${cleanUser},email.eq.${cleanUser}`)
-      .limit(1);
+    const response = await fetch("/api/auth/admin-verify", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ username, password })
+    });
 
-    if (error) {
-      console.warn("Database check error on admin_users table:", error);
-      return false;
-    }
-
-    if (data && data.length > 0) {
-      const adminEntry = data[0];
-      const dbPassword = adminEntry.password || "";
-      // Compare securely without sending clear text passwords inside the URL
-      if (dbPassword === password || dbPassword === hashedPassword) {
-        return true;
-      }
+    if (response.ok) {
+      const resData = await response.json();
+      return !!resData.success;
     }
   } catch (err) {
-    console.error("Error during Supabase admin authentication check:", err);
+    console.error("Error during Supabase admin authentication check via backend:", err);
   }
   return false;
 }
@@ -644,74 +627,32 @@ export async function registerUser(
  * Logs in a user by checking the database 'users' table securely.
  */
 export async function loginUser(email: string, password?: string): Promise<{ success: boolean; error?: string; user?: AppUser }> {
-  const client = getSupabaseClient();
-  if (!client) {
-    return { success: false, error: "قاعدة بيانات سوبابيس (Supabase) غير مهيأة بعد." };
-  }
-
   try {
-    const cleanEmail = email.trim().toLowerCase();
-    const hashedInput = password ? sha256(password) : "";
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email, password })
+    });
 
-    // Select password and password_hash to verify securely in memory on the client side
-    let query = client
-      .from("users")
-      .select("id, username, email, password, password_hash, provider, user_role, grade_id, grade_name, specialties, contact_method, status, is_approved_teacher, created_at")
-      .eq("email", cleanEmail)
-      .limit(1);
-
-    const { data, error } = await query;
-
-    if (error) {
-      return { success: false, error: `فشل البحث في جدول المستخدمين: ${error.message}` };
-    }
-
-    if (!data || data.length === 0) {
-      return { success: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة. يرجى التأكد من البيانات وإعادة المحاولة." };
-    }
-
-    const userEntry = data[0];
-
-    if (password) {
-      const storedPass = userEntry.password || userEntry.password_hash || "";
-      // Compare securely without putting raw password or hash in URL query string
-      if (storedPass !== password && storedPass !== hashedInput) {
-        return { success: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة. يرجى التأكد من البيانات وإعادة المحاولة." };
-      }
-
-      // Auto-migrate user password to secure SHA-256 hash if they logged in with plain text password
-      if (storedPass === password && storedPass !== hashedInput) {
-        try {
-          await client
-            .from("users")
-            .update({ password: hashedInput, password_hash: hashedInput })
-            .eq("id", userEntry.id);
-        } catch (migrateErr) {
-          console.warn("Failed upgrading user password to SHA-256 hash during login session:", migrateErr);
-        }
-      }
-    } else {
-      // Social login check - must not be plain email login
-      if (userEntry.provider === "email") {
-        return { success: false, error: "هذا الحساب مسجل باستخدام البريد الإلكتروني وكلمة المرور. يرجى تسجيل الدخول العادي." };
+    if (response.ok) {
+      const resData = await response.json();
+      if (resData.success) {
+        return {
+          success: true,
+          user: resData.user
+        };
+      } else {
+        return {
+          success: false,
+          error: resData.error || "فشل تسجيل الدخول."
+        };
       }
     }
-
     return {
-      success: true,
-      user: {
-        id: userEntry.id || String(Date.now()),
-        username: userEntry.username || userEntry.name || "مستخدم جديد",
-        email: userEntry.email,
-        provider: userEntry.provider || "email",
-        user_role: userEntry.user_role || "student",
-        grade_id: userEntry.grade_id,
-        grade_name: userEntry.grade_name,
-        specialties: userEntry.specialties,
-        contact_method: userEntry.contact_method,
-        status: userEntry.status || "active",
-        is_approved_teacher: !!userEntry.is_approved_teacher
-      }
+      success: false,
+      error: `حدث خطأ أثناء الاتصال بالخادم: ${response.statusText}`
     };
   } catch (err: any) {
     return { success: false, error: err.message || String(err) };

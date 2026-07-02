@@ -274,6 +274,146 @@ app.get("/api/config/supabase", (req, res) => {
   }
 });
 
+// 1.0.1 التحقق الآمن من المشرفين في الخلفية (يمنع تسرب كلمة المرور للمتصفح)
+app.post("/api/auth/admin-verify", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ success: false, error: "Username and password are required." });
+    }
+
+    const cleanUser = username.trim().toLowerCase();
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+
+    if (!supabaseKey) {
+      return res.json({ success: false, error: "Supabase is not configured." });
+    }
+
+    const url = `${supabaseUrl.trim()}/rest/v1/admin_users?or=(username.eq.${encodeURIComponent(cleanUser)},email.eq.${encodeURIComponent(cleanUser)})&limit=1`;
+    const response = await fetch(url, {
+      headers: {
+        "apikey": supabaseKey.trim(),
+        "Authorization": `Bearer ${supabaseKey.trim()}`
+      }
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.warn("Error fetching admin user from Supabase:", errText);
+      return res.json({ success: false, error: "Database error" });
+    }
+
+    const data = await response.json() as any[];
+    if (data && data.length > 0) {
+      const adminEntry = data[0];
+      const dbPassword = adminEntry.password || "";
+      const hashedPassword = sha256(password);
+
+      if (dbPassword === password || dbPassword === hashedPassword) {
+        return res.json({ success: true });
+      }
+    }
+
+    return res.json({ success: false, error: "Incorrect credentials" });
+  } catch (error: any) {
+    console.error("Error in /api/auth/admin-verify:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 1.0.2 تسجيل الدخول الآمن للمستخدمين في الخلفية (يمنع تسرب كلمة المرور أو الهاش للمتصفح)
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, error: "Email is required." });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+
+    if (!supabaseKey) {
+      return res.json({ success: false, error: "سوبابيس غير مهيأة بعد." });
+    }
+
+    const url = `${supabaseUrl.trim()}/rest/v1/users?email=eq.${encodeURIComponent(cleanEmail)}&limit=1`;
+    const response = await fetch(url, {
+      headers: {
+        "apikey": supabaseKey.trim(),
+        "Authorization": `Bearer ${supabaseKey.trim()}`
+      }
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.warn("Error fetching user from Supabase:", errText);
+      return res.json({ success: false, error: "Database error" });
+    }
+
+    const data = await response.json() as any[];
+    if (!data || data.length === 0) {
+      return res.json({ success: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة. يرجى التأكد من البيانات وإعادة المحاولة." });
+    }
+
+    const userEntry = data[0];
+    const hashedInput = password ? sha256(password) : "";
+
+    if (password) {
+      const storedPass = userEntry.password || userEntry.password_hash || "";
+      if (storedPass !== password && storedPass !== hashedInput) {
+        return res.json({ success: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة. يرجى التأكد من البيانات وإعادة المحاولة." });
+      }
+
+      // Auto-migrate user password to secure SHA-256 hash if they logged in with plain text password
+      if (storedPass === password && storedPass !== hashedInput) {
+        try {
+          const updateUrl = `${supabaseUrl.trim()}/rest/v1/users?id=eq.${userEntry.id}`;
+          await fetch(updateUrl, {
+            method: "PATCH",
+            headers: {
+              "apikey": supabaseKey.trim(),
+              "Authorization": `Bearer ${supabaseKey.trim()}`,
+              "Content-Type": "application/json",
+              "Prefer": "return=minimal"
+            },
+            body: JSON.stringify({ password: hashedInput, password_hash: hashedInput })
+          });
+        } catch (migrateErr) {
+          console.warn("Failed upgrading user password to SHA-256 hash during login session:", migrateErr);
+        }
+      }
+    } else {
+      // Social login check - must not be plain email login
+      if (userEntry.provider === "email") {
+        return res.json({ success: false, error: "هذا الحساب مسجل باستخدام البريد الإلكتروني وكلمة المرور. يرجى تسجيل الدخول العادي." });
+      }
+    }
+
+    // Construct a safe user object to send back to the client, omitting password and password_hash
+    const safeUser = {
+      id: userEntry.id,
+      username: userEntry.username,
+      email: userEntry.email,
+      provider: userEntry.provider,
+      user_role: userEntry.user_role,
+      grade_id: userEntry.grade_id,
+      grade_name: userEntry.grade_name,
+      specialties: userEntry.specialties,
+      contact_method: userEntry.contact_method,
+      status: userEntry.status,
+      is_approved_teacher: userEntry.is_approved_teacher,
+      created_at: userEntry.created_at
+    };
+
+    return res.json({ success: true, user: safeUser });
+  } catch (error: any) {
+    console.error("Error in /api/auth/login:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // قائمة عملاء SSE النشطين لاستقبال التحديثات الفورية
 let sseClients: any[] = [];
 
