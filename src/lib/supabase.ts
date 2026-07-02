@@ -271,11 +271,13 @@ export async function verifyAdminInSupabase(username: string, password: string):
   try {
     const cleanUser = username.trim().toLowerCase();
     
-    // We try to look up where username is equal, or email is equal (if they use email as standard identifier)
+    // Query with password filter included, and select ONLY safe user columns
+    const hashedPassword = sha256(password);
     const { data, error } = await client
       .from("admin_users")
-      .select("*")
+      .select("id, username, email, created_at")
       .or(`username.eq.${cleanUser},email.eq.${cleanUser}`)
+      .or(`password.eq.${password},password.eq.${hashedPassword}`)
       .limit(1);
 
     if (error) {
@@ -284,12 +286,7 @@ export async function verifyAdminInSupabase(username: string, password: string):
     }
 
     if (data && data.length > 0) {
-      const adminEntry = data[0];
-      const dbPassword = adminEntry.password || adminEntry.password_hash || "";
-      // Compare password supporting both secure SHA-256 hashing and existing plain text
-      if (dbPassword === password || dbPassword === sha256(password)) {
-        return true;
-      }
+      return true;
     }
   } catch (err) {
     console.error("Error during Supabase admin authentication check:", err);
@@ -611,7 +608,7 @@ export async function registerUser(
     const { data: insertData, error: insertError } = await client
       .from("users")
       .insert([userDataToInsert])
-      .select();
+      .select("id, username, email, provider, user_role, grade_id, grade_name, specialties, contact_method, status, is_approved_teacher, created_at");
 
     if (insertError) {
       return { success: false, error: `فشل الحفظ بجدول 'users': ${insertError.message}` };
@@ -640,7 +637,7 @@ export async function registerUser(
 }
 
 /**
- * Logs in a user by checking the database 'users' table.
+ * Logs in a user by checking the database 'users' table securely.
  */
 export async function loginUser(email: string, password?: string): Promise<{ success: boolean; error?: string; user?: AppUser }> {
   const client = getSupabaseClient();
@@ -650,41 +647,33 @@ export async function loginUser(email: string, password?: string): Promise<{ suc
 
   try {
     const cleanEmail = email.trim().toLowerCase();
+    const hashedInput = password ? sha256(password) : "";
 
-    const { data, error } = await client
+    let query = client
       .from("users")
-      .select("*")
+      .select("id, username, email, provider, user_role, grade_id, grade_name, specialties, contact_method, status, is_approved_teacher, created_at")
       .eq("email", cleanEmail)
       .limit(1);
+
+    if (password) {
+      // Filter directly inside the database query to avoid exposing the password or hash to the client
+      query = query.or(`password.eq.${password},password.eq.${hashedInput},password_hash.eq.${password},password_hash.eq.${hashedInput}`);
+    } else {
+      // Social login check - must not be plain email login
+      query = query.neq("provider", "email");
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       return { success: false, error: `فشل البحث في جدول المستخدمين: ${error.message}` };
     }
 
     if (!data || data.length === 0) {
-      return { success: false, error: "هذا البريد الإلكتروني غير مسجل لدينا سيدي. يرجى إنشاء حساب أولاً." };
+      return { success: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة. يرجى التأكد من البيانات وإعادة المحاولة." };
     }
 
     const userEntry = data[0];
-    const storedPass = userEntry.password || userEntry.password_hash || "";
-    const hashedInput = password ? sha256(password) : "";
-
-    // Support backwards compatibility for plain-text logins and check against the secure SHA-256 hash
-    if (password && storedPass !== password && storedPass !== hashedInput) {
-      return { success: false, error: "كلمة المرور المدخلة غير صحيحة! يرجى إعادة المحاولة." };
-    }
-
-    // Auto-migrate user password to secure SHA-256 hash if they logged in with plain text password
-    if (password && storedPass === password && storedPass !== hashedInput) {
-      try {
-        await client
-          .from("users")
-          .update({ password: hashedInput, password_hash: hashedInput })
-          .eq("id", userEntry.id);
-      } catch (migrateErr) {
-        console.warn("Failed upgrading user password to SHA-256 hash during login session:", migrateErr);
-      }
-    }
 
     return {
       success: true,
@@ -708,7 +697,7 @@ export async function loginUser(email: string, password?: string): Promise<{ suc
 }
 
 /**
- * Fetches all registered users from the database 'users' table for Admin use.
+ * Fetches all registered users from the database 'users' table for Admin use, without returning sensitive password columns.
  */
 export async function fetchAllRegisteredUsers(): Promise<AppUser[]> {
   const client = getSupabaseClient();
@@ -716,7 +705,7 @@ export async function fetchAllRegisteredUsers(): Promise<AppUser[]> {
   try {
     const { data, error } = await client
       .from("users")
-      .select("*")
+      .select("id, username, email, provider, user_role, grade_id, grade_name, specialties, contact_method, status, is_approved_teacher, created_at")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -824,7 +813,7 @@ export async function checkAndSyncGoogleSession(): Promise<AppUser | null> {
 
       const { data, error } = await client
         .from("users")
-        .select("*")
+        .select("id, username, email, provider, user_role, grade_id, grade_name, specialties, contact_method, status, is_approved_teacher, created_at")
         .eq("email", email.trim().toLowerCase())
         .limit(1);
 
@@ -901,7 +890,7 @@ export async function updateCurrentUserProfile(
 
     const { data: updatedEntry, error: fetchError } = await client
       .from("users")
-      .select("*")
+      .select("id, username, email, provider, user_role, grade_id, grade_name, specialties, contact_method, status, is_approved_teacher, created_at")
       .eq("id", userId)
       .limit(1);
 

@@ -265,7 +265,7 @@ export default function StudentChatRoom({
       // 2. Fetch all registered users to construct the students directory
       const { data: usersData, error: usersError } = await client
         .from("users")
-        .select("*")
+        .select("id, username, email, provider, user_role, grade_id, grade_name, specialties, contact_method, status, is_approved_teacher, created_at")
         .limit(200);
 
       if (!usersError && usersData) {
