@@ -598,6 +598,9 @@ export async function registerUser(
       .select("id, username, email, provider, user_role, grade_id, grade_name, specialties, contact_method, status, is_approved_teacher, created_at");
 
     if (insertError) {
+      if (insertError.code === "23505" || insertError.message?.toLowerCase().includes("duplicate key") || insertError.message?.toLowerCase().includes("already exists") || insertError.message?.toLowerCase().includes("unique constraint")) {
+        return { success: false, error: "⚠️ البريد الإلكتروني الذي أدخلته مسجل بالفعل في النظام! يرجى استخدام بريد إلكتروني آخر للتسجيل، أو الانتقال لعلامة تبويب (تسجيل الدخول) إذا كنت تملك هذا الحساب." };
+      }
       return { success: false, error: `فشل الحفظ بجدول 'users': ${insertError.message}` };
     }
 
