@@ -2777,8 +2777,29 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
   // 👪 Parent Portal Custom Render Function
   // =========================================================================
   const renderParentPortal = () => {
-    // Filter out student users for searching
-    const studentUsers = allRegisteredUsers.filter(u => u.user_role === "student");
+    // Filter out student users for searching (strictly exclude teachers/instructors/parents/admins)
+    const studentUsers = allRegisteredUsers.filter(u => {
+      const role = (u.user_role || "").toLowerCase();
+      const isStudentRole = role === "student";
+      const isNotTeacherOrParentOrAdmin = role !== "teacher" && role !== "parent" && role !== "admin" && role !== "instructor";
+      const hasTeacherFlags = !!u.is_approved_teacher;
+      const usernameLower = (u.username || "").toLowerCase();
+      const emailLower = (u.email || "").toLowerCase();
+      
+      const hasTeacherIndicator = 
+        usernameLower.includes("أستاذ") || 
+        usernameLower.includes("استاذ") || 
+        usernameLower.includes("معلم") || 
+        usernameLower.includes("معلمة") || 
+        usernameLower.includes("أستاذة") ||
+        usernameLower.includes("teacher") ||
+        usernameLower.includes("instructor") ||
+        usernameLower.includes("admin") ||
+        emailLower.includes("teacher") ||
+        emailLower.includes("admin");
+
+      return isStudentRole && isNotTeacherOrParentOrAdmin && !hasTeacherFlags && !hasTeacherIndicator;
+    });
     const filteredStudents = studentUsers.filter(student => {
       const q = parentSearchQuery.toLowerCase();
       return student.username.toLowerCase().includes(q) || 
