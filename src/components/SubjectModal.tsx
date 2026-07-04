@@ -60,6 +60,31 @@ function getVideoEmbedUrl(url: string): { url: string; isYouTube: boolean; isDri
   return null;
 }
 
+function getPdfEmbedUrl(url: string): string {
+  if (!url) return "";
+  
+  // Google Drive file link
+  const driveFileRegExp = /\/file\/d\/([a-zA-Z0-9_-]+)/;
+  const driveFileMatch = url.match(driveFileRegExp);
+  if (driveFileMatch && driveFileMatch[1]) {
+    return `https://drive.google.com/file/d/${driveFileMatch[1]}/preview`;
+  }
+  
+  // Google Drive open link (e.g., ?id=...)
+  const driveOpenRegExp = /[?&]id=([a-zA-Z0-9_-]+)/;
+  const driveOpenMatch = url.match(driveOpenRegExp);
+  if (url.includes("drive.google.com") && driveOpenMatch && driveOpenMatch[1]) {
+    return `https://drive.google.com/file/d/${driveOpenMatch[1]}/preview`;
+  }
+  
+  // Google Docs viewer as a proxy for standard PDFs (to avoid browser download prompting and make it open inside)
+  if (url.endsWith(".pdf") && !url.includes("drive.google.com") && !url.includes("docs.google.com")) {
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+  }
+
+  return url;
+}
+
 interface SubjectModalProps {
   stageId: string;
   stageName: string;
@@ -94,6 +119,8 @@ export default function SubjectModal({
   onRefreshLiveLessons
 }: SubjectModalProps) {
   const [showTutor, setShowTutor] = useState(false);
+  const [activePdfUrl, setActivePdfUrl] = useState<string | null>(null);
+  const [activePdfTitle, setActivePdfTitle] = useState<string>("");
 
   const subjectLiveLessons = liveLessons.filter(
     (lesson) => lesson.subjectId === subject.id || (lesson.subjectName === subject.name && lesson.gradeId === gradeId)
@@ -377,6 +404,84 @@ export default function SubjectModal({
     }
   };
 
+  if (activePdfUrl) {
+    const embedPdfUrl = getPdfEmbedUrl(activePdfUrl);
+    return (
+      <div className={`fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-2 sm:p-4 backdrop-blur-md transition-all font-sans ${
+        siteTheme === "sudanese" ? "bg-mud/40" : "bg-slate-950/95"
+      }`} dir={currentLang === "ar" ? "rtl" : "ltr"}>
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className={`w-full max-w-5xl h-[92vh] max-h-[96vh] flex flex-col justify-between overflow-hidden relative ${
+            siteTheme === "sudanese" 
+              ? "bg-[#FAF5EC] border border-mud/15 rounded-3xl shadow-xl text-mud" 
+              : "bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl"
+          }`}
+        >
+          {/* Top Panel: Header with back button */}
+          <div className={`p-4 sm:px-6 border-b flex items-center justify-between gap-3 flex-shrink-0 ${
+            siteTheme === "sudanese"
+              ? "bg-[#FCFAF3] border-mud/15 text-mud"
+              : "bg-slate-950 border-slate-800"
+          }`}>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setActivePdfUrl(null)}
+                className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1 text-xs font-black transition-colors ${
+                  siteTheme === "sudanese"
+                    ? "bg-mud hover:bg-[#4A2312] text-cream border-mud"
+                    : "bg-slate-800 hover:bg-slate-700 text-white border-slate-700"
+                }`}
+              >
+                <ChevronRight className="w-4 h-4" />
+                <span>{currentLang === "ar" ? "رجوع للمادة" : "Back to Subject"}</span>
+              </button>
+              <div>
+                <span className={`text-[10px] font-bold block ${
+                  siteTheme === "sudanese" ? "text-mud/60" : "text-emerald-400"
+                }`}>{t(gradeName)} • {t(stageName)}</span>
+                <h3 className={`text-xs sm:text-sm font-black flex items-center gap-1 ${
+                  siteTheme === "sudanese" ? "text-mud" : "text-slate-100"
+                }`}>
+                  <span>{activePdfTitle}</span>
+                </h3>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setActivePdfUrl(null)}
+              className={`p-2 rounded-full transition-colors cursor-pointer ${
+                siteTheme === "sudanese" 
+                  ? "text-mud/70 hover:text-mud bg-mud/5 hover:bg-mud/15" 
+                  : "text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-850"
+              }`}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Central PDF Iframe */}
+          <div className="flex-1 w-full h-full relative bg-slate-950">
+            {embedPdfUrl ? (
+              <iframe
+                src={embedPdfUrl}
+                title={activePdfTitle}
+                className="w-full h-full border-none"
+                allow="autoplay"
+              />
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center space-y-3">
+                <FileText className="w-12 h-12 text-slate-600 animate-pulse" />
+                <p className="text-sm text-slate-400">عذراً، الرابط المكتوب غير متوفر للمشاهدة حالياً.</p>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   if (isStudyMode) {
     return (
       <div className={`fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-2 sm:p-4 backdrop-blur-md transition-all font-sans ${
@@ -554,17 +659,18 @@ export default function SubjectModal({
                               {currentLang === "ar" ? "افتح الكتاب الرقمي المنهجي بصيغة PDF بجوار الشاشة أو قم بتنزيله لدراسة فصوله وعقد المقارنات البينية بأريحية كاملة." : "Open the official digital PDF textbook on your device or download it to study syllabus chapters seamlessly."}
                             </p>
                           </div>
-                          <a
-                            href={subject.pdfUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            onClick={() => {
+                              setActivePdfUrl(subject.pdfUrl!);
+                              setActivePdfTitle(currentLang === "ar" ? `كتاب المقرر: ${t(subject.name)}` : `Textbook: ${t(subject.name)}`);
+                            }}
                             className={`inline-flex items-center gap-2 px-5 py-2.5 text-white text-2xs font-bold rounded-xl transition-all shadow-md cursor-pointer ${
                               siteTheme === "sudanese" ? "bg-mud hover:bg-[#4A2312]" : "bg-emerald-600 hover:bg-emerald-555"
                             }`}
                           >
-                            <Download className="w-3.5 h-3.5" />
-                            <span>{currentLang === "ar" ? "فتح / تنزيل كتاب المقرر PDF التفاعلي" : "Open / Download Interactive Textbook PDF"}</span>
-                          </a>
+                            <BookOpen className="w-3.5 h-3.5" />
+                            <span>{currentLang === "ar" ? "فتح وقراءة كتاب المقرر التفاعلي" : "Open and Read Interactive Textbook"}</span>
+                          </button>
                         </div>
                       </div>
                     ) : (
@@ -1228,43 +1334,24 @@ export default function SubjectModal({
                   </div>
                   <div>
                     {subject.pdfUrl ? (
-                      <div className="grid grid-cols-5 gap-2">
-                        <a 
-                          href={subject.pdfUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="col-span-3 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-650 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>{t("تنزيل كتاب المقرر PDF")}</span>
-                        </a>
-
-                        <button
-                          onClick={() => handleToggleCache(subject.pdfUrl!)}
-                          disabled={cachingStatus[subject.pdfUrl] === "loading"}
-                          className={`col-span-2 inline-flex items-center justify-center gap-1 px-1 py-2 rounded-xl text-[9px] font-extrabold border transition-all cursor-pointer ${
-                            cachedUrls.includes(subject.pdfUrl)
-                              ? "bg-emerald-950/25 text-emerald-400 border-emerald-900/30 hover:bg-emerald-900/20"
-                              : cachingStatus[subject.pdfUrl] === "loading"
-                                ? "bg-slate-900 text-slate-500 border-slate-850"
-                                : "bg-slate-900/40 hover:bg-slate-950 text-slate-300 border-slate-800 hover:border-emerald-500/40"
-                          }`}
-                        >
-                          {cachingStatus[subject.pdfUrl] === "loading" ? (
-                            <span className="inline-block w-2.5 h-2.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></span>
-                          ) : cachingStatus[subject.pdfUrl] === "success" ? (
-                            <span>{currentLang === "ar" ? "حُفظ! 🟢" : "Saved! 🟢"}</span>
-                          ) : cachedUrls.includes(subject.pdfUrl) ? (
-                            <span>{currentLang === "ar" ? "حذف" : "Remove"}</span>
-                          ) : (
-                            <span>{currentLang === "ar" ? "تفعيل الحفظ" : "Cache offline"}</span>
-                          )}
-                        </button>
-                      </div>
+                      <button 
+                        onClick={() => {
+                          setActivePdfUrl(subject.pdfUrl!);
+                          setActivePdfTitle(currentLang === "ar" ? `كتاب المقرر: ${t(subject.name)}` : `Textbook: ${t(subject.name)}`);
+                        }}
+                        className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
+                          siteTheme === "sudanese" 
+                            ? "bg-mud hover:bg-[#4A2312]" 
+                            : "bg-emerald-600 hover:bg-emerald-500"
+                        }`}
+                      >
+                        <BookOpen className="w-4 h-4" />
+                        <span>{currentLang === "ar" ? "فتح وقراءة كتاب المقرر" : "Open and Read Textbook"}</span>
+                      </button>
                     ) : (
                       <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 cursor-not-allowed opacity-60">
-                        <Download className="w-3.5 h-3.5 text-slate-500/80" />
-                        <span>{t("رابط الكتاب (سيتوفر قريباً)")}</span>
+                        <BookOpen className="w-3.5 h-3.5 text-slate-500/80" />
+                        <span>{currentLang === "ar" ? "كتاب المقرر غير متوفر حالياً" : "Book not available yet"}</span>
                       </div>
                     )}
                   </div>
@@ -1309,43 +1396,24 @@ export default function SubjectModal({
                   </div>
                   <div>
                     {subject.memoPdfUrl ? (
-                      <div className="grid grid-cols-5 gap-2">
-                        <a 
-                          href={subject.memoPdfUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="col-span-3 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-550 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
-                        >
-                          <Download className="w-3.5 h-3.5 animate-pulse" />
-                          <span>{currentLang === "ar" ? "تنزيل المذكرة" : "Download Notes"}</span>
-                        </a>
-
-                        <button
-                          onClick={() => handleToggleCache(subject.memoPdfUrl!)}
-                          disabled={cachingStatus[subject.memoPdfUrl] === "loading"}
-                          className={`col-span-2 inline-flex items-center justify-center gap-1 px-1 py-2 rounded-xl text-[9px] font-extrabold border transition-all cursor-pointer ${
-                            cachedUrls.includes(subject.memoPdfUrl)
-                              ? "bg-amber-955/25 text-amber-400 border-amber-900/30 hover:bg-amber-900/20"
-                              : cachingStatus[subject.memoPdfUrl] === "loading"
-                                ? "bg-slate-900 text-slate-500 border-slate-850"
-                                : "bg-slate-900/40 hover:bg-slate-950 text-slate-300 border-slate-800 hover:border-amber-500/40"
-                          }`}
-                        >
-                          {cachingStatus[subject.memoPdfUrl] === "loading" ? (
-                            <span className="inline-block w-2.5 h-2.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></span>
-                          ) : cachingStatus[subject.memoPdfUrl] === "success" ? (
-                            <span>{currentLang === "ar" ? "حُفظ! 🟢" : "Saved! 🟢"}</span>
-                          ) : cachedUrls.includes(subject.memoPdfUrl) ? (
-                            <span>{currentLang === "ar" ? "حذف" : "Remove"}</span>
-                          ) : (
-                            <span>{currentLang === "ar" ? "تفعيل الحفظ" : "Cache offline"}</span>
-                          )}
-                        </button>
-                      </div>
+                      <button 
+                        onClick={() => {
+                          setActivePdfUrl(subject.memoPdfUrl!);
+                          setActivePdfTitle(currentLang === "ar" ? `مذكرة المادة: ${t(subject.name)}` : `Notes: ${t(subject.name)}`);
+                        }}
+                        className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
+                          siteTheme === "sudanese" 
+                            ? "bg-[#A16207] hover:bg-[#854D0E]" 
+                            : "bg-amber-600 hover:bg-amber-500"
+                        }`}
+                      >
+                        <FileText className="w-4 h-4" />
+                        <span>{currentLang === "ar" ? "فتح وقراءة المذكرة" : "Open and Read Notes"}</span>
+                      </button>
                     ) : (
                       <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 cursor-not-allowed opacity-60">
-                        <Download className="w-3.5 h-3.5 text-slate-500/80" />
-                        <span>{t("رابط المذكرة (سيتوفر قريباً)")}</span>
+                        <FileText className="w-3.5 h-3.5 text-slate-500/80" />
+                        <span>{currentLang === "ar" ? "المذكرة غير متوفرة حالياً" : "Notes not available yet"}</span>
                       </div>
                     )}
                   </div>
