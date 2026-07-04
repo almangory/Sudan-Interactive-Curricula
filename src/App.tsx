@@ -2782,7 +2782,8 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
     const filteredStudents = studentUsers.filter(student => {
       const q = parentSearchQuery.toLowerCase();
       return student.username.toLowerCase().includes(q) || 
-             (student.grade_name || "").toLowerCase().includes(q);
+             (student.grade_name || "").toLowerCase().includes(q) ||
+             (student.email || "").toLowerCase().includes(q);
     });
 
     return (
@@ -2994,7 +2995,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 <Search className="w-4 h-4 text-mud/40 absolute right-3.5 top-3.5" />
                 <input
                   type="text"
-                  placeholder="ابحث باسم الطالب أو السنة الدراسية..."
+                  placeholder="ابحث باسم الطالب، السنة الدراسية، أو البريد الإلكتروني..."
                   value={parentSearchQuery}
                   onChange={(e) => setParentSearchQuery(e.target.value)}
                   className="w-full pl-4 pr-10 py-2.5 rounded-xl border border-mud/15 hover:border-mud/30 focus:border-earthgold focus:outline-hidden text-3xs font-medium text-mud [font-family:inherit] bg-[#FAF7F0]/30"
@@ -3012,6 +3013,9 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       <div key={student.id} className="p-3 bg-[#FAF7F0] hover:bg-cream/25 border border-mud/5 rounded-xl flex items-center justify-between gap-3 text-right">
                         <div className="space-y-0.5">
                           <p className="font-bold text-mud text-3xs">{student.username}</p>
+                          {student.email && (
+                            <p className="text-[9px] text-mud/60 font-mono select-all select-text">{student.email}</p>
+                          )}
                           <p className="text-4xs text-earthgold font-semibold">{student.grade_name || "مرحلة غير محددة"}</p>
                         </div>
 
