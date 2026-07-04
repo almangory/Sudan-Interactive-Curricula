@@ -128,6 +128,7 @@ export default function SubjectModal({
   const [showTutor, setShowTutor] = useState(false);
   const [activePdfUrl, setActivePdfUrl] = useState<string | null>(null);
   const [activePdfTitle, setActivePdfTitle] = useState<string>("");
+  const [forceLoadIframe, setForceLoadIframe] = useState<boolean>(false);
 
   const subjectLiveLessons = liveLessons.filter(
     (lesson) => lesson.subjectId === subject.id || (lesson.subjectName === subject.name && lesson.gradeId === gradeId)
@@ -459,6 +460,9 @@ export default function SubjectModal({
 
   if (activePdfUrl) {
     const embedPdfUrl = getPdfEmbedUrl(activePdfUrl);
+    const isBlobUrl = activePdfUrl.startsWith("blob:");
+    const shouldShowIframe = isBlobUrl || forceLoadIframe;
+
     return (
       <div className={`fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-2 sm:p-4 backdrop-blur-md transition-all font-sans ${
         siteTheme === "sudanese" ? "bg-mud/40" : "bg-slate-950/95"
@@ -480,7 +484,10 @@ export default function SubjectModal({
           }`}>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setActivePdfUrl(null)}
+                onClick={() => {
+                  setActivePdfUrl(null);
+                  setForceLoadIframe(false);
+                }}
                 className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1 text-xs font-black transition-colors ${
                   siteTheme === "sudanese"
                     ? "bg-mud hover:bg-[#4A2312] text-cream border-mud"
@@ -503,7 +510,10 @@ export default function SubjectModal({
             </div>
 
             <button
-              onClick={() => setActivePdfUrl(null)}
+              onClick={() => {
+                setActivePdfUrl(null);
+                setForceLoadIframe(false);
+              }}
               className={`p-2 rounded-full transition-colors cursor-pointer ${
                 siteTheme === "sudanese" 
                   ? "text-mud/70 hover:text-mud bg-mud/5 hover:bg-mud/15" 
@@ -514,19 +524,105 @@ export default function SubjectModal({
             </button>
           </div>
 
-          {/* Central PDF Iframe */}
-          <div className="flex-1 w-full h-full relative bg-slate-950">
-            {embedPdfUrl ? (
-              <iframe
-                src={embedPdfUrl}
-                title={activePdfTitle}
-                className="w-full h-full border-none"
-                allow="autoplay"
-              />
+          {/* Central PDF Panel */}
+          <div className={`flex-1 w-full h-full relative overflow-y-auto ${
+            siteTheme === "sudanese" ? "bg-[#FCFAF3]" : "bg-slate-950"
+          }`}>
+            {shouldShowIframe ? (
+              embedPdfUrl ? (
+                <iframe
+                  src={embedPdfUrl}
+                  title={activePdfTitle}
+                  className="w-full h-full border-none"
+                  allow="autoplay"
+                />
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center space-y-3">
+                  <FileText className="w-12 h-12 text-slate-600 animate-pulse" />
+                  <p className={`text-sm ${siteTheme === 'sudanese' ? 'text-mud/80' : 'text-slate-400'}`}>
+                    {currentLang === "ar" ? "عذراً، الرابط المكتوب غير متوفر للمشاهدة حالياً." : "Sorry, the specified link is not available for preview currently."}
+                  </p>
+                </div>
+              )
             ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center space-y-3">
-                <FileText className="w-12 h-12 text-slate-600 animate-pulse" />
-                <p className="text-sm text-slate-400">عذراً، الرابط المكتوب غير متوفر للمشاهدة حالياً.</p>
+              /* Gorgeous, intuitive options panel to bypass CSP and CORS restrictions of drive.google.com / docs.google.com */
+              <div className="min-h-full flex flex-col items-center justify-center p-6 sm:p-10 text-center space-y-6 max-w-2xl mx-auto">
+                <div className="relative animate-pulse">
+                  <div className={`p-5 rounded-full ${
+                    siteTheme === "sudanese" ? "bg-amber-100 text-[#A16207]" : "bg-emerald-950/45 text-emerald-400"
+                  }`}>
+                    <FileText className="w-14 h-14" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 bg-amber-500 text-white rounded-full p-1.5 shadow-md">
+                    <Sparkles className="w-4 h-4 animate-spin-slow" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className={`text-sm sm:text-base font-black ${
+                    siteTheme === "sudanese" ? "text-mud" : "text-slate-100"
+                  }`}>
+                    {currentLang === "ar" ? "قراءة آمنة وتصفح كامل للملف 📚" : "Secure Reading & Full Browser Access 📚"}
+                  </h4>
+                  <p className={`text-4xs sm:text-3xs leading-relaxed ${
+                    siteTheme === "sudanese" ? "text-mud/75" : "text-slate-400"
+                  }`}>
+                    {currentLang === "ar" 
+                      ? "تفرض قوقل درايف (Google Drive) قيوداً أمنية متقدمة تمنع تضمين الملفات والمقررات بصورة مباشرة داخل النوافذ المدمجة لحماية خصوصيتك."
+                      : "Google Drive enforces advanced security protocols that restrict direct embedding of document previews within inline website frames to protect your session privacy."}
+                  </p>
+                  <p className={`text-4xs sm:text-3xs leading-relaxed font-bold ${
+                    siteTheme === "sudanese" ? "text-earthgold-700" : "text-amber-400"
+                  }`}>
+                    {currentLang === "ar"
+                      ? "لتجربة قراءة مثالية وسريعة 100% مع ميزات التكبير والطباعة والبحث، يرجى استخدام الخيارات السريعة التالية:"
+                      : "For an optimal and 100% functional reading layout with pinch-to-zoom, search, and printing, please choose a quick option below:"}
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
+                  <a
+                    href={activePdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-xs font-black shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] cursor-pointer text-[#ffffff] ${
+                      siteTheme === "sudanese"
+                        ? "bg-mud hover:bg-[#4A2312] shadow-mud/20"
+                        : "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-950/50"
+                    }`}
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    <span>{currentLang === "ar" ? "فتح وقراءة الملف في نافذة جديدة ↗" : "Open & Read in New Tab ↗"}</span>
+                  </a>
+
+                  <button
+                    onClick={() => handleSavePdfLocally(activePdfUrl, activePdfTitle)}
+                    className={`inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-3xs font-bold border transition-all cursor-pointer ${
+                      siteTheme === "sudanese"
+                        ? "bg-cream hover:bg-white text-mud border-mud/15 hover:border-mud"
+                        : "bg-slate-900 hover:bg-slate-850 text-slate-300 border-slate-800 hover:border-slate-750"
+                    }`}
+                  >
+                    <Download className={`w-3.5 h-3.5 ${siteTheme === 'sudanese' ? 'text-earthgold-700' : 'text-emerald-400'}`} />
+                    <span>{currentLang === "ar" ? "تحميل وحفظ نسخة على جهازك 💾" : "Save & Download Copy 💾"}</span>
+                  </button>
+                </div>
+
+                <div className="pt-4 border-t border-dashed w-full max-w-md border-mud/10 dark:border-slate-850 flex flex-col items-center space-y-2">
+                  <span className={`text-[10px] ${siteTheme === "sudanese" ? "text-mud/50" : "text-slate-500"}`}>
+                    {currentLang === "ar" ? "أو يمكنك محاولة تحميل المعاينة المباشرة هنا:" : "Or you can try loading direct preview inside this page:"}
+                  </span>
+                  <button
+                    onClick={() => setForceLoadIframe(true)}
+                    className={`text-[10px] font-bold underline transition-colors cursor-pointer ${
+                      siteTheme === "sudanese" ? "text-earthgold hover:text-[#A16207]" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {currentLang === "ar" 
+                      ? "أجبر المتصفح على تحميل المعاينة المباشرة هنا ⚙️" 
+                      : "Force direct inline preview here ⚙️"}
+                  </button>
+                </div>
               </div>
             )}
           </div>
