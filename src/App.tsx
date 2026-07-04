@@ -1199,7 +1199,7 @@ export default function App() {
     }
   }, [siteUpdates]);
 
-  // Filter stages based on logged-in student profile or admin view
+  // Filter stages based on logged-in student profile, parent selected grades, or admin view
   const displayedStages = React.useMemo(() => {
     if (currentUser && currentUser.user_role === "student" && currentUser.grade_id) {
       const studentStage = curriculumData.find(stage => 
@@ -1207,6 +1207,20 @@ export default function App() {
       );
       if (studentStage) {
         return [studentStage];
+      }
+    }
+    if (currentUser && currentUser.user_role === "parent" && currentUser.specialties) {
+      const parentGrades = currentUser.specialties.split(",").map((s: string) => s.trim()).filter(Boolean);
+      if (parentGrades.length > 0) {
+        return curriculumData
+          .map(stage => {
+            const filteredGrades = stage.grades.filter(grade => parentGrades.includes(grade.name));
+            return {
+              ...stage,
+              grades: filteredGrades
+            };
+          })
+          .filter(stage => stage.grades.length > 0);
       }
     }
     return curriculumData;
