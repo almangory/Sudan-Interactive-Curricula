@@ -57,6 +57,7 @@ interface UserAvatarProps {
 export function UserAvatar({ username, role, size = "md", siteTheme = "sudanese", showStatus = false, statusColor = "bg-emerald-500", style }: UserAvatarProps) {
   const isTeacher = role === "teacher";
   const isAdmin = role === "admin";
+  const isParent = role === "parent";
   
   const sizeClasses = {
     sm: "w-7 h-7 text-[11px]",
@@ -68,6 +69,7 @@ export function UserAvatar({ username, role, size = "md", siteTheme = "sudanese"
   const roleBadge = () => {
     if (isAdmin) return "👑";
     if (isTeacher) return "👨‍🏫";
+    if (isParent) return "👪";
     return null;
   };
 
@@ -106,6 +108,74 @@ export default function StudentChatRoom({
   siteTheme: passedSiteTheme
 }: StudentChatRoomProps) {
   const siteTheme = passedSiteTheme || (localStorage.getItem("sudan_site_theme") as "sudanese" | "legacy") || "sudanese";
+  
+  // Helper to retrieve Parent's selected stages
+  const getParentSelectedStages = (user: AppUser | null): string[] => {
+    if (!user || user.user_role !== "parent" || !user.specialties) return [];
+    return user.specialties.split(",").map(s => s.trim()).filter(Boolean);
+  };
+
+  // Centralized check for whether chat/friendship is allowed between two users
+  const isChatAllowedWith = (userA: AppUser, userB: AppUser): { allowed: boolean; reasonAr: string; reasonEn: string } => {
+    if (!userA || !userB) return { allowed: false, reasonAr: "⚠️ معلومات المستخدم غير كاملة.", reasonEn: "⚠️ User info is incomplete." };
+    
+    // Admin override
+    if (userA.user_role === "admin" || userB.user_role === "admin") {
+      return { allowed: true, reasonAr: "", reasonEn: "" };
+    }
+
+    // Teacher & Parent interaction (Always allowed)
+    if ((userA.user_role === "parent" && userB.user_role === "teacher") ||
+        (userA.user_role === "teacher" && userB.user_role === "parent")) {
+      return { allowed: true, reasonAr: "", reasonEn: "" };
+    }
+
+    // Parent & Student restriction
+    if (userA.user_role === "parent" && userB.user_role === "student") {
+      const parentStages = getParentSelectedStages(userA);
+      const studentStage = getStageOfGrade(userB.grade_id);
+      if (parentStages.includes(studentStage)) {
+        return {
+          allowed: false,
+          reasonAr: "⚠️ بصفتك ولي أمر، لا يمكنك التواصل مع الطلاب في المراحل الدراسية التي حددتها لأبنائك.",
+          reasonEn: "⚠️ As a parent, you cannot chat with students in the stages you have selected for your children."
+        };
+      }
+    }
+
+    if (userB.user_role === "parent" && userA.user_role === "student") {
+      const parentStages = getParentSelectedStages(userB);
+      const studentStage = getStageOfGrade(userA.grade_id);
+      if (parentStages.includes(studentStage)) {
+        return {
+          allowed: false,
+          reasonAr: "⚠️ عذراً، لا يُسمح للطلاب بالتواصل مع أولياء الأمور المتابعين لمراحلهم الدراسية.",
+          reasonEn: "⚠️ Sorry, students cannot chat with parents monitoring their educational stages."
+        };
+      }
+    }
+
+    // Student & Teacher interaction (Always allowed)
+    if ((userA.user_role === "student" && userB.user_role === "teacher") ||
+        (userA.user_role === "teacher" && userB.user_role === "student")) {
+      return { allowed: true, reasonAr: "", reasonEn: "" };
+    }
+
+    // Student & Student interaction (Strictly same stage)
+    if (userA.user_role === "student" && userB.user_role === "student") {
+      const stageA = getStageOfGrade(userA.grade_id);
+      const stageB = getStageOfGrade(userB.grade_id);
+      if (stageA !== stageB) {
+        return {
+          allowed: false,
+          reasonAr: `⚠️ عذراً، يتيح النظام التواصل فقط للطلاب من نفس المرحلة التعليمية لتقارب مستوياتهم. (أنت في ${getStageLabel(stageA)} والزميل في ${getStageLabel(stageB)})`,
+          reasonEn: `⚠️ Sorry, communication is only allowed between students in the same educational stage.`
+        };
+      }
+    }
+
+    return { allowed: true, reasonAr: "", reasonEn: "" };
+  };
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -577,15 +647,9 @@ export default function StudentChatRoom({
     if (!currentUser) return;
 
     try {
-      // Rule validation: can only add friends from the exact same stage ("من نفس المرحلة فقط")
-      const myStage = getStageOfGrade(currentUser.grade_id);
-      const targetStage = getStageOfGrade(targetUser.grade_id);
-
-      if (myStage !== targetStage) {
-        alert(currentLang === "ar"
-          ? `⚠️ عذراً! يتيح النظام إرسال طلبات الصداقة للطلاب من نفس المرحلة التعليمية فقط. (أنت في ${getStageLabel(myStage)} والزميل في ${getStageLabel(targetStage)})`
-          : `⚠️ Sorry! You can only send friend requests to students in the same educational stage.`
-        );
+      const check = isChatAllowedWith(currentUser, targetUser);
+      if (!check.allowed) {
+        alert(currentLang === "ar" ? check.reasonAr : check.reasonEn);
         return;
       }
 
@@ -671,15 +735,9 @@ export default function StudentChatRoom({
     if (!currentUser) return;
 
     try {
-      // Validate the mandatory same stage condition before accepting
-      const myStage = getStageOfGrade(currentUser.grade_id);
-      const senderStage = getStageOfGrade(senderUser.grade_id);
-
-      if (myStage !== senderStage) {
-        alert(currentLang === "ar"
-          ? `⚠️ غير مسموح بالقبول! لا يمكنك إقامة صداقة مع طالب من مرحلة دراسية مختلفة لضمان سلامة وجودة العملية التعليمية بالمنصة.`
-          : `⚠️ Restriction! You can only accept requests from peers within the same stage.`
-        );
+      const check = isChatAllowedWith(currentUser, senderUser);
+      if (!check.allowed) {
+        alert(currentLang === "ar" ? check.reasonAr : check.reasonEn);
         return;
       }
 
@@ -1648,151 +1706,158 @@ export default function StudentChatRoom({
 
                 <div className="space-y-4">
                   {/* Info Row: Availability Status */}
-                  <div className={`p-3.5 rounded-2xl flex items-center justify-between gap-3 text-2xs ${
-                    siteTheme === "sudanese" ? "bg-mud/5" : "bg-slate-900/40"
-                  }`}>
-                    <span className={`text-5xs font-bold leading-none ${
-                        siteTheme === "sudanese" ? "text-mud/60" : "text-slate-400"
-                      }`}>
-                      {currentLang === "ar" ? "حالة الإضافة" : "Status"}
-                    </span>
-                    <span className="flex items-center gap-1.5 font-bold">
-                      <span className={`w-1.5 h-1.5 rounded-full ${isPeerSameStage ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
-                      <span>
-                        {isPeerSameStage 
-                          ? (currentLang === "ar" ? "متاح للإضافة في نفس مرحلتك ✅" : "Available in your stage ✅")
-                          : (currentLang === "ar" ? "غير متاح (مرحلة دراسية مختلفة) ❌" : "Unavailable (Different stage) ❌")
-                        }
-                      </span>
-                    </span>
-                  </div>
+                  {(() => {
+                    const chatCheck = isChatAllowedWith(currentUser, selectedPeerDetails);
+                    return (
+                      <>
+                        <div className={`p-3.5 rounded-2xl flex items-center justify-between gap-3 text-2xs ${
+                          siteTheme === "sudanese" ? "bg-mud/5" : "bg-slate-900/40"
+                        }`}>
+                          <span className={`text-5xs font-bold leading-none ${
+                              siteTheme === "sudanese" ? "text-mud/60" : "text-slate-400"
+                            }`}>
+                            {currentLang === "ar" ? "حالة التواصل" : "Status"}
+                          </span>
+                          <span className="flex items-center gap-1.5 font-bold">
+                            <span className={`w-1.5 h-1.5 rounded-full ${chatCheck.allowed ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+                            <span>
+                              {chatCheck.allowed 
+                                ? (currentLang === "ar" ? "متاح للتواصل والمراسلة ✅" : "Available to connect ✅")
+                                : (currentLang === "ar" ? "غير متاح للتواصل ❌" : "Unavailable to chat ❌")
+                              }
+                            </span>
+                          </span>
+                        </div>
 
-                  {/* Actions Block */}
-                  <div className="flex flex-col gap-2 pt-2">
-                    {isPeerFriend ? (
-                      <div className="space-y-2">
-                        <button 
-                          onClick={() => { 
-                            setActiveChatWith(selectedPeerDetails); 
-                            setActiveCategoryTab("chat"); 
-                            setSelectedPeerDetails(null); 
-                            setTimeout(() => scrollToBottom("smooth"), 120); 
-                          }} 
-                          className={`w-full py-2.5 rounded-2xl text-xs font-black cursor-pointer select-none active:scale-95 duration-150 transition-all flex items-center justify-center gap-1.5 ${
-                            siteTheme === "sudanese" 
-                              ? "bg-mud hover:bg-mud/90 text-[#FDFBF7]" 
-                              : "bg-indigo-650 hover:bg-indigo-505 text-[#F1F5F9]"
-                          }`}
-                        >
-                          <MessageSquare className="w-3.5 h-3.5" />
-                          <span>{currentLang === "ar" ? "بدء دردشة خاصة 💬" : "Send Private Message 💬"}</span>
-                        </button>
+                        {/* Actions Block */}
+                        <div className="flex flex-col gap-2 pt-2">
+                          {isPeerFriend ? (
+                            <div className="space-y-2">
+                              <button 
+                                onClick={() => { 
+                                  setActiveChatWith(selectedPeerDetails); 
+                                  setActiveCategoryTab("chat"); 
+                                  setSelectedPeerDetails(null); 
+                                  setTimeout(() => scrollToBottom("smooth"), 120); 
+                                }} 
+                                className={`w-full py-2.5 rounded-2xl text-xs font-black cursor-pointer select-none active:scale-95 duration-150 transition-all flex items-center justify-center gap-1.5 ${
+                                  siteTheme === "sudanese" 
+                                    ? "bg-mud hover:bg-mud/90 text-[#FDFBF7]" 
+                                    : "bg-indigo-650 hover:bg-indigo-505 text-[#F1F5F9]"
+                                }`}
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                                <span>{currentLang === "ar" ? "بدء دردشة خاصة 💬" : "Send Private Message 💬"}</span>
+                              </button>
 
-                        <button
-                          onClick={() => {
-                            const friendRel = friendships.find(f => 
-                              f.status === "accepted" && (
-                                (String(f.sender_id) === String(currentUser.id) && String(f.receiver_id) === String(selectedPeerDetails.id)) ||
-                                (String(f.sender_id) === String(selectedPeerDetails.id) && String(f.receiver_id) === String(currentUser.id))
-                              )
-                            );
-                            if (friendRel) {
-                              if (window.confirm(currentLang === "ar" ? `هل أنت متأكد من إلغاء الصداقة مع ${selectedPeerDetails.username}؟` : `Are you sure you want to unfriend ${selectedPeerDetails.username}?`)) {
-                                handleDeclineFriend(friendRel.id);
-                                setSelectedPeerDetails(null);
-                              }
-                            }
-                          }}
-                          className="w-full py-2.5 bg-rose-950/20 hover:bg-rose-950/35 border border-rose-900/30 text-rose-400 rounded-2xl text-xs font-black transition-all cursor-pointer select-none active:scale-95 duration-150 flex items-center justify-center gap-1.5"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                          <span>{currentLang === "ar" ? "إلغاء الصداقة ❌" : "Unfriend ❌"}</span>
-                        </button>
-                      </div>
-                    ) : sentPeerPending ? (
-                      <div className="space-y-2 text-center">
-                        <div className="py-2 px-3 bg-amber-950/20 border border-amber-900/30 text-amber-405 rounded-2xl text-5xs font-black flex items-center justify-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                          <span>{currentLang === "ar" ? "طلب الصداقة قيد الانتظار..." : "Request is pending..."}</span>
+                              <button
+                                onClick={() => {
+                                  const friendRel = friendships.find(f => 
+                                    f.status === "accepted" && (
+                                      (String(f.sender_id) === String(currentUser.id) && String(f.receiver_id) === String(selectedPeerDetails.id)) ||
+                                      (String(f.sender_id) === String(selectedPeerDetails.id) && String(f.receiver_id) === String(currentUser.id))
+                                    )
+                                  );
+                                  if (friendRel) {
+                                    if (window.confirm(currentLang === "ar" ? `هل أنت متأكد من إلغاء الصداقة مع ${selectedPeerDetails.username}؟` : `Are you sure you want to unfriend ${selectedPeerDetails.username}?`)) {
+                                      handleDeclineFriend(friendRel.id);
+                                      setSelectedPeerDetails(null);
+                                    }
+                                  }
+                                }}
+                                className="w-full py-2.5 bg-rose-950/20 hover:bg-rose-950/35 border border-rose-900/30 text-rose-400 rounded-2xl text-xs font-black transition-all cursor-pointer select-none active:scale-95 duration-150 flex items-center justify-center gap-1.5"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                <span>{currentLang === "ar" ? "إلغاء الصداقة ❌" : "Unfriend ❌"}</span>
+                              </button>
+                            </div>
+                          ) : sentPeerPending ? (
+                            <div className="space-y-2 text-center">
+                              <div className="py-2 px-3 bg-amber-950/20 border border-amber-900/30 text-amber-405 rounded-2xl text-5xs font-black flex items-center justify-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                <span>{currentLang === "ar" ? "طلب الصداقة قيد الانتظار..." : "Request is pending..."}</span>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  const friendRel = pendingOutgoing.find(f => String(f.receiver_id) === String(selectedPeerDetails.id));
+                                  if (friendRel) {
+                                    handleDeclineFriend(friendRel.id);
+                                    setSelectedPeerDetails(null);
+                                  }
+                                }}
+                                className="w-full py-2 bg-slate-900 hover:bg-slate-800 hover:text-slate-200 border border-slate-800 text-slate-400 rounded-2xl text-5xs font-black transition-all cursor-pointer select-none active:scale-95 duration-150 flex items-center justify-center gap-1"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                <span>{currentLang === "ar" ? "التراجع عن طلب الصداقة" : "Cancel Request"}</span>
+                              </button>
+                            </div>
+                          ) : receivedPeerPending ? (
+                            <div className="space-y-2">
+                              <div className="p-3 bg-indigo-950/10 border border-indigo-900/30 text-indigo-405 rounded-2xl text-5xs font-bold text-center">
+                                {currentLang === "ar" ? "أرسل إليك طلب صداقة 🔔" : "Sent you a friend request 🔔"}
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  onClick={() => {
+                                    const friendObj = pendingIncoming.find(f => String(f.sender_id) === String(selectedPeerDetails.id));
+                                    if (friendObj) {
+                                      handleAcceptFriend(friendObj.id, selectedPeerDetails);
+                                      setSelectedPeerDetails(null);
+                                    }
+                                  }}
+                                  className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-2xs font-extrabold rounded-2xl cursor-pointer flex items-center justify-center gap-1 select-none active:scale-95 duration-150"
+                                >
+                                  <Check className="w-3.5 h-3.5 text-white" />
+                                  <span>{t.acceptBtn}</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const friendObj = pendingIncoming.find(f => String(f.sender_id) === String(selectedPeerDetails.id));
+                                    if (friendObj) {
+                                      handleDeclineFriend(friendObj.id);
+                                      setSelectedPeerDetails(null);
+                                    }
+                                  }}
+                                  className="py-2.5 bg-rose-950/40 hover:bg-rose-900/40 text-rose-400 border border-rose-900/35 text-2xs font-black rounded-2xl cursor-pointer flex items-center justify-center gap-1 select-none active:scale-95 duration-150"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                  <span>{t.declineBtn}</span>
+                                </button>
+                              </div>
+                            </div>
+                          ) : chatCheck.allowed ? (
+                            <div className="space-y-2">
+                              <button
+                                onClick={() => {
+                                  handleAddFriend(selectedPeerDetails);
+                                  setSelectedPeerDetails(null);
+                                }}
+                                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-505 text-white text-2xs font-black rounded-2xl cursor-pointer flex items-center justify-center gap-1 select-none active:scale-95 duration-150"
+                              >
+                                <UserPlus className="w-4 h-4 text-white" />
+                                <span>{t.addFriend}</span>
+                              </button>
+                              
+                              <button
+                                onClick={() => {
+                                  handleSimulateIncomingRequest(selectedPeerDetails);
+                                  setSelectedPeerDetails(null);
+                                }}
+                                className="w-full py-2 bg-amber-900/10 hover:bg-amber-900/20 border border-amber-900/30 text-amber-405 text-5xs font-black rounded-2xl cursor-pointer flex items-center justify-center gap-1 select-none active:scale-95 duration-150"
+                                title="اضغط لتجربة واستقبال طلب صداقة وهمي من هذا المستخدم على حسابك"
+                              >
+                                <span>محاكاة استلام طلب 📥</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="p-3 bg-rose-950/10 border border-rose-900/20 text-rose-400 rounded-2xl text-5xs font-black text-center select-none leading-relaxed">
+                              {currentLang === "ar" ? chatCheck.reasonAr : chatCheck.reasonEn}
+                            </div>
+                          )}
                         </div>
-                        <button
-                          onClick={() => {
-                            const friendRel = pendingOutgoing.find(f => String(f.receiver_id) === String(selectedPeerDetails.id));
-                            if (friendRel) {
-                              handleDeclineFriend(friendRel.id);
-                              setSelectedPeerDetails(null);
-                            }
-                          }}
-                          className="w-full py-2 bg-slate-900 hover:bg-slate-800 hover:text-slate-200 border border-slate-800 text-slate-400 rounded-2xl text-5xs font-black transition-all cursor-pointer select-none active:scale-95 duration-150 flex items-center justify-center gap-1"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                          <span>{currentLang === "ar" ? "التراجع عن طلب الصداقة" : "Cancel Request"}</span>
-                        </button>
-                      </div>
-                    ) : receivedPeerPending ? (
-                      <div className="space-y-2">
-                        <div className="p-3 bg-indigo-950/10 border border-indigo-900/30 text-indigo-400 rounded-2xl text-5xs font-bold text-center">
-                          {currentLang === "ar" ? "أرسل إليك طلب صداقة 🔔" : "Sent you a friend request 🔔"}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => {
-                              const friendObj = pendingIncoming.find(f => String(f.sender_id) === String(selectedPeerDetails.id));
-                              if (friendObj) {
-                                handleAcceptFriend(friendObj.id, selectedPeerDetails);
-                                setSelectedPeerDetails(null);
-                              }
-                            }}
-                            className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-2xs font-extrabold rounded-2xl cursor-pointer flex items-center justify-center gap-1 select-none active:scale-95 duration-150"
-                          >
-                            <Check className="w-3.5 h-3.5 text-white" />
-                            <span>{t.acceptBtn}</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              const friendObj = pendingIncoming.find(f => String(f.sender_id) === String(selectedPeerDetails.id));
-                              if (friendObj) {
-                                handleDeclineFriend(friendObj.id);
-                                setSelectedPeerDetails(null);
-                              }
-                            }}
-                            className="py-2.5 bg-rose-950/40 hover:bg-rose-900/40 text-rose-400 border border-rose-900/35 text-2xs font-black rounded-2xl cursor-pointer flex items-center justify-center gap-1 select-none active:scale-95 duration-150"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            <span>{t.declineBtn}</span>
-                          </button>
-                        </div>
-                      </div>
-                    ) : isPeerSameStage ? (
-                      <div className="space-y-2">
-                        <button
-                          onClick={() => {
-                            handleAddFriend(selectedPeerDetails);
-                            setSelectedPeerDetails(null);
-                          }}
-                          className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-505 text-white text-2xs font-black rounded-2xl cursor-pointer flex items-center justify-center gap-1 select-none active:scale-95 duration-150"
-                        >
-                          <UserPlus className="w-4 h-4 text-white" />
-                          <span>{t.addFriend}</span>
-                        </button>
-                        
-                        <button
-                          onClick={() => {
-                            handleSimulateIncomingRequest(selectedPeerDetails);
-                            setSelectedPeerDetails(null);
-                          }}
-                          className="w-full py-2 bg-amber-900/10 hover:bg-amber-900/20 border border-amber-900/30 text-amber-400 text-5xs font-black rounded-2xl cursor-pointer flex items-center justify-center gap-1 select-none active:scale-95 duration-150"
-                          title="اضغط لتجربة واستقبال طلب صداقة وهمي من هذا الطالب على حسابك"
-                        >
-                          <span>محاكاة استلام طلب 📥</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="p-3 bg-rose-950/10 border border-rose-900/20 text-rose-400 rounded-2xl text-5xs font-black text-center select-none leading-relaxed">
-                        {currentLang === "ar" ? "عذراً، لا يمكنك إضافة طالب من مرحلة دراسية مختلفة لعدم حدوث تشتيت للمناهج." : "Sorry, you cannot add a student from a different educational stage."}
-                      </div>
-                    )}
-                  </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

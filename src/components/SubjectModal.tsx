@@ -100,6 +100,8 @@ interface SubjectModalProps {
   siteTheme?: "sudanese" | "legacy";
   liveLessons?: any[];
   onRefreshLiveLessons?: () => void;
+  currentUser?: any;
+  onPromptLogin?: (message?: string) => void;
 }
 
 export default function SubjectModal({ 
@@ -116,7 +118,9 @@ export default function SubjectModal({
   currentLang: passedLang, 
   siteTheme = "legacy",
   liveLessons = [],
-  onRefreshLiveLessons
+  onRefreshLiveLessons,
+  currentUser,
+  onPromptLogin
 }: SubjectModalProps) {
   const [showTutor, setShowTutor] = useState(false);
   const [activePdfUrl, setActivePdfUrl] = useState<string | null>(null);
@@ -228,6 +232,10 @@ export default function SubjectModal({
   };
 
   const enterStudyMode = () => {
+    if (isGuest) {
+      handleRestrictedAction(undefined, "⚠️ الدخول إلى وضع المذاكرة التفاعلية وتوقيت الإنجاز متاح فقط للأعضاء المسجلين بالموقع.");
+      return;
+    }
     setIsStudyMode(true);
     setStudySeconds(0);
     setIsTimerActive(true);
@@ -331,6 +339,48 @@ export default function SubjectModal({
         setCachingStatus(prev => ({ ...prev, [url]: "idle" }));
       }, 2500);
     }, 1200);
+  };
+
+  const isGuest = (!currentUser || currentUser.user_role === "guest") && !isAdminLoggedIn;
+  
+  const handleRestrictedAction = (e?: React.MouseEvent, message?: string) => {
+    if (isGuest) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      if (onPromptLogin) {
+        onPromptLogin(message || "⚠️ عرض المحتويات التفاعلية، والكتب والمذكرات، وفيديوهات الشرح، والتحدث مع المعلم الذكي متاح فقط للمسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب جديد مجاناً!");
+      } else {
+        alert(message || "⚠️ يرجى تسجيل الدخول أو إنشاء حساب للوصول إلى هذا المحتوى التفاعلي.");
+      }
+      return false;
+    }
+    return true;
+  };
+
+  const handleSavePdfLocally = (url: string, title: string) => {
+    if (isGuest) {
+      handleRestrictedAction(undefined, "⚠️ ميزة تنزيل وحفظ الكتب والمذكرات للدراسة بدون إنترنت مخصصة للأعضاء المسجلين بالموقع فقط. يرجى الدخول أو تسجيل حساب جديد لتفعيل الميزة!");
+      return;
+    }
+
+    // Call toggle cache to store reference locally for offline status
+    handleToggleCache(url);
+
+    // Create an anchor tag to trigger browser download / open to save
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.setAttribute("download", `${title}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    alert(currentLang === "ar" 
+      ? `💾 تم البدء في تنزيل وحفظ ملف (${title}) على جهازك بنجاح! يمكنك الآن فتحه ومراجعته في أي وقت حتى عند انقطاع الإنترنت.` 
+      : `💾 Downloading (${title}) has started to save it on your device for offline studying.`
+    );
   };
 
   // Curated states for fields
@@ -660,7 +710,8 @@ export default function SubjectModal({
                             </p>
                           </div>
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              if (!handleRestrictedAction(e, "⚠️ فتح وقراءة الكتب المدرسية والملخصات متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب مجاناً!")) return;
                               setActivePdfUrl(subject.pdfUrl!);
                               setActivePdfTitle(currentLang === "ar" ? `كتاب المقرر: ${t(subject.name)}` : `Textbook: ${t(subject.name)}`);
                             }}
@@ -750,7 +801,8 @@ export default function SubjectModal({
                     </p>
                   </div>
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      if (!handleRestrictedAction(e, "⚠️ المحادثة مع المعلم الذكي وطرح الأسئلة متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب مجاناً!")) return;
                       setIsStudyMode(false);
                       setShowTutor(true);
                     }}
@@ -1022,8 +1074,14 @@ export default function SubjectModal({
                   {hasInteractiveLink && (
                     <div className="pt-2">
                       <a 
-                        href={subject.interactiveUrl}
-                        target="_blank"
+                        href={isGuest ? "#" : subject.interactiveUrl}
+                        onClick={(e) => {
+                          if (isGuest) {
+                            e.preventDefault();
+                            handleRestrictedAction(e, "⚠️ تصفح روابط البوابات والمواقع التفاعلية التعليمية متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب مجاناً!");
+                          }
+                        }}
+                        target={isGuest ? "_self" : "_blank"}
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full font-black text-xs transition-all cursor-pointer relative overflow-hidden shadow-lg border animate-pulse hover:animate-none hover:scale-[1.03] active:scale-95 group"
                         style={{
@@ -1125,8 +1183,14 @@ export default function SubjectModal({
                           </div>
                           
                           <a
-                            href={lesson.meetingUrl}
-                            target="_blank"
+                            href={isGuest ? "#" : lesson.meetingUrl}
+                            onClick={(e) => {
+                              if (isGuest) {
+                                e.preventDefault();
+                                handleRestrictedAction(e, "⚠️ الانضمام إلى حصص البث المباشر التفاعلية مع المعلمين متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب جديد مجاناً للمتابعة!");
+                              }
+                            }}
+                            target={isGuest ? "_self" : "_blank"}
                             rel="noopener noreferrer"
                             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-555 text-[#ffffff] text-xs font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 cursor-pointer"
                           >
@@ -1334,20 +1398,31 @@ export default function SubjectModal({
                   </div>
                   <div>
                     {subject.pdfUrl ? (
-                      <button 
-                        onClick={() => {
-                          setActivePdfUrl(subject.pdfUrl!);
-                          setActivePdfTitle(currentLang === "ar" ? `كتاب المقرر: ${t(subject.name)}` : `Textbook: ${t(subject.name)}`);
-                        }}
-                        className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
-                          siteTheme === "sudanese" 
-                            ? "bg-mud hover:bg-[#4A2312]" 
-                            : "bg-emerald-600 hover:bg-emerald-500"
-                        }`}
-                      >
-                        <BookOpen className="w-4 h-4" />
-                        <span>{currentLang === "ar" ? "فتح وقراءة كتاب المقرر" : "Open and Read Textbook"}</span>
-                      </button>
+                      <div className="flex flex-col gap-2">
+                        <button 
+                          onClick={(e) => {
+                            if (!handleRestrictedAction(e, "⚠️ فتح وقراءة كتب المنهج الدراسي متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب مجاناً!")) return;
+                            setActivePdfUrl(subject.pdfUrl!);
+                            setActivePdfTitle(currentLang === "ar" ? `كتاب المقرر: ${t(subject.name)}` : `Textbook: ${t(subject.name)}`);
+                          }}
+                          className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
+                            siteTheme === "sudanese" 
+                              ? "bg-mud hover:bg-[#4A2312]" 
+                              : "bg-emerald-600 hover:bg-emerald-500"
+                          }`}
+                        >
+                          <BookOpen className="w-4 h-4" />
+                          <span>{currentLang === "ar" ? "فتح وقراءة كتاب المقرر" : "Open and Read Textbook"}</span>
+                        </button>
+
+                        <button 
+                          onClick={() => handleSavePdfLocally(subject.pdfUrl!, currentLang === "ar" ? `كتاب مقرر ${subject.name}` : `Textbook ${subject.name}`)}
+                          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-slate-350 bg-slate-950/50 hover:bg-slate-850/80 rounded-xl text-[10px] font-extrabold transition-all border border-slate-800 hover:border-emerald-500/40 hover:text-emerald-400 cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>{currentLang === "ar" ? "حفظ وتنزيل الكتاب الدراسي (أوفلاين) 💾" : "Save and Download Textbook (Offline) 💾"}</span>
+                        </button>
+                      </div>
                     ) : (
                       <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 cursor-not-allowed opacity-60">
                         <BookOpen className="w-3.5 h-3.5 text-slate-500/80" />
@@ -1396,20 +1471,31 @@ export default function SubjectModal({
                   </div>
                   <div>
                     {subject.memoPdfUrl ? (
-                      <button 
-                        onClick={() => {
-                          setActivePdfUrl(subject.memoPdfUrl!);
-                          setActivePdfTitle(currentLang === "ar" ? `مذكرة المادة: ${t(subject.name)}` : `Notes: ${t(subject.name)}`);
-                        }}
-                        className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
-                          siteTheme === "sudanese" 
-                            ? "bg-[#A16207] hover:bg-[#854D0E]" 
-                            : "bg-amber-600 hover:bg-amber-500"
-                        }`}
-                      >
-                        <FileText className="w-4 h-4" />
-                        <span>{currentLang === "ar" ? "فتح وقراءة المذكرة" : "Open and Read Notes"}</span>
-                      </button>
+                      <div className="flex flex-col gap-2">
+                        <button 
+                          onClick={(e) => {
+                            if (!handleRestrictedAction(e, "⚠️ فتح وقراءة ملخصات ومذكرات الشرح متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب مجاناً!")) return;
+                            setActivePdfUrl(subject.memoPdfUrl!);
+                            setActivePdfTitle(currentLang === "ar" ? `مذكرة المادة: ${t(subject.name)}` : `Notes: ${t(subject.name)}`);
+                          }}
+                          className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
+                            siteTheme === "sudanese" 
+                              ? "bg-[#A16207] hover:bg-[#854D0E]" 
+                              : "bg-amber-600 hover:bg-amber-500"
+                          }`}
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span>{currentLang === "ar" ? "فتح وقراءة المذكرة" : "Open and Read Notes"}</span>
+                        </button>
+
+                        <button 
+                          onClick={() => handleSavePdfLocally(subject.memoPdfUrl!, currentLang === "ar" ? `مذكرة مقرر ${subject.name}` : `Notes ${subject.name}`)}
+                          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-slate-350 bg-slate-950/50 hover:bg-slate-850/80 rounded-xl text-[10px] font-extrabold transition-all border border-slate-800 hover:border-amber-500/40 hover:text-amber-400 cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5 text-amber-500" />
+                          <span>{currentLang === "ar" ? "حفظ وتنزيل المذكرة والملخص (أوفلاين) 💾" : "Save and Download Notes (Offline) 💾"}</span>
+                        </button>
+                      </div>
                     ) : (
                       <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 cursor-not-allowed opacity-60">
                         <FileText className="w-3.5 h-3.5 text-slate-500/80" />
@@ -1452,33 +1538,45 @@ export default function SubjectModal({
                   </div>
                   <div>
                     {subject.videoUrl ? (
-                      (() => {
-                        if (embedInfo) {
-                          return (
-                            <div className="aspect-video w-full rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl bg-black mt-2">
-                              <iframe
-                                src={embedInfo.url}
-                                title={currentLang === "ar" ? `شرح ${subject.name}` : `Explanation of ${t(subject.name)}`}
-                                className="w-full h-full animate-fadeIn"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                                allowFullScreen
-                              ></iframe>
-                            </div>
-                          );
-                        } else {
-                          return (
-                            <a 
-                              href={subject.videoUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-555 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer shadow-rose-950/20"
-                            >
-                              <Video className="w-3.5 h-3.5" />
-                              <span>{currentLang === "ar" ? "مشاهدة شرح المادة (رابط خارجي)" : "Watch Video Lecture (External Link)"}</span>
-                            </a>
-                          );
-                        }
-                      })()
+                      isGuest ? (
+                        <div 
+                          onClick={(e) => handleRestrictedAction(e, "⚠️ مشاهدة شروحات الفيديو والدروس التفاعلية متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب جديد مجاناً للمتابعة!")}
+                          className="aspect-video w-full rounded-2xl overflow-hidden border border-dashed border-slate-700/60 hover:border-emerald-500/50 cursor-pointer bg-slate-950/40 flex flex-col items-center justify-center text-center p-6 space-y-2 mt-2 transition-all hover:scale-[1.01]"
+                        >
+                          <Lock className="w-8 h-8 text-amber-500 animate-pulse" />
+                          <h6 className="text-xs font-black text-slate-200">فيديو شرح المقرر مغلق 🔒</h6>
+                          <p className="text-[10px] text-slate-400 max-w-xs leading-relaxed">مشاهدة الفيديوهات التعليمية المدمجة والدروس المصورة والملخصات التفاعلية متاحة فقط للأعضاء المسجلين.</p>
+                          <button className="px-3 py-1 bg-indigo-600 hover:bg-indigo-550 text-white rounded-lg text-3xs font-black transition-colors">دخول لتفعيل الفيديو 🚀</button>
+                        </div>
+                      ) : (
+                        (() => {
+                          if (embedInfo) {
+                            return (
+                              <div className="aspect-video w-full rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl bg-black mt-2">
+                                <iframe
+                                  src={embedInfo.url}
+                                  title={currentLang === "ar" ? `شرح ${subject.name}` : `Explanation of ${t(subject.name)}`}
+                                  className="w-full h-full animate-fadeIn"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                  allowFullScreen
+                                ></iframe>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <a 
+                                href={subject.videoUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-555 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer shadow-rose-950/20"
+                              >
+                                <Video className="w-3.5 h-3.5" />
+                                <span>{currentLang === "ar" ? "مشاهدة شرح المادة (رابط خارجي)" : "Watch Video Lecture (External Link)"}</span>
+                              </a>
+                            );
+                          }
+                        })()
+                      )
                     ) : (
                       <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 cursor-not-allowed opacity-60">
                         <Video className="w-3.5 h-3.5 text-slate-500/80" />

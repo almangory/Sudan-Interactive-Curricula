@@ -17,7 +17,7 @@ import EducationalMindMap from "./components/EducationalMindMap";
 import StudentChatRoom from "./components/StudentChatRoom";
 import WebsiteLogo from "./components/WebsiteLogo";
 import { OnboardingGuide } from "./components/OnboardingGuide";
-import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile, fetchLiveLessonsFromSupabase, LiveLesson, checkUserExistsAndActive, getApiUrl, obfuscateString, deobfuscateString, sha256 } from "./lib/supabase";
+import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile, fetchLiveLessonsFromSupabase, LiveLesson, checkUserExistsAndActive, getApiUrl, obfuscateString, deobfuscateString, sha256, fetchAllRegisteredUsers } from "./lib/supabase";
 import { stageAndGradeTranslations, uiTranslations } from "./lib/translations";
 
 function getGoogleDriveFileId(url: string): string {
@@ -115,6 +115,12 @@ export default function App() {
   const [showStudentChat, setShowStudentChat] = useState(false);
   const [showGamesSidebar, setShowGamesSidebar] = useState(false);
   const [showUserSettingsIcons, setShowUserSettingsIcons] = useState(false);
+  const [showParentPortal, setShowParentPortal] = useState(false);
+  const [parentChildrenLinks, setParentChildrenLinks] = useState<any[]>([]);
+  const [allRegisteredUsers, setAllRegisteredUsers] = useState<AppUser[]>([]);
+  const [isParentPortalLoading, setIsParentPortalLoading] = useState(false);
+  const [parentSearchQuery, setParentSearchQuery] = useState("");
+  const [selectedChildForReport, setSelectedChildForReport] = useState<AppUser | null>(null);
   const [activeMiniGame, setActiveMiniGame] = useState<string | null>(null);
   const [showOnboardingGuide, setShowOnboardingGuide] = useState(() => {
     return !localStorage.getItem("sudan_edu_guide_completed");
@@ -855,7 +861,7 @@ export default function App() {
     return !localStorage.getItem("sudan_auth_user");
   });
   const [userModalTab, setUserModalTab] = useState<"login" | "register" | "profile">("login");
-  const [loginRole, setLoginRole] = useState<"student" | "admin">("student");
+  const [loginRole, setLoginRole] = useState<"student" | "parent" | "admin">("student");
   const [userEmail, setUserEmail] = useState("");
   const [userPassword, setUserPassword] = useState("");
   const [userUsername, setUserUsername] = useState("");
@@ -1211,10 +1217,20 @@ export default function App() {
     setUserEmail(currentUser.email);
     setUserUsername(currentUser.username);
     setUserPassword(""); // Keep password input blank unless they want to change it
-    setRegUserRole(currentUser.user_role === "teacher" ? "teacher" : "student");
+    const currentRole = currentUser.user_role === "teacher" 
+      ? "teacher" 
+      : currentUser.user_role === "parent" 
+        ? "parent" 
+        : "student";
+    setRegUserRole(currentRole);
     setRegGradeId(currentUser.grade_id || "");
     setRegContactMethod(currentUser.contact_method || "");
-    if (currentUser.specialties) {
+    if (currentRole === "parent" && currentUser.specialties) {
+      setSelectedParentStages(currentUser.specialties.split(",").map((x: string) => x.trim()));
+    } else {
+      setSelectedParentStages([]);
+    }
+    if (currentRole === "teacher" && currentUser.specialties) {
       setSelectedSpecialties(currentUser.specialties.split(", ").map((x: string) => x.trim()));
     } else {
       setSelectedSpecialties([]);
@@ -1225,15 +1241,207 @@ export default function App() {
     setShowUserModal(true);
   };
 
-  // Guard function: Don't allow opening materials/subjects if not logged in or if logged in as a guest
-  const handleOpenSubject = (subject: any) => {
-    if ((!currentUser || currentUser.user_role === "guest") && !isAdminLoggedIn) {
-      setUserAuthError("⚠️ تصفح المواد الدراسية وفتح الدروس متاح للأعضاء المسجلين فقط. يرجى تسجيل الدخول أو إنشاء حساب جديد مجاناً للمتابعة!");
-      setShowUserModal(true);
-      setUserModalTab("login");
-      return;
+  // =========================================================================
+  // 👪 Parent Portal & Children Monitoring Feature Engine
+  // =========================================================================
+
+  const fetchParentRelations = async () => {
+    if (!currentUser || currentUser.user_role !== "parent") return;
+    try {
+      setIsParentPortalLoading(true);
+      const client = getSupabaseClient();
+      
+      // Fetch all registered users to construct the directory
+      const users = await fetchAllRegisteredUsers();
+      setAllRegisteredUsers(users);
+
+      let links: any[] = [];
+      if (client) {
+        const { data, error } = await client
+          .from("friendships")
+          .select("*")
+          .eq("sender_id", currentUser.id)
+          .eq("status", "parent_child");
+        
+        if (!error && data) {
+          links = data;
+        }
+      } else {
+        // Local fallback
+        const stored = localStorage.getItem(`sudan_parent_links_${currentUser.id}`);
+        links = stored ? JSON.parse(stored) : [];
+      }
+      setParentChildrenLinks(links);
+    } catch (err) {
+      console.warn("Error fetching parent relations:", err);
+    } finally {
+      setIsParentPortalLoading(false);
+    }
+  };
+
+  const handleLinkChild = async (student: AppUser) => {
+    if (!currentUser) return;
+    try {
+      const client = getSupabaseClient();
+      const linkId = "_" + Math.random().toString(36).substr(2, 9);
+      const payload = {
+        id: linkId,
+        sender_id: currentUser.id,
+        receiver_id: student.id,
+        status: "parent_child",
+        created_at: new Date().toISOString()
+      };
+
+      if (client) {
+        const { error } = await client.from("friendships").insert([payload]);
+        if (error) {
+          console.warn("Supabase insert error, falling back:", error);
+        }
+      }
+
+      // Update local storage and state
+      setParentChildrenLinks(prev => {
+        const updated = [...prev, payload];
+        localStorage.setItem(`sudan_parent_links_${currentUser.id}`, JSON.stringify(updated));
+        return updated;
+      });
+
+      alert(currentLang === "ar" 
+        ? `🎉 تم ربط حساب الابن (${student.username}) بنجاح بمتابعتك!` 
+        : `🎉 Student (${student.username}) linked to your monitoring account successfully!`
+      );
+      
+      // Refresh relations
+      fetchParentRelations();
+    } catch (err: any) {
+      alert("⚠️ Error linking child: " + (err.message || err));
+    }
+  };
+
+  const handleUnlinkChild = async (linkId: string, childName: string) => {
+    if (!window.confirm(currentLang === "ar" 
+      ? `هل أنت متأكد من إلغاء ربط حساب ${childName}؟` 
+      : `Are you sure you want to unlink ${childName}?`
+    )) return;
+
+    try {
+      const client = getSupabaseClient();
+      if (client) {
+        const { error } = await client.from("friendships").delete().eq("id", linkId);
+        if (error) {
+          console.warn("Supabase delete error, falling back:", error);
+        }
+      }
+
+      setParentChildrenLinks(prev => {
+        const updated = prev.filter(l => l.id !== linkId);
+        localStorage.setItem(`sudan_parent_links_${currentUser!.id}`, JSON.stringify(updated));
+        return updated;
+      });
+
+      if (selectedChildForReport && parentChildrenLinks.find(l => l.id === linkId)?.receiver_id === selectedChildForReport.id) {
+        setSelectedChildForReport(null);
+      }
+      
+      fetchParentRelations();
+    } catch (err: any) {
+      alert("⚠️ Error: " + (err.message || err));
+    }
+  };
+
+  // Student stay duration tracking
+  const logStudentSubjectTime = async (userId: string, subjectId: string, subjectName: string, elapsedSeconds: number) => {
+    try {
+      let logs: any[] = [];
+      const localKey = `sudan_edu_student_logs_${userId}`;
+      const localStored = localStorage.getItem(localKey);
+      
+      // Try to get logs from currentUser first
+      if (currentUser?.contact_method && currentUser.contact_method.trim().startsWith("[")) {
+        try {
+          logs = JSON.parse(currentUser.contact_method);
+        } catch {
+          logs = [];
+        }
+      } else if (localStored) {
+        try {
+          logs = JSON.parse(localStored);
+        } catch {
+          logs = [];
+        }
+      }
+
+      const existingIndex = logs.findIndex(item => item.subjectId === subjectId);
+      if (existingIndex > -1) {
+        logs[existingIndex].totalDurationSeconds = (logs[existingIndex].totalDurationSeconds || 0) + elapsedSeconds;
+        logs[existingIndex].openCount = (logs[existingIndex].openCount || 0) + 1;
+        logs[existingIndex].lastOpened = new Date().toISOString();
+      } else {
+        logs.push({
+          subjectId,
+          subjectName,
+          openCount: 1,
+          totalDurationSeconds: elapsedSeconds,
+          lastOpened: new Date().toISOString()
+        });
+      }
+
+      const logsString = JSON.stringify(logs);
+      
+      // Update local storage
+      localStorage.setItem(localKey, logsString);
+      
+      // Update currentUser state locally so it's fresh
+      setCurrentUser(prev => prev ? { ...prev, contact_method: logsString } : null);
+
+      // Save to Supabase
+      await updateCurrentUserProfile(userId, {
+        contact_method: logsString
+      });
+      
+      console.log(`Successfully logged ${elapsedSeconds}s for ${subjectName}`);
+    } catch (err) {
+      console.warn("Error logging student subject stay time:", err);
+    }
+  };
+
+  const subjectStartTimeRef = useRef<number | null>(null);
+  const activeSubjectRef = useRef<any>(null);
+
+  useEffect(() => {
+    // If there was an active subject and user is student, calculate stay time on close
+    if (activeSubjectRef.current && currentUser?.user_role === "student") {
+      const startTime = subjectStartTimeRef.current;
+      if (startTime) {
+        const elapsedSeconds = Math.round((Date.now() - startTime) / 1000);
+        if (elapsedSeconds >= 1) { // Track if they stayed at least 1 second
+          const subjectToLog = activeSubjectRef.current;
+          
+          // Save the log!
+          logStudentSubjectTime(currentUser.id, subjectToLog.id, subjectToLog.name, elapsedSeconds);
+        }
+      }
     }
 
+    // Set up new subject tracking
+    if (activeSubject && currentUser?.user_role === "student") {
+      subjectStartTimeRef.current = Date.now();
+      activeSubjectRef.current = activeSubject;
+    } else {
+      subjectStartTimeRef.current = null;
+      activeSubjectRef.current = null;
+    }
+  }, [activeSubject, currentUser]);
+
+  // Handle Parent Portal loading when current user role is parent
+  useEffect(() => {
+    if (currentUser && currentUser.user_role === "parent") {
+      fetchParentRelations();
+    }
+  }, [currentUser]);
+
+  // Guard function: Don't allow opening materials/subjects if not logged in or if logged in as a guest
+  const handleOpenSubject = (subject: any) => {
     // Resolve correct stageId, gradeId, and gradeName by searching curriculumData tree
     let resolvedStageId = subject.stageId || "";
     let resolvedGradeId = subject.gradeId || "";
@@ -1273,10 +1481,11 @@ export default function App() {
     });
   };
 
-  // 🎓 Student & Teacher Custom Fields
-  const [regUserRole, setRegUserRole] = useState<"student" | "teacher">("student");
+  // 🎓 Student, Teacher, & Parent Custom Fields
+  const [regUserRole, setRegUserRole] = useState<"student" | "teacher" | "parent">("student");
   const [regGradeId, setRegGradeId] = useState("");
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
+  const [selectedParentStages, setSelectedParentStages] = useState<string[]>([]);
   const [regContactMethod, setRegContactMethod] = useState("");
 
   const handleAdminLoginSubmit = async (e: React.FormEvent) => {
@@ -1374,7 +1583,7 @@ export default function App() {
         resolvedGradeName = matchedGrade ? matchedGrade.name : "";
       }
 
-      // Extract Teacher Specialties & Contact Methods
+      // Extract Teacher Specialties & Contact Methods or Parent Stages
       let resolvedSpecialties = undefined;
       let resolvedContactMethod = undefined;
       if (regUserRole === "teacher") {
@@ -1390,6 +1599,13 @@ export default function App() {
         }
         resolvedSpecialties = selectedSpecialties.join(", ");
         resolvedContactMethod = regContactMethod.trim();
+      } else if (regUserRole === "parent") {
+        if (selectedParentStages.length === 0) {
+          setUserAuthError("⚠️ يرجى تحديد صف دراسي واحد على الأقل لأبنائك.");
+          setIsAuthLoading(false);
+          return;
+        }
+        resolvedSpecialties = selectedParentStages.join(",");
       }
 
       const res = await registerUser(
@@ -1407,6 +1623,8 @@ export default function App() {
       if (res.success && res.user) {
         if (regUserRole === "teacher") {
           setUserAuthSuccess("🎉 تم تسجيل حسابك كمعلم بنجاح! يخضع حسابك المبرمج حالياً للمراجعة من قبل الإدارة وسنتواصل معك قريباً.");
+        } else if (regUserRole === "parent") {
+          setUserAuthSuccess("🎉 تم تسجيل حسابك كولي أمر بنجاح! يمكنك الآن تصفح المنصة والتواصل مع المعلمين ومتابعة المناهج.");
         } else {
           setUserAuthSuccess("🎉 تم تسجيل حسابك والدخول كطالب بنجاح!");
           // Save registration grade selection timestamp for student
@@ -1783,6 +2001,13 @@ export default function App() {
       if (currentUser.user_role === "teacher") {
         resolvedSpecialties = selectedSpecialties.join(", ");
         resolvedContactMethod = regContactMethod.trim();
+      } else if (currentUser.user_role === "parent") {
+        if (selectedParentStages.length === 0) {
+          setUserAuthError("⚠️ يرجى تحديد صف دراسي واحد على الأقل لأبنائك.");
+          setIsAuthLoading(false);
+          return;
+        }
+        resolvedSpecialties = selectedParentStages.join(",");
       }
 
       const updatePayload: ProfileUpdateFields = {
@@ -2532,6 +2757,272 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
       setLastCheckedUpdates(nowStr);
     }
     setShowNotificationsDropdown(false);
+  };
+
+  // =========================================================================
+  // 👪 Parent Portal Custom Render Function
+  // =========================================================================
+  const renderParentPortal = () => {
+    // Filter out student users for searching
+    const studentUsers = allRegisteredUsers.filter(u => u.user_role === "student");
+    const filteredStudents = studentUsers.filter(student => {
+      const q = parentSearchQuery.toLowerCase();
+      return student.username.toLowerCase().includes(q) || 
+             (student.grade_name || "").toLowerCase().includes(q);
+    });
+
+    return (
+      <div className="bg-[#FAF7F0] border border-[#D4AF37]/20 rounded-3xl p-5 md:p-8 space-y-8 select-text text-right" dir="rtl">
+        {/* Header Title with traditional Sudanese theme */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-[#D4AF37]/15 pb-6">
+          <div className="space-y-1.5 text-center md:text-right">
+            <span className="text-4xs text-earthgold font-black uppercase tracking-widest block">بوابة المتابعة الذكية للأسرة 👪</span>
+            <h3 className="text-xl md:text-2xl font-black text-mud flex items-center justify-center md:justify-start gap-2">
+              <span>🏠</span>
+              <span>لوحة متابعة الأبناء والتقارير الأكاديمية</span>
+            </h3>
+            <p className="text-3xs text-mud/75">
+              يمكنك ربط حسابات أبنائك، ومتابعتهم بشكل مستمر، والاطلاع على تفاصيل أدائهم والوقت الذي يقضونه في دراسة ومراجعة المناهج السودانية.
+            </p>
+          </div>
+          
+          <div className="bg-white border border-mud/15 rounded-2xl px-4 py-2 text-center md:text-right shrink-0">
+            <span className="text-4xs font-bold text-mud/60 block">عدد الأبناء المرتبطين</span>
+            <span className="text-base font-black text-earthgold">{parentChildrenLinks.length} طلاب</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Right/Main Side: My Linked Children (7 cols) */}
+          <div className="lg:col-span-7 space-y-6">
+            <div className="bg-white border border-mud/10 rounded-2xl p-5 md:p-6 space-y-5">
+              <h4 className="font-black text-mud text-sm md:text-base border-b border-mud/5 pb-3 flex items-center gap-2">
+                <span>🧒</span>
+                <span>الأبناء المرتبطين بالحساب حالياً</span>
+              </h4>
+
+              {isParentPortalLoading ? (
+                <div className="text-center py-8 space-y-2">
+                  <RotateCw className="w-6 h-6 animate-spin text-earthgold mx-auto" />
+                  <p className="text-3xs text-mud/60">جاري تحميل بيانات الأبناء والتقارير...</p>
+                </div>
+              ) : parentChildrenLinks.length === 0 ? (
+                <div className="text-center py-10 space-y-4">
+                  <div className="text-4xl">🧸</div>
+                  <div className="space-y-1">
+                    <h5 className="font-extrabold text-mud text-xs">لا يوجد أبناء مرتبطين بحسابك بعد</h5>
+                    <p className="text-4xs text-mud/60 max-w-sm mx-auto">
+                      يمكنك ربط حسابات أبنائك بالبحث عنهم باسم المستخدم في "دليل الطلاب" المتاح في الجانب الأيسر، ثم الضغط على "ربط الحساب".
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {parentChildrenLinks.map(link => {
+                    const student = allRegisteredUsers.find(u => u.id === link.receiver_id);
+                    if (!student) return null;
+                    const isSelected = selectedChildForReport?.id === student.id;
+
+                    return (
+                      <div 
+                        key={link.id}
+                        onClick={() => setSelectedChildForReport(student)}
+                        className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer flex flex-col justify-between gap-4 ${
+                          isSelected 
+                            ? "bg-earthgold/5 border-earthgold shadow-sm ring-2 ring-earthgold/20" 
+                            : "bg-[#FDFBF7] hover:bg-cream/40 border-mud/10"
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full bg-cream border border-mud/10 flex items-center justify-center text-lg">
+                            🎒
+                          </div>
+                          <div className="space-y-0.5">
+                            <h5 className="font-extrabold text-mud text-xs">{student.username}</h5>
+                            <span className="text-[10px] text-earthgold font-bold block bg-[#FAF7F0] px-2 py-0.5 rounded-full border border-mud/5 w-fit">
+                              {student.grade_name || "مرحلة غير محددة"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between border-t border-mud/5 pt-3">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUnlinkChild(link.id, student.username);
+                            }}
+                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 hover:border-rose-300 rounded-lg text-4xs font-extrabold cursor-pointer transition-colors"
+                          >
+                            إلغاء الربط ❌
+                          </button>
+                          
+                          <span className="text-4xs font-bold text-mud/60 flex items-center gap-1">
+                            {isSelected ? "📋 جاري العرض" : "🔍 اضغط للتقرير"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Selected Child Reports Panel */}
+            {selectedChildForReport && (() => {
+              let logs: any[] = [];
+              if (selectedChildForReport.contact_method && selectedChildForReport.contact_method.startsWith("[")) {
+                try {
+                  logs = JSON.parse(selectedChildForReport.contact_method);
+                } catch {
+                  logs = [];
+                }
+              }
+
+              return (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white border border-mud/10 rounded-2xl p-5 md:p-6 space-y-5"
+                >
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-mud/5 pb-3">
+                    <h4 className="font-black text-mud text-sm md:text-base flex items-center gap-2">
+                      <span>📊</span>
+                      <span>تقارير النشاط الدراسي للابن: {selectedChildForReport.username}</span>
+                    </h4>
+                    <span className="text-4xs font-black bg-emerald-100 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-full">
+                      مفعل ومراقب نشط ✓
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="bg-[#FAF7F0] border border-mud/5 p-3 rounded-xl text-center">
+                      <span className="text-4xs text-mud/60 block mb-0.5">المواد المفتوحة</span>
+                      <span className="text-sm font-black text-mud">{logs.length} مواد</span>
+                    </div>
+                    <div className="bg-[#FAF7F0] border border-mud/5 p-3 rounded-xl text-center">
+                      <span className="text-4xs text-mud/60 block mb-0.5">إجمالي مرات التصفح</span>
+                      <span className="text-sm font-black text-mud">
+                        {logs.reduce((sum, item) => sum + (item.openCount || 0), 0)} مرات
+                      </span>
+                    </div>
+                    <div className="bg-[#FAF7F0] border border-mud/5 p-3 rounded-xl text-center col-span-2 sm:col-span-1">
+                      <span className="text-4xs text-mud/60 block mb-0.5">إجمالي وقت البقاء والتركيز</span>
+                      <span className="text-sm font-black text-emerald-700">
+                        {(() => {
+                          const totalSec = logs.reduce((sum, item) => sum + (item.totalDurationSeconds || 0), 0);
+                          if (totalSec < 60) return `${totalSec} ثوانٍ`;
+                          const mins = Math.floor(totalSec / 60);
+                          const remainingSec = totalSec % 60;
+                          return `${mins} دقيقة ${remainingSec > 0 ? `و ${remainingSec}ث` : ""}`;
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h5 className="font-extrabold text-mud text-xs">📖 سجل تصفح ومتابعة المواد بالتفصيل:</h5>
+                    
+                    {logs.length === 0 ? (
+                      <div className="text-center py-8 border border-dashed border-mud/10 rounded-xl">
+                        <p className="text-3xs text-mud/50">لم يقم {selectedChildForReport.username} بفتح أي مادة تفاعلية بعد في هذه الجلسة.</p>
+                      </div>
+                    ) : (
+                      <div className="border border-mud/10 rounded-xl overflow-hidden bg-[#FAF7F0]/30">
+                        <table className="w-full text-right text-3xs">
+                          <thead>
+                            <tr className="bg-[#FAF7F0] text-mud font-black border-b border-mud/10">
+                              <th className="p-3">اسم المادة</th>
+                              <th className="p-3 text-center">مرات الفتح</th>
+                              <th className="p-3 text-center">مدة بقاء الطالب واستخدامه</th>
+                              <th className="p-3 text-left">آخر تصفح ونشاط</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-mud/5">
+                            {logs.map((log, index) => {
+                              return (
+                                <tr key={index} className="hover:bg-cream/20">
+                                  <td className="p-3 font-extrabold text-mud">{log.subjectName}</td>
+                                  <td className="p-3 text-center font-bold text-mud">{log.openCount || 1} مرات</td>
+                                  <td className="p-3 text-center font-bold text-emerald-700">
+                                    {(() => {
+                                      const sec = log.totalDurationSeconds || 0;
+                                      if (sec < 60) return `${sec} ثانية`;
+                                      const mins = Math.floor(sec / 60);
+                                      const remSec = sec % 60;
+                                      return `${mins} دقيقة ${remSec > 0 ? `و ${remSec}ث` : ""}`;
+                                    })()}
+                                  </td>
+                                  <td className="p-3 text-left text-mud/60">
+                                    {log.lastOpened ? new Date(log.lastOpened).toLocaleTimeString("ar-SD", { hour: '2-digit', minute: '2-digit' }) : "غير متوفر"}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })()}
+          </div>
+
+          {/* Left Side: Directory Student Search for linking (5 cols) */}
+          <div className="lg:col-span-5 space-y-6">
+            <div className="bg-white border border-mud/10 rounded-2xl p-5 md:p-6 space-y-5">
+              <h4 className="font-black text-mud text-sm md:text-base border-b border-mud/5 pb-3 flex items-center gap-2">
+                <span>🔍</span>
+                <span>البحث في دليل المسجلين للربط</span>
+              </h4>
+
+              <div className="relative">
+                <Search className="w-4 h-4 text-mud/40 absolute right-3.5 top-3.5" />
+                <input
+                  type="text"
+                  placeholder="ابحث باسم الطالب أو السنة الدراسية..."
+                  value={parentSearchQuery}
+                  onChange={(e) => setParentSearchQuery(e.target.value)}
+                  className="w-full pl-4 pr-10 py-2.5 rounded-xl border border-mud/15 hover:border-mud/30 focus:border-earthgold focus:outline-hidden text-3xs font-medium text-mud [font-family:inherit] bg-[#FAF7F0]/30"
+                />
+              </div>
+
+              <div className="max-h-[350px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                {filteredStudents.length === 0 ? (
+                  <p className="text-center py-6 text-4xs text-mud/50 font-bold">لم يتم العثور على طلاب مطابقين للبحث.</p>
+                ) : (
+                  filteredStudents.map(student => {
+                    const isLinked = parentChildrenLinks.some(link => link.receiver_id === student.id);
+
+                    return (
+                      <div key={student.id} className="p-3 bg-[#FAF7F0] hover:bg-cream/25 border border-mud/5 rounded-xl flex items-center justify-between gap-3 text-right">
+                        <div className="space-y-0.5">
+                          <p className="font-bold text-mud text-3xs">{student.username}</p>
+                          <p className="text-4xs text-earthgold font-semibold">{student.grade_name || "مرحلة غير محددة"}</p>
+                        </div>
+
+                        {isLinked ? (
+                          <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full">
+                            مرتبط بالحساب ✓
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleLinkChild(student)}
+                            className="px-3 py-1.5 bg-earthgold hover:bg-earthgold/90 text-white rounded-lg text-4xs font-black cursor-pointer transition-colors shadow-xs"
+                          >
+                            ربط 👪
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -3533,6 +4024,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                setShowEducationalMindMap(false);
                                setShowStudentChat(false);
                                setShowAdminDashboard(false);
+                               setShowParentPortal(false);
                                setSelectedStage(null);
                                setActiveGrade(null);
                             }}
@@ -3548,6 +4040,34 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                {showOnlyFavorites ? (currentLang === "ar" ? "تصفح جميع المناهج 📋" : "Browse All Curricula 📋") : (currentLang === "ar" ? "المواد المفضلة ⭐" : "My Favorites ⭐")}
                             </span>
                          </button>
+
+                         {currentUser?.user_role === "parent" && (
+                            <button 
+                               onClick={() => {
+                                  setShowParentPortal(prev => !prev);
+                                  setShowOnlyFavorites(false);
+                                  setShowStudyCamp(false);
+                                  setShowEducationalMindMap(false);
+                                  setShowStudentChat(false);
+                                  setShowAdminDashboard(false);
+                                  setSelectedStage(null);
+                                  setActiveGrade(null);
+                                  if (!showParentPortal) {
+                                     fetchParentRelations();
+                                  }
+                               }}
+                               className={`flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl border text-[10px] sm:text-2xs font-bold transition-all duration-300 cursor-pointer select-none shadow-xs ${
+                                  showParentPortal 
+                                    ? "bg-emerald-600 text-white border-emerald-600 ring-4 ring-emerald-600/20" 
+                                    : "bg-white hover:bg-cream border-mud/15 text-mud"
+                               }`}
+                            >
+                               <span className="text-xs">👪</span>
+                               <span>
+                                  {currentLang === "ar" ? "بوابة الآباء ومتابعة الأبناء" : "Parent Portal & Monitoring"}
+                               </span>
+                            </button>
+                         )}
 
                          {(selectedStage?.id === "kindergarten" || selectedStage?.id === "primary" || (currentUser?.user_role === "student" && (currentUser?.grade_id?.startsWith("pri-") || currentUser?.grade_id?.startsWith("kg-")))) && (
                             <button 
@@ -3877,6 +4397,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                     setShowStudyCamp(false);
                                     setShowEducationalMindMap(false);
                                     setShowStudentChat(false);
+                                    setShowParentPortal(false);
                                  }
                               }}
                               className={`group relative p-4 rounded-2xl flex flex-col items-center text-center transition-all duration-300 cursor-pointer transform select-none ${
@@ -4942,6 +5463,16 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           >
             <StudyCamp stages={displayedStages} />
           </motion.div>
+        ) : showParentPortal ? (
+          <motion.div
+            key="parent-portal-view"
+            id="parent-portal-view-section"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            {renderParentPortal()}
+          </motion.div>
         ) : (
           null
         )}
@@ -5424,6 +5955,12 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             siteTheme={siteTheme}
             liveLessons={liveLessons}
             onRefreshLiveLessons={refreshLiveLessonsList}
+            currentUser={currentUser}
+            onPromptLogin={(msg) => {
+              setUserAuthError(msg || "⚠️ هذا المحتوى متاح فقط للأعضاء المسجلين. يرجى تسجيل الدخول أو إنشاء حساب جديد مجاناً!");
+              setShowUserModal(true);
+              setUserModalTab("login");
+            }}
           />
         )}
       </AnimatePresence>
@@ -5623,6 +6160,49 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                           </div>
                         </>
                       )}
+
+                      {currentUser?.user_role === "parent" && (
+                        <div className="space-y-3 text-right animate-fade-in">
+                          <label className="text-[10px] text-slate-400 font-bold block">
+                            الصفوف الدراسية لأبنائك (تحديد متعدد من كافة المراحل) 👪:
+                          </label>
+                          <div className="space-y-3 max-h-60 overflow-y-auto border border-slate-850 bg-slate-950 p-3 rounded-xl scrollbar-thin scrollbar-thumb-slate-800 text-right">
+                            {curriculumData.map((stage) => (
+                              <div key={stage.id} className="space-y-1.5 border-b border-slate-900 last:border-0 pb-2 last:pb-0">
+                                <span className="text-[10px] font-black text-emerald-400 block mb-1">
+                                  ✦ {stage.name === "kindergarten" ? "مرحلة الروضة" : stage.name === "primary" ? "المرحلة الابتدائية" : stage.name === "middle" ? "المرحلة المتوسطة" : stage.name === "high" ? "المرحلة الثانوية" : stage.name}
+                                </span>
+                                <div className="grid grid-cols-2 gap-1.5">
+                                  {stage.grades.map((grade) => {
+                                    const isSelected = selectedParentStages.includes(grade.name);
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={grade.id}
+                                        onClick={() => {
+                                          if (isSelected) {
+                                            setSelectedParentStages(prev => prev.filter(x => x !== grade.name));
+                                          } else {
+                                            setSelectedParentStages(prev => [...prev, grade.name]);
+                                          }
+                                        }}
+                                        className={`inline-flex items-center justify-between px-2.5 py-1.5 text-3xs font-extrabold rounded-lg border transition-all cursor-pointer ${
+                                          isSelected
+                                            ? "bg-emerald-600/20 text-emerald-400 border-emerald-600 font-black"
+                                            : "bg-slate-900 text-slate-400 border-slate-850 hover:border-slate-800"
+                                        }`}
+                                      >
+                                        <span>{grade.name}</span>
+                                        {isSelected ? <span className="text-emerald-400 font-black">✓</span> : <span className="text-slate-600">+</span>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
 
@@ -5643,28 +6223,39 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       {/* نوع الحساب Segmented Button */}
                       <div className="space-y-1.5 text-right">
                         <label className="text-[10px] text-slate-400 font-bold block">نوع الحساب الأساسي:</label>
-                        <div className="grid grid-cols-2 gap-2 bg-slate-100/5 p-1 rounded-xl border border-slate-805">
+                        <div className="grid grid-cols-3 gap-1 bg-slate-100/5 p-1 rounded-xl border border-slate-805">
                           <button
                             type="button"
                             onClick={() => setRegUserRole("student")}
-                            className={`py-1.5 text-[11px] font-extrabold rounded-lg transition-all cursor-pointer ${
+                            className={`py-1.5 text-[10px] font-extrabold rounded-lg transition-all cursor-pointer text-center ${
                               regUserRole === "student"
                                 ? "bg-indigo-650 text-white shadow-sm font-black"
                                 : "text-slate-400 hover:text-slate-205"
                             }`}
                           >
-                            🎓 طالب علم
+                            🎓 طالب
                           </button>
                           <button
                             type="button"
                             onClick={() => setRegUserRole("teacher")}
-                            className={`py-1.5 text-[11px] font-extrabold rounded-lg transition-all cursor-pointer ${
+                            className={`py-1.5 text-[10px] font-extrabold rounded-lg transition-all cursor-pointer text-center ${
                               regUserRole === "teacher"
                                 ? "bg-amber-650 text-white shadow-sm font-black"
                                 : "text-slate-400 hover:text-slate-205"
                             }`}
                           >
-                            👨‍🏫 أستاذ / معلم
+                            👨‍🏫 معلم
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRegUserRole("parent")}
+                            className={`py-1.5 text-[10px] font-extrabold rounded-lg transition-all cursor-pointer text-center ${
+                              regUserRole === "parent"
+                                ? "bg-emerald-650 text-white shadow-sm font-black"
+                                : "text-slate-400 hover:text-slate-205"
+                            }`}
+                          >
+                            👪 ولي أمر
                           </button>
                         </div>
                       </div>
@@ -5744,15 +6335,59 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                           </div>
                         </>
                       )}
+
+                      {/* Conditional Display: Parent Stage Selector */}
+                      {regUserRole === "parent" && (
+                        <div className="space-y-3 text-right animate-fade-in">
+                          <label className="text-[10px] text-slate-400 font-bold block">
+                            الصفوف الدراسية لأبنائك (تحديد متعدد من كافة المراحل) 👪:
+                          </label>
+                          <div className="space-y-3 max-h-60 overflow-y-auto border border-slate-850 bg-slate-950 p-3 rounded-xl scrollbar-thin scrollbar-thumb-slate-800 text-right">
+                            {curriculumData.map((stage) => (
+                              <div key={stage.id} className="space-y-1.5 border-b border-slate-900 last:border-0 pb-2 last:pb-0">
+                                <span className="text-[10px] font-black text-emerald-400 block mb-1">
+                                  ✦ {stage.name === "kindergarten" ? "مرحلة الروضة" : stage.name === "primary" ? "المرحلة الابتدائية" : stage.name === "middle" ? "المرحلة المتوسطة" : stage.name === "high" ? "المرحلة الثانوية" : stage.name}
+                                </span>
+                                <div className="grid grid-cols-2 gap-1.5">
+                                  {stage.grades.map((grade) => {
+                                    const isSelected = selectedParentStages.includes(grade.name);
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={grade.id}
+                                        onClick={() => {
+                                          if (isSelected) {
+                                            setSelectedParentStages(prev => prev.filter(x => x !== grade.name));
+                                          } else {
+                                            setSelectedParentStages(prev => [...prev, grade.name]);
+                                          }
+                                        }}
+                                        className={`inline-flex items-center justify-between px-2.5 py-1.5 text-3xs font-extrabold rounded-lg border transition-all cursor-pointer ${
+                                          isSelected
+                                            ? "bg-emerald-600/20 text-emerald-400 border-emerald-600 font-black"
+                                            : "bg-slate-900 text-slate-400 border-slate-850 hover:border-slate-800"
+                                        }`}
+                                      >
+                                        <span>{grade.name}</span>
+                                        {isSelected ? <span className="text-emerald-400 font-black">✓</span> : <span className="text-slate-600">+</span>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
 
                   {userModalTab === "login" && (
-                    <div className="grid grid-cols-2 gap-2 bg-slate-100/5 p-1 rounded-xl border border-slate-800/60 mb-4">
+                    <div className="grid grid-cols-3 gap-1.5 bg-slate-100/5 p-1 rounded-xl border border-slate-800/60 mb-4">
                       <button
                         type="button"
                         onClick={() => setLoginRole("student")}
-                        className={`py-1.5 text-[11px] font-extrabold rounded-lg transition-all cursor-pointer ${
+                        className={`py-1.5 text-[10px] font-extrabold rounded-lg transition-all cursor-pointer ${
                           loginRole === "student"
                             ? "bg-indigo-650 text-white shadow-sm font-black"
                             : "text-slate-400 hover:text-slate-205"
@@ -5762,14 +6397,25 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       </button>
                       <button
                         type="button"
+                        onClick={() => setLoginRole("parent")}
+                        className={`py-1.5 text-[10px] font-extrabold rounded-lg transition-all cursor-pointer ${
+                          loginRole === "parent"
+                            ? "bg-indigo-650 text-white shadow-sm font-black"
+                            : "text-slate-400 hover:text-slate-205"
+                        }`}
+                      >
+                        👪 دخول أولياء الأمور
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setLoginRole("admin")}
-                        className={`py-1.5 text-[11px] font-extrabold rounded-lg transition-all cursor-pointer ${
+                        className={`py-1.5 text-[10px] font-extrabold rounded-lg transition-all cursor-pointer ${
                           loginRole === "admin"
                             ? "bg-indigo-650 text-white shadow-sm font-black"
                             : "text-slate-400 hover:text-slate-205"
                         }`}
                       >
-                        🔑 دخول الإدارة والأساتذة
+                        🔑 دخول المعلمين والإدارة
                       </button>
                     </div>
                   )}
@@ -5785,7 +6431,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       disabled={userModalTab === "profile"}
                       value={userEmail}
                       onChange={(e) => setUserEmail(e.target.value)}
-                      placeholder={loginRole === "admin" && userModalTab === "login" ? "admin@example.com" : "student@example.com"}
+                      placeholder={loginRole === "admin" && userModalTab === "login" ? "admin@example.com" : loginRole === "parent" ? "parent@example.com" : "student@example.com"}
                       className={`w-full border border-slate-800 rounded-xl p-3 text-xs outline-none transition-all font-sans text-left ${userModalTab === "profile" ? "bg-slate-950/60 text-slate-400 pointer-events-none" : "bg-slate-950 text-slate-100 focus:border-indigo-600"}`}
                       dir="ltr"
                     />
