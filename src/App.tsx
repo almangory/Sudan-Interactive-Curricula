@@ -1353,7 +1353,7 @@ export default function App() {
         return updated;
       });
 
-      if (selectedChildForReport && parentChildrenLinks.find(l => l.id === linkId)?.receiver_id === selectedChildForReport.id) {
+      if (selectedChildForReport && String(parentChildrenLinks.find(l => l.id === linkId)?.receiver_id) === String(selectedChildForReport.id)) {
         setSelectedChildForReport(null);
       }
       
@@ -2833,9 +2833,9 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {parentChildrenLinks.map(link => {
-                    const student = allRegisteredUsers.find(u => u.id === link.receiver_id);
+                    const student = allRegisteredUsers.find(u => String(u.id) === String(link.receiver_id));
                     if (!student) return null;
-                    const isSelected = selectedChildForReport?.id === student.id;
+                    const isSelected = selectedChildForReport && String(selectedChildForReport.id) === String(student.id);
 
                     return (
                       <div 
@@ -3006,7 +3006,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   <p className="text-center py-6 text-4xs text-mud/50 font-bold">لم يتم العثور على طلاب مطابقين للبحث.</p>
                 ) : (
                   filteredStudents.map(student => {
-                    const isLinked = parentChildrenLinks.some(link => link.receiver_id === student.id);
+                    const isLinked = parentChildrenLinks.some(link => String(link.receiver_id) === String(student.id));
 
                     return (
                       <div key={student.id} className="p-3 bg-[#FAF7F0] hover:bg-cream/25 border border-mud/5 rounded-xl flex items-center justify-between gap-3 text-right">

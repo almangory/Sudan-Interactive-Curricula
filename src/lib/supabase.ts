@@ -630,32 +630,62 @@ export async function registerUser(
  * Logs in a user by checking the database 'users' table securely.
  */
 export async function loginUser(email: string, password?: string): Promise<{ success: boolean; error?: string; user?: AppUser }> {
-  try {
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ email, password })
-    });
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: false, error: "قاعدة بيانات سوبابيس (Supabase) غير مهيأة بعد." };
+  }
 
-    if (response.ok) {
-      const resData = await response.json();
-      if (resData.success) {
-        return {
-          success: true,
-          user: resData.user
-        };
-      } else {
-        return {
-          success: false,
-          error: resData.error || "فشل تسجيل الدخول."
-        };
+  try {
+    const cleanEmail = email.trim().toLowerCase();
+    
+    // Fetch user by email directly using Supabase client
+    const { data, error } = await client
+      .from("users")
+      .select("*")
+      .eq("email", cleanEmail)
+      .limit(1);
+
+    if (error) {
+      return { success: false, error: `فشل استعلام قاعدة البيانات: ${error.message}` };
+    }
+
+    if (!data || data.length === 0) {
+      return { success: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة. يرجى التأكد من البيانات وإعادة المحاولة." };
+    }
+
+    const userEntry = data[0];
+    const hashedInput = password ? sha256(password) : "";
+
+    if (password) {
+      const storedPass = userEntry.password || userEntry.password_hash || "";
+      if (storedPass !== password && storedPass !== hashedInput) {
+        return { success: false, error: "البريد الإلكتروني أو كلمة المرور غير صحيحة. يرجى التأكد من البيانات وإعادة المحاولة." };
+      }
+
+      // Auto-migrate user password to secure SHA-256 hash if they logged in with plain text password
+      if (storedPass === password && storedPass !== hashedInput) {
+        await client
+          .from("users")
+          .update({ password: hashedInput, password_hash: hashedInput })
+          .eq("id", userEntry.id);
       }
     }
+
     return {
-      success: false,
-      error: `حدث خطأ أثناء الاتصال بالخادم: ${response.statusText}`
+      success: true,
+      user: {
+        id: userEntry.id,
+        username: userEntry.username,
+        email: userEntry.email,
+        provider: userEntry.provider,
+        user_role: userEntry.user_role,
+        grade_id: userEntry.grade_id,
+        grade_name: userEntry.grade_name,
+        specialties: userEntry.specialties,
+        contact_method: userEntry.contact_method,
+        status: userEntry.status,
+        is_approved_teacher: userEntry.is_approved_teacher
+      }
     };
   } catch (err: any) {
     return { success: false, error: err.message || String(err) };
