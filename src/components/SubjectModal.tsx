@@ -4,7 +4,7 @@ import {
   X, ExternalLink, Sparkles, BookOpen, Clock, Users, ShieldAlert,
   ChevronRight, Award, Compass, Heart, HelpCircle, Download, Video,
   FileText, Youtube, Lock, Unlock, Save, Edit, Share2, Check, Star, Trash2,
-  Wifi, WifiOff, Plus
+  Wifi, WifiOff, Plus, FolderOpen
 } from "lucide-react";
 import { Subject } from "../data/curriculum";
 import DynamicIcon from "./DynamicIcon";
@@ -62,6 +62,9 @@ function getVideoEmbedUrl(url: string): { url: string; isYouTube: boolean; isDri
 
 function getPdfEmbedUrl(url: string): string {
   if (!url) return "";
+  
+  // Let blob URLs pass through directly for offline native viewing
+  if (url.startsWith("blob:")) return url;
   
   // Google Drive file link
   const driveFileRegExp = /\/file\/d\/([a-zA-Z0-9_-]+)/;
@@ -709,19 +712,43 @@ export default function SubjectModal({
                               {currentLang === "ar" ? "افتح الكتاب الرقمي المنهجي بصيغة PDF بجوار الشاشة أو قم بتنزيله لدراسة فصوله وعقد المقارنات البينية بأريحية كاملة." : "Open the official digital PDF textbook on your device or download it to study syllabus chapters seamlessly."}
                             </p>
                           </div>
-                          <button
-                            onClick={(e) => {
-                              if (!handleRestrictedAction(e, "⚠️ فتح وقراءة الكتب المدرسية والملخصات متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب مجاناً!")) return;
-                              setActivePdfUrl(subject.pdfUrl!);
-                              setActivePdfTitle(currentLang === "ar" ? `كتاب المقرر: ${t(subject.name)}` : `Textbook: ${t(subject.name)}`);
-                            }}
-                            className={`inline-flex items-center gap-2 px-5 py-2.5 text-white text-2xs font-bold rounded-xl transition-all shadow-md cursor-pointer ${
-                              siteTheme === "sudanese" ? "bg-mud hover:bg-[#4A2312]" : "bg-emerald-600 hover:bg-emerald-555"
-                            }`}
-                          >
-                            <BookOpen className="w-3.5 h-3.5" />
-                            <span>{currentLang === "ar" ? "فتح وقراءة كتاب المقرر التفاعلي" : "Open and Read Interactive Textbook"}</span>
-                          </button>
+                          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mt-2">
+                            <button
+                              onClick={(e) => {
+                                if (!handleRestrictedAction(e, "⚠️ فتح وقراءة الكتب المدرسية والملخصات متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب مجاناً!")) return;
+                                setActivePdfUrl(subject.pdfUrl!);
+                                setActivePdfTitle(currentLang === "ar" ? `كتاب المقرر: ${t(subject.name)}` : `Textbook: ${t(subject.name)}`);
+                              }}
+                              className={`inline-flex items-center gap-2 px-5 py-2.5 text-white text-2xs font-bold rounded-xl transition-all shadow-md cursor-pointer ${
+                                siteTheme === "sudanese" ? "bg-mud hover:bg-[#4A2312]" : "bg-emerald-600 hover:bg-emerald-555"
+                              }`}
+                            >
+                              <BookOpen className="w-3.5 h-3.5" />
+                              <span>{currentLang === "ar" ? "فتح وقراءة كتاب المقرر التفاعلي" : "Open and Read Interactive Textbook"}</span>
+                            </button>
+
+                            <label className={`inline-flex items-center gap-2 px-5 py-2.5 text-2xs font-bold rounded-xl transition-all border shadow-sm cursor-pointer ${
+                              siteTheme === "sudanese"
+                                ? "bg-[#FAF5EC] hover:bg-white text-mud border-mud/20 hover:border-mud"
+                                : "bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600"
+                            }`}>
+                              <FolderOpen className="w-3.5 h-3.5 text-blue-500" />
+                              <span>{currentLang === "ar" ? "تصفح كتاب محمل من جهازك 📂" : "Browse downloaded book from device 📂"}</span>
+                              <input 
+                                type="file" 
+                                accept=".pdf" 
+                                className="hidden" 
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const localUrl = URL.createObjectURL(file);
+                                    setActivePdfUrl(localUrl);
+                                    setActivePdfTitle(currentLang === "ar" ? `كتاب محلي: ${file.name}` : `Local Book: ${file.name}`);
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -1397,38 +1424,41 @@ export default function SubjectModal({
                     </p>
                   </div>
                   <div>
-                    {subject.pdfUrl ? (
-                      <div className="flex flex-col gap-2">
-                        <button 
-                          onClick={(e) => {
-                            if (!handleRestrictedAction(e, "⚠️ فتح وقراءة كتب المنهج الدراسي متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب مجاناً!")) return;
-                            setActivePdfUrl(subject.pdfUrl!);
-                            setActivePdfTitle(currentLang === "ar" ? `كتاب المقرر: ${t(subject.name)}` : `Textbook: ${t(subject.name)}`);
-                          }}
-                          className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
-                            siteTheme === "sudanese" 
-                              ? "bg-mud hover:bg-[#4A2312]" 
-                              : "bg-emerald-600 hover:bg-emerald-500"
-                          }`}
-                        >
-                          <BookOpen className="w-4 h-4" />
-                          <span>{currentLang === "ar" ? "فتح وقراءة كتاب المقرر" : "Open and Read Textbook"}</span>
-                        </button>
+                    <div className="flex flex-col gap-2">
+                      {subject.pdfUrl ? (
+                        <>
+                          <button 
+                            onClick={(e) => {
+                              if (!handleRestrictedAction(e, "⚠️ فتح وقراءة كتب المنهج الدراسي متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب مجاناً!")) return;
+                              setActivePdfUrl(subject.pdfUrl!);
+                              setActivePdfTitle(currentLang === "ar" ? `كتاب المقرر: ${t(subject.name)}` : `Textbook: ${t(subject.name)}`);
+                            }}
+                            className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
+                              siteTheme === "sudanese" 
+                                ? "bg-mud hover:bg-[#4A2312]" 
+                                : "bg-emerald-600 hover:bg-emerald-500"
+                            }`}
+                          >
+                            <BookOpen className="w-4 h-4" />
+                            <span>{currentLang === "ar" ? "فتح وقراءة كتاب المقرر" : "Open and Read Textbook"}</span>
+                          </button>
 
-                        <button 
-                          onClick={() => handleSavePdfLocally(subject.pdfUrl!, currentLang === "ar" ? `كتاب مقرر ${subject.name}` : `Textbook ${subject.name}`)}
-                          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-slate-350 bg-slate-950/50 hover:bg-slate-850/80 rounded-xl text-[10px] font-extrabold transition-all border border-slate-800 hover:border-emerald-500/40 hover:text-emerald-400 cursor-pointer"
-                        >
-                          <Download className="w-3.5 h-3.5 text-emerald-500" />
-                          <span>{currentLang === "ar" ? "حفظ وتنزيل الكتاب الدراسي (أوفلاين) 💾" : "Save and Download Textbook (Offline) 💾"}</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 cursor-not-allowed opacity-60">
-                        <BookOpen className="w-3.5 h-3.5 text-slate-500/80" />
-                        <span>{currentLang === "ar" ? "كتاب المقرر غير متوفر حالياً" : "Book not available yet"}</span>
-                      </div>
-                    )}
+                          <button 
+                            onClick={() => handleSavePdfLocally(subject.pdfUrl!, currentLang === "ar" ? `كتاب مقرر ${subject.name}` : `Textbook ${subject.name}`)}
+                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-slate-350 bg-slate-950/50 hover:bg-slate-850/80 rounded-xl text-[10px] font-extrabold transition-all border border-slate-800 hover:border-emerald-500/40 hover:text-emerald-400 cursor-pointer"
+                          >
+                            <Download className="w-3.5 h-3.5 text-emerald-500" />
+                            <span>{currentLang === "ar" ? "حفظ وتنزيل الكتاب الدراسي (أوفلاين) 💾" : "Save and Download Textbook (Offline) 💾"}</span>
+                          </button>
+                        </>
+                      ) : (
+                        <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 opacity-60">
+                          <BookOpen className="w-3.5 h-3.5 text-slate-500/80" />
+                          <span>{currentLang === "ar" ? "كتاب المقرر غير متوفر حالياً" : "Book not available yet"}</span>
+                        </div>
+                      )}
+
+                    </div>
                   </div>
                 </div>
 
@@ -1436,7 +1466,7 @@ export default function SubjectModal({
                 <div className={`p-4 rounded-2xl flex flex-col justify-between space-y-3 border ${
                   siteTheme === "sudanese"
                     ? "bg-[#FCFAF3] border-mud/10 text-mud"
-                    : "bg-slate-950/40 border-slate-800/80 text-slate-100"
+                    : "bg-slate-955/40 border-slate-800/80 text-slate-100"
                 }`}>
                   <div className="space-y-1">
                     <div className={`flex items-center justify-between gap-2 ${
@@ -1470,38 +1500,63 @@ export default function SubjectModal({
                     </p>
                   </div>
                   <div>
-                    {subject.memoPdfUrl ? (
-                      <div className="flex flex-col gap-2">
-                        <button 
-                          onClick={(e) => {
-                            if (!handleRestrictedAction(e, "⚠️ فتح وقراءة ملخصات ومذكرات الشرح متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب مجاناً!")) return;
-                            setActivePdfUrl(subject.memoPdfUrl!);
-                            setActivePdfTitle(currentLang === "ar" ? `مذكرة المادة: ${t(subject.name)}` : `Notes: ${t(subject.name)}`);
-                          }}
-                          className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
-                            siteTheme === "sudanese" 
-                              ? "bg-[#A16207] hover:bg-[#854D0E]" 
-                              : "bg-amber-600 hover:bg-amber-500"
-                          }`}
-                        >
-                          <FileText className="w-4 h-4" />
-                          <span>{currentLang === "ar" ? "فتح وقراءة المذكرة" : "Open and Read Notes"}</span>
-                        </button>
+                    <div className="flex flex-col gap-2">
+                      {subject.memoPdfUrl ? (
+                        <>
+                          <button 
+                            onClick={(e) => {
+                              if (!handleRestrictedAction(e, "⚠️ فتح وقراءة ملخصات ومذكرات الشرح متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب مجاناً!")) return;
+                              setActivePdfUrl(subject.memoPdfUrl!);
+                              setActivePdfTitle(currentLang === "ar" ? `مذكرة المادة: ${t(subject.name)}` : `Notes: ${t(subject.name)}`);
+                            }}
+                            className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
+                              siteTheme === "sudanese" 
+                                ? "bg-[#A16207] hover:bg-[#854D0E]" 
+                                : "bg-amber-600 hover:bg-amber-500"
+                            }`}
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span>{currentLang === "ar" ? "فتح وقراءة المذكرة" : "Open and Read Notes"}</span>
+                          </button>
 
-                        <button 
-                          onClick={() => handleSavePdfLocally(subject.memoPdfUrl!, currentLang === "ar" ? `مذكرة مقرر ${subject.name}` : `Notes ${subject.name}`)}
-                          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-slate-350 bg-slate-950/50 hover:bg-slate-850/80 rounded-xl text-[10px] font-extrabold transition-all border border-slate-800 hover:border-amber-500/40 hover:text-amber-400 cursor-pointer"
-                        >
-                          <Download className="w-3.5 h-3.5 text-amber-500" />
-                          <span>{currentLang === "ar" ? "حفظ وتنزيل المذكرة والملخص (أوفلاين) 💾" : "Save and Download Notes (Offline) 💾"}</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 cursor-not-allowed opacity-60">
-                        <FileText className="w-3.5 h-3.5 text-slate-500/80" />
-                        <span>{currentLang === "ar" ? "المذكرة غير متوفرة حالياً" : "Notes not available yet"}</span>
-                      </div>
-                    )}
+                          <button 
+                            onClick={() => handleSavePdfLocally(subject.memoPdfUrl!, currentLang === "ar" ? `مذكرة مقرر ${subject.name}` : `Notes ${subject.name}`)}
+                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-slate-350 bg-slate-950/50 hover:bg-slate-850/80 rounded-xl text-[10px] font-extrabold transition-all border border-slate-800 hover:border-amber-500/40 hover:text-amber-400 cursor-pointer"
+                          >
+                            <Download className="w-3.5 h-3.5 text-amber-500" />
+                            <span>{currentLang === "ar" ? "حفظ وتنزيل المذكرة والملخص (أوفلاين) 💾" : "Save and Download Notes (Offline) 💾"}</span>
+                          </button>
+                        </>
+                      ) : (
+                        <div className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800/60 text-slate-500 rounded-xl text-xs font-bold border border-slate-700/40 opacity-60">
+                          <FileText className="w-3.5 h-3.5 text-slate-500/80" />
+                          <span>{currentLang === "ar" ? "المذكرة غير متوفرة حالياً" : "Notes not available yet"}</span>
+                        </div>
+                      )}
+
+                      {/* Local Notes Selector for Offline Viewing */}
+                      <label className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[10px] font-extrabold transition-all border cursor-pointer text-center ${
+                        siteTheme === "sudanese"
+                          ? "bg-cream hover:bg-white text-mud border-mud/20 hover:border-mud"
+                          : "bg-slate-950/50 hover:bg-slate-850/80 text-slate-350 border-slate-800 hover:border-amber-500/40 hover:text-amber-400"
+                      }`}>
+                        <FolderOpen className="w-3.5 h-3.5 text-amber-500" />
+                        <span>{currentLang === "ar" ? "فتح مذكرة محملة من جهازك (أوفلاين) 📂" : "Open downloaded notes from device 📂"}</span>
+                        <input 
+                          type="file" 
+                          accept=".pdf" 
+                          className="hidden" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const localUrl = URL.createObjectURL(file);
+                              setActivePdfUrl(localUrl);
+                              setActivePdfTitle(currentLang === "ar" ? `مذكرة محلية: ${file.name}` : `Local Notes: ${file.name}`);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
                   </div>
                 </div>
 
