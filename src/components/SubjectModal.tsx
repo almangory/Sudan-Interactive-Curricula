@@ -4,7 +4,7 @@ import {
   X, ExternalLink, Sparkles, BookOpen, Clock, Users, ShieldAlert,
   ChevronRight, Award, Compass, Heart, HelpCircle, Download, Video,
   FileText, Youtube, Lock, Unlock, Save, Edit, Share2, Check, Star, Trash2,
-  Wifi, WifiOff, Plus, FolderOpen
+  Wifi, WifiOff, Plus, Maximize2, Minimize2
 } from "lucide-react";
 import { Subject } from "../data/curriculum";
 import DynamicIcon from "./DynamicIcon";
@@ -130,6 +130,7 @@ export default function SubjectModal({
   const [activePdfTitle, setActivePdfTitle] = useState<string>("");
   const [forceLoadIframe, setForceLoadIframe] = useState<boolean>(false);
   const [isActivePdfMemo, setIsActivePdfMemo] = useState<boolean>(false);
+  const [isPdfFullscreen, setIsPdfFullscreen] = useState<boolean>(false);
 
   const subjectLiveLessons = liveLessons.filter(
     (lesson) => lesson.subjectId === subject.id || (lesson.subjectName === subject.name && lesson.gradeId === gradeId)
@@ -465,16 +466,22 @@ export default function SubjectModal({
     const shouldShowIframe = isBlobUrl || forceLoadIframe || isActivePdfMemo;
 
     return (
-      <div className={`fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-2 sm:p-4 backdrop-blur-md transition-all font-sans ${
+      <div className={`fixed inset-0 z-50 overflow-y-auto flex items-center justify-center backdrop-blur-md transition-all font-sans ${
+        isPdfFullscreen ? "p-0" : "p-2 sm:p-4"
+      } ${
         siteTheme === "sudanese" ? "bg-mud/40" : "bg-slate-950/95"
       }`} dir={currentLang === "ar" ? "rtl" : "ltr"}>
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className={`w-full max-w-5xl h-[92vh] max-h-[96vh] flex flex-col justify-between overflow-hidden relative ${
+          className={`flex flex-col justify-between overflow-hidden relative ${
+            isPdfFullscreen 
+              ? "w-screen h-screen max-w-none max-h-none rounded-none border-none" 
+              : "w-full max-w-5xl h-[92vh] max-h-[96vh] rounded-3xl"
+          } ${
             siteTheme === "sudanese" 
-              ? "bg-[#FAF5EC] border border-mud/15 rounded-3xl shadow-xl text-mud" 
-              : "bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl"
+              ? "bg-[#FAF5EC] border border-mud/15 shadow-xl text-mud" 
+              : "bg-slate-900 border border-slate-800 shadow-2xl"
           }`}
         >
           {/* Top Panel: Header with back button */}
@@ -489,6 +496,7 @@ export default function SubjectModal({
                   setActivePdfUrl(null);
                   setForceLoadIframe(false);
                   setIsActivePdfMemo(false);
+                  setIsPdfFullscreen(false);
                 }}
                 className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1 text-xs font-black transition-colors ${
                   siteTheme === "sudanese"
@@ -521,20 +529,36 @@ export default function SubjectModal({
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                setActivePdfUrl(null);
-                setForceLoadIframe(false);
-                setIsActivePdfMemo(false);
-              }}
-              className={`p-2 rounded-full transition-colors cursor-pointer ${
-                siteTheme === "sudanese" 
-                  ? "text-mud/70 hover:text-mud bg-mud/5 hover:bg-mud/15" 
-                  : "text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-850"
-              }`}
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Fullscreen Toggle Button */}
+              <button
+                onClick={() => setIsPdfFullscreen(!isPdfFullscreen)}
+                className={`p-2 rounded-full transition-colors cursor-pointer flex items-center justify-center ${
+                  siteTheme === "sudanese" 
+                    ? "text-mud/70 hover:text-mud bg-mud/5 hover:bg-mud/15" 
+                    : "text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-850"
+                }`}
+                title={isPdfFullscreen ? (currentLang === "ar" ? "إنهاء ملء الشاشة" : "Exit Fullscreen") : (currentLang === "ar" ? "ملء الشاشة" : "Fullscreen")}
+              >
+                {isPdfFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+              </button>
+
+              <button
+                onClick={() => {
+                  setActivePdfUrl(null);
+                  setForceLoadIframe(false);
+                  setIsActivePdfMemo(false);
+                  setIsPdfFullscreen(false);
+                }}
+                className={`p-2 rounded-full transition-colors cursor-pointer ${
+                  siteTheme === "sudanese" 
+                    ? "text-mud/70 hover:text-mud bg-mud/5 hover:bg-mud/15" 
+                    : "text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-850"
+                }`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* Central PDF Panel */}
@@ -640,7 +664,7 @@ export default function SubjectModal({
             )}
           </div>
 
-          {/* Secure Footer Warning for Study Notes */}
+          {/* Secure Footer Warning for Study Notes & Textbooks */}
           {isActivePdfMemo && (
             <div className={`p-2 px-4 border-t text-center text-[10px] font-bold flex items-center justify-center gap-1.5 flex-shrink-0 ${
               siteTheme === "sudanese"
@@ -648,7 +672,7 @@ export default function SubjectModal({
                 : "bg-slate-950 border-slate-800 text-slate-450"
             }`}>
               <Lock className="w-3.5 h-3.5 text-amber-500" />
-              <span>{currentLang === "ar" ? "مذكرة محمية: تم إيقاف خيارات التنزيل والمشاركة الخارجية لملخصات ومذكرات المادة." : "Protected Memo: External download and sharing options have been disabled for this study guide resource."}</span>
+              <span>{currentLang === "ar" ? "ملف محمي: تم إيقاف خيارات التنزيل والمشاركة الخارجية للكتب والمذكرات والملخصات." : "Protected Content: External download and sharing options have been disabled for textbooks, notes, and study guides."}</span>
             </div>
           )}
         </motion.div>
@@ -830,7 +854,7 @@ export default function SubjectModal({
                           <div className="space-y-1">
                             <h5 className={`text-xs font-bold ${siteTheme === "sudanese" ? "text-mud" : "text-slate-205"}`}>{currentLang === "ar" ? `كتاب مقرر ${t(subject.name)} متاح للدراسة` : `${t(subject.name)} textbook is ready to study`}</h5>
                             <p className={`text-3xs max-w-md mx-auto leading-relaxed ${siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"}`}>
-                              {currentLang === "ar" ? "افتح الكتاب الرقمي المنهجي بصيغة PDF بجوار الشاشة أو قم بتنزيله لدراسة فصوله وعقد المقارنات البينية بأريحية كاملة." : "Open the official digital PDF textbook on your device or download it to study syllabus chapters seamlessly."}
+                              {currentLang === "ar" ? "افتح وتصفح الكتاب الرقمي المنهجي بصيغة PDF مباشرة داخل الموقع بشكل آمن ودون الحاجة لتنزيله." : "Open and browse the official digital PDF textbook directly inside the website securely without downloading."}
                             </p>
                           </div>
                           <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mt-2">
@@ -839,7 +863,7 @@ export default function SubjectModal({
                                 if (!handleRestrictedAction(e, "⚠️ فتح وقراءة الكتب المدرسية والملخصات متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب مجاناً!")) return;
                                 setActivePdfUrl(subject.pdfUrl!);
                                 setActivePdfTitle(currentLang === "ar" ? `كتاب المقرر: ${t(subject.name)}` : `Textbook: ${t(subject.name)}`);
-                                setIsActivePdfMemo(false);
+                                setIsActivePdfMemo(true);
                               }}
                               className={`inline-flex items-center gap-2 px-5 py-2.5 text-white text-2xs font-bold rounded-xl transition-all shadow-md cursor-pointer ${
                                 siteTheme === "sudanese" ? "bg-mud hover:bg-[#4A2312]" : "bg-emerald-600 hover:bg-emerald-555"
@@ -848,29 +872,6 @@ export default function SubjectModal({
                               <BookOpen className="w-3.5 h-3.5" />
                               <span>{currentLang === "ar" ? "فتح وقراءة كتاب المقرر التفاعلي" : "Open and Read Interactive Textbook"}</span>
                             </button>
-
-                            <label className={`inline-flex items-center gap-2 px-5 py-2.5 text-2xs font-bold rounded-xl transition-all border shadow-sm cursor-pointer ${
-                              siteTheme === "sudanese"
-                                ? "bg-[#FAF5EC] hover:bg-white text-mud border-mud/20 hover:border-mud"
-                                : "bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600"
-                            }`}>
-                              <FolderOpen className="w-3.5 h-3.5 text-blue-500" />
-                              <span>{currentLang === "ar" ? "تصفح كتاب محمل من جهازك 📂" : "Browse downloaded book from device 📂"}</span>
-                              <input 
-                                type="file" 
-                                accept=".pdf" 
-                                className="hidden" 
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    const localUrl = URL.createObjectURL(file);
-                                    setActivePdfUrl(localUrl);
-                                    setActivePdfTitle(currentLang === "ar" ? `كتاب محلي: ${file.name}` : `Local Book: ${file.name}`);
-                                    setIsActivePdfMemo(false);
-                                  }
-                                }}
-                              />
-                            </label>
                           </div>
                         </div>
                       </div>
@@ -1526,15 +1527,11 @@ export default function SubjectModal({
                       
                       {subject.pdfUrl && (
                         <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                          cachedUrls.includes(subject.pdfUrl) 
-                            ? "bg-emerald-950/40 text-emerald-400 border border-emerald-900/40"
-                            : siteTheme === "sudanese" 
-                              ? "bg-mud/5 text-mud/60 border border-mud/10"
-                              : "bg-slate-900/60 text-slate-400 border border-slate-800"
+                          siteTheme === "sudanese"
+                            ? "bg-mud/5 text-[#A16207] border border-mud/10"
+                            : "bg-emerald-950/50 text-emerald-400 border border-emerald-900/45 animate-pulse"
                         }`}>
-                          {cachedUrls.includes(subject.pdfUrl) 
-                            ? (currentLang === "ar" ? "متاح أوفلاين ✦" : "Offline Ready ✦")
-                            : (currentLang === "ar" ? "غير محفوظ محلياً" : "Not Cached")}
+                          {currentLang === "ar" ? "تصفح آمن بالموقع فقط 🔒" : "Secure View Only 🔒"}
                         </span>
                       )}
                     </div>
@@ -1542,8 +1539,8 @@ export default function SubjectModal({
                       siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"
                     }`}>
                       {subject.pdfUrl 
-                        ? (currentLang === "ar" ? "اضغط أدناه لتحميل النسخة الرسمية للمقرر بصيغة PDF مباشرة للدراسة والاستخدام الرقمي." : "Click below to read and download the official curriculum textbook in PDF format.")
-                        : (currentLang === "ar" ? "رابط تنزيل كتاب المنهج السوداني الرسمي بصيغة PDF للهواتف والأجهزة اللوحية." : "Download link for the official Sudanese curriculum textbook PDF for phones and tablets.")}
+                        ? (currentLang === "ar" ? "اضغط أدناه لتصفح وقراءة النسخة الرسمية للمقرر بصيغة PDF مباشرة داخل الموقع وحصرياً." : "Click below to browse and read the official curriculum textbook in PDF format directly inside the website.")
+                        : (currentLang === "ar" ? "كتاب المنهج السوداني الرسمي بصيغة PDF لتصفحه مباشرة وبشكل آمن في الموقع." : "The official Sudanese curriculum textbook PDF, available for direct in-site secure browsing.")}
                     </p>
                   </div>
                   <div>
@@ -1555,6 +1552,7 @@ export default function SubjectModal({
                               if (!handleRestrictedAction(e, "⚠️ فتح وقراءة كتب المنهج الدراسي متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب مجاناً!")) return;
                               setActivePdfUrl(subject.pdfUrl!);
                               setActivePdfTitle(currentLang === "ar" ? `كتاب المقرر: ${t(subject.name)}` : `Textbook: ${t(subject.name)}`);
+                              setIsActivePdfMemo(true);
                             }}
                             className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
                               siteTheme === "sudanese" 
@@ -1564,14 +1562,6 @@ export default function SubjectModal({
                           >
                             <BookOpen className="w-4 h-4" />
                             <span>{currentLang === "ar" ? "فتح وقراءة كتاب المقرر" : "Open and Read Textbook"}</span>
-                          </button>
-
-                          <button 
-                            onClick={() => handleSavePdfLocally(subject.pdfUrl!, currentLang === "ar" ? `كتاب مقرر ${subject.name}` : `Textbook ${subject.name}`)}
-                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-slate-350 bg-slate-950/50 hover:bg-slate-850/80 rounded-xl text-[10px] font-extrabold transition-all border border-slate-800 hover:border-emerald-500/40 hover:text-emerald-400 cursor-pointer"
-                          >
-                            <Download className="w-3.5 h-3.5 text-emerald-500" />
-                            <span>{currentLang === "ar" ? "حفظ وتنزيل الكتاب الدراسي (أوفلاين) 💾" : "Save and Download Textbook (Offline) 💾"}</span>
                           </button>
                         </>
                       ) : (
@@ -1645,29 +1635,6 @@ export default function SubjectModal({
                           <span>{currentLang === "ar" ? "المذكرة غير متوفرة حالياً" : "Notes not available yet"}</span>
                         </div>
                       )}
-
-                      {/* Local Notes Selector for Offline Viewing */}
-                      <label className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[10px] font-extrabold transition-all border cursor-pointer text-center ${
-                        siteTheme === "sudanese"
-                          ? "bg-cream hover:bg-white text-mud border-mud/20 hover:border-mud"
-                          : "bg-slate-950/50 hover:bg-slate-850/80 text-slate-350 border-slate-800 hover:border-amber-500/40 hover:text-amber-400"
-                      }`}>
-                        <FolderOpen className="w-3.5 h-3.5 text-amber-500" />
-                        <span>{currentLang === "ar" ? "فتح مذكرة محملة من جهازك (أوفلاين) 📂" : "Open downloaded notes from device 📂"}</span>
-                        <input 
-                          type="file" 
-                          accept=".pdf" 
-                          className="hidden" 
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const localUrl = URL.createObjectURL(file);
-                              setActivePdfUrl(localUrl);
-                              setActivePdfTitle(currentLang === "ar" ? `مذكرة محلية: ${file.name}` : `Local Notes: ${file.name}`);
-                            }
-                          }}
-                        />
-                      </label>
                     </div>
                   </div>
                 </div>
