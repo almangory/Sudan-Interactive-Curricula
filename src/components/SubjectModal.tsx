@@ -618,30 +618,38 @@ export default function SubjectModal({
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
-                  <a
-                    href={activePdfUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-xs font-black shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] cursor-pointer text-[#ffffff] ${
+                  <button
+                    onClick={() => {
+                      alert(currentLang === "ar" 
+                        ? "⚠️ عذراً، تم إيقاف وتعطيل خيار فتح الكتب والمذكرات في نافذة خارجية لحماية المحتوى الدراسي." 
+                        : "⚠️ Sorry, opening textbooks and study notes in an external window has been disabled to protect educational content."
+                      );
+                    }}
+                    className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-xs font-black shadow transition-all opacity-60 cursor-not-allowed text-[#ffffff] ${
                       siteTheme === "sudanese"
-                        ? "bg-mud hover:bg-[#4A2312] shadow-mud/20"
-                        : "bg-emerald-600 hover:bg-emerald-555 shadow-emerald-950/50"
+                        ? "bg-mud/60 shadow-mud/20"
+                        : "bg-emerald-800/60 shadow-emerald-950/50"
                     }`}
                   >
                     <ExternalLink className="w-4 h-4" />
-                    <span>{currentLang === "ar" ? "فتح وقراءة الملف في نافذة جديدة ↗" : "Open & Read in New Tab ↗"}</span>
-                  </a>
+                    <span>{currentLang === "ar" ? "فتح وقراءة الملف في نافذة جديدة ↗ (معطل)" : "Open & Read in New Tab ↗ (Disabled)"}</span>
+                  </button>
 
                   <button
-                    onClick={() => handleSavePdfLocally(activePdfUrl, activePdfTitle)}
-                    className={`inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-3xs font-bold border transition-all cursor-pointer ${
+                    onClick={() => {
+                      alert(currentLang === "ar" 
+                        ? "⚠️ عذراً، تم إيقاف وتعطيل خيار تحميل وحفظ الكتب والمذكرات لحماية حقوق الطبع والنشر." 
+                        : "⚠️ Sorry, downloading and saving textbooks and study notes has been disabled to protect copyright."
+                      );
+                    }}
+                    className={`inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-3xs font-bold border transition-all opacity-60 cursor-not-allowed ${
                       siteTheme === "sudanese"
-                        ? "bg-cream hover:bg-white text-mud border-mud/15 hover:border-mud"
-                        : "bg-slate-900 hover:bg-slate-850 text-slate-300 border-slate-800 hover:border-slate-750"
+                        ? "bg-cream text-mud/60 border-mud/15"
+                        : "bg-slate-900 text-slate-500 border-slate-800"
                     }`}
                   >
-                    <Download className={`w-3.5 h-3.5 ${siteTheme === 'sudanese' ? 'text-earthgold-700' : 'text-emerald-400'}`} />
-                    <span>{currentLang === "ar" ? "تحميل وحفظ نسخة على جهازك 💾" : "Save & Download Copy 💾"}</span>
+                    <Download className={`w-3.5 h-3.5 ${siteTheme === 'sudanese' ? 'text-mud/40' : 'text-slate-600'}`} />
+                    <span>{currentLang === "ar" ? "تحميل وحفظ نسخة على جهازك 💾 (معطل)" : "Save & Download Copy 💾 (Disabled)"}</span>
                   </button>
                 </div>
 
