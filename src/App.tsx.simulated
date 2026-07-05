@@ -4859,6 +4859,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                         : "bg-[#E5C185] text-[#2C1810] hover:bg-[#EAD4A8]"
                                   }`}
                                 >
+                  </>
                                   <span>{isSelected ? (currentLang === "ar" ? "مفتوح حالياً" : "Opened") : (currentLang === "ar" ? "تصفح المواد" : "Browse")}</span>
                                 </button>
                              </div>
@@ -5026,7 +5027,8 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       );
                    })()}
                  </AnimatePresence>
-                  </>
+                </div>
+             </div>
         ) : (
           // Stage selection selector tabs
           <section className="space-y-4 relative overflow-hidden p-1 rounded-2xl">
@@ -5911,6 +5913,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         ) : (
           null
         )}
+      </main>
 
         {/* Sidebar Vertical Chat Space */}
         <AnimatePresence>
