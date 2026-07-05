@@ -567,12 +567,27 @@ export default function SubjectModal({
           }`}>
             {shouldShowIframe ? (
               embedPdfUrl ? (
-                <iframe
-                  src={embedPdfUrl}
-                  title={activePdfTitle}
-                  className="w-full h-full border-none"
-                  allow="autoplay"
-                />
+                <div className="w-full h-full relative">
+                  {/* Transparent overlay covering the top-right popout button of Google Drive's iframe viewer */}
+                  <div 
+                    className="absolute top-0 right-0 w-16 h-16 z-30 cursor-not-allowed"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      alert(currentLang === "ar"
+                        ? "⚠️ تم إيقاف وتعطيل خيارات الفتح الخارجي لحماية المحتوى المنهجي."
+                        : "⚠️ External opening options have been disabled to protect the syllabus content."
+                      );
+                    }}
+                  />
+                  <iframe
+                    src={embedPdfUrl}
+                    title={activePdfTitle}
+                    className="w-full h-full border-none"
+                    allow="autoplay"
+                    sandbox="allow-scripts allow-same-origin allow-forms"
+                  />
+                </div>
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center space-y-3">
                   <FileText className="w-12 h-12 text-slate-600 animate-pulse" />
