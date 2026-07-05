@@ -129,6 +129,7 @@ export default function SubjectModal({
   const [activePdfUrl, setActivePdfUrl] = useState<string | null>(null);
   const [activePdfTitle, setActivePdfTitle] = useState<string>("");
   const [forceLoadIframe, setForceLoadIframe] = useState<boolean>(false);
+  const [isActivePdfMemo, setIsActivePdfMemo] = useState<boolean>(false);
 
   const subjectLiveLessons = liveLessons.filter(
     (lesson) => lesson.subjectId === subject.id || (lesson.subjectName === subject.name && lesson.gradeId === gradeId)
@@ -461,7 +462,7 @@ export default function SubjectModal({
   if (activePdfUrl) {
     const embedPdfUrl = getPdfEmbedUrl(activePdfUrl);
     const isBlobUrl = activePdfUrl.startsWith("blob:");
-    const shouldShowIframe = isBlobUrl || forceLoadIframe;
+    const shouldShowIframe = isBlobUrl || forceLoadIframe || isActivePdfMemo;
 
     return (
       <div className={`fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-2 sm:p-4 backdrop-blur-md transition-all font-sans ${
@@ -487,6 +488,7 @@ export default function SubjectModal({
                 onClick={() => {
                   setActivePdfUrl(null);
                   setForceLoadIframe(false);
+                  setIsActivePdfMemo(false);
                 }}
                 className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1 text-xs font-black transition-colors ${
                   siteTheme === "sudanese"
@@ -501,10 +503,20 @@ export default function SubjectModal({
                 <span className={`text-[10px] font-bold block ${
                   siteTheme === "sudanese" ? "text-mud/60" : "text-emerald-400"
                 }`}>{t(gradeName)} • {t(stageName)}</span>
-                <h3 className={`text-xs sm:text-sm font-black flex items-center gap-1 ${
+                <h3 className={`text-xs sm:text-sm font-black flex items-center gap-1.5 ${
                   siteTheme === "sudanese" ? "text-mud" : "text-slate-100"
                 }`}>
                   <span>{activePdfTitle}</span>
+                  {isActivePdfMemo && (
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                      siteTheme === "sudanese"
+                        ? "bg-amber-100 text-[#A16207]"
+                        : "bg-emerald-950/60 text-emerald-400 border border-emerald-900/30 animate-pulse"
+                    }`}>
+                      <Lock className="w-2.5 h-2.5" />
+                      <span>{currentLang === "ar" ? "تصفح مباشر فقط - محمي 🔒" : "View Only - Protected 🔒"}</span>
+                    </span>
+                  )}
                 </h3>
               </div>
             </div>
@@ -513,6 +525,7 @@ export default function SubjectModal({
               onClick={() => {
                 setActivePdfUrl(null);
                 setForceLoadIframe(false);
+                setIsActivePdfMemo(false);
               }}
               className={`p-2 rounded-full transition-colors cursor-pointer ${
                 siteTheme === "sudanese" 
@@ -588,7 +601,7 @@ export default function SubjectModal({
                     className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-xs font-black shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] cursor-pointer text-[#ffffff] ${
                       siteTheme === "sudanese"
                         ? "bg-mud hover:bg-[#4A2312] shadow-mud/20"
-                        : "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-950/50"
+                        : "bg-emerald-600 hover:bg-emerald-555 shadow-emerald-950/50"
                     }`}
                   >
                     <ExternalLink className="w-4 h-4" />
@@ -626,6 +639,18 @@ export default function SubjectModal({
               </div>
             )}
           </div>
+
+          {/* Secure Footer Warning for Study Notes */}
+          {isActivePdfMemo && (
+            <div className={`p-2 px-4 border-t text-center text-[10px] font-bold flex items-center justify-center gap-1.5 flex-shrink-0 ${
+              siteTheme === "sudanese"
+                ? "bg-[#FCFAF3] border-mud/15 text-mud/60"
+                : "bg-slate-950 border-slate-800 text-slate-450"
+            }`}>
+              <Lock className="w-3.5 h-3.5 text-amber-500" />
+              <span>{currentLang === "ar" ? "مذكرة محمية: تم إيقاف خيارات التنزيل والمشاركة الخارجية لملخصات ومذكرات المادة." : "Protected Memo: External download and sharing options have been disabled for this study guide resource."}</span>
+            </div>
+          )}
         </motion.div>
       </div>
     );
@@ -814,6 +839,7 @@ export default function SubjectModal({
                                 if (!handleRestrictedAction(e, "⚠️ فتح وقراءة الكتب المدرسية والملخصات متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب مجاناً!")) return;
                                 setActivePdfUrl(subject.pdfUrl!);
                                 setActivePdfTitle(currentLang === "ar" ? `كتاب المقرر: ${t(subject.name)}` : `Textbook: ${t(subject.name)}`);
+                                setIsActivePdfMemo(false);
                               }}
                               className={`inline-flex items-center gap-2 px-5 py-2.5 text-white text-2xs font-bold rounded-xl transition-all shadow-md cursor-pointer ${
                                 siteTheme === "sudanese" ? "bg-mud hover:bg-[#4A2312]" : "bg-emerald-600 hover:bg-emerald-555"
@@ -840,6 +866,7 @@ export default function SubjectModal({
                                     const localUrl = URL.createObjectURL(file);
                                     setActivePdfUrl(localUrl);
                                     setActivePdfTitle(currentLang === "ar" ? `كتاب محلي: ${file.name}` : `Local Book: ${file.name}`);
+                                    setIsActivePdfMemo(false);
                                   }
                                 }}
                               />
@@ -1575,15 +1602,11 @@ export default function SubjectModal({
 
                       {subject.memoPdfUrl && (
                         <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                          cachedUrls.includes(subject.memoPdfUrl) 
-                            ? "bg-amber-955/30 text-amber-400 border border-amber-900/40"
-                            : siteTheme === "sudanese"
-                              ? "bg-mud/5 text-mud/65 border border-mud/10"
-                              : "bg-slate-900/60 text-slate-400 border border-slate-800"
+                          siteTheme === "sudanese"
+                            ? "bg-mud/5 text-[#A16207] border border-mud/10"
+                            : "bg-emerald-950/50 text-emerald-400 border border-emerald-900/45 animate-pulse"
                         }`}>
-                          {cachedUrls.includes(subject.memoPdfUrl) 
-                            ? (currentLang === "ar" ? "متاح أوفلاين ✦" : "Offline Ready ✦")
-                            : (currentLang === "ar" ? "غير محفوظ محلياً" : "Not Cached")}
+                          {currentLang === "ar" ? "تصفح آمن بالموقع فقط 🔒" : "Secure View Only 🔒"}
                         </span>
                       )}
                     </div>
@@ -1591,8 +1614,8 @@ export default function SubjectModal({
                       siteTheme === "sudanese" ? "text-mud/70" : "text-slate-400"
                     }`}>
                       {subject.memoPdfUrl 
-                        ? (currentLang === "ar" ? "اضغط أدناه لتنزيل ملخص ومذكرة الشرح الشاملة من قبل معلم المادة مباشرة." : "Click below to download the comprehensive course study guide compiled by your teacher.")
-                        : (currentLang === "ar" ? "رابط تنزيل مذكرة الشرح والملخصات لتبسيط المذاكرة للطلاب وأولياء الأمور." : "Download link for reference notes and summaries to simplify revision for students.")}
+                        ? (currentLang === "ar" ? "اضغط أدناه لتصفح وقراءة ملخص ومذكرة الشرح الشاملة من قبل معلم المادة مباشرة داخل الموقع وحصرياً." : "Click below to browse and read the comprehensive study guide compiled by your teacher directly inside the website.")
+                        : (currentLang === "ar" ? "ملخصات ومذكرات الشرح لتبسيط المذاكرة للطلاب وأولياء الأمور لتصفحها مباشرة في الموقع." : "Study notes and summaries to simplify revision for students, available for direct in-site browsing.")}
                     </p>
                   </div>
                   <div>
@@ -1604,6 +1627,7 @@ export default function SubjectModal({
                               if (!handleRestrictedAction(e, "⚠️ فتح وقراءة ملخصات ومذكرات الشرح متاح فقط للأعضاء المسجلين بالموقع. يرجى تسجيل الدخول أو إنشاء حساب مجاناً!")) return;
                               setActivePdfUrl(subject.memoPdfUrl!);
                               setActivePdfTitle(currentLang === "ar" ? `مذكرة المادة: ${t(subject.name)}` : `Notes: ${t(subject.name)}`);
+                              setIsActivePdfMemo(true);
                             }}
                             className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
                               siteTheme === "sudanese" 
@@ -1613,14 +1637,6 @@ export default function SubjectModal({
                           >
                             <FileText className="w-4 h-4" />
                             <span>{currentLang === "ar" ? "فتح وقراءة المذكرة" : "Open and Read Notes"}</span>
-                          </button>
-
-                          <button 
-                            onClick={() => handleSavePdfLocally(subject.memoPdfUrl!, currentLang === "ar" ? `مذكرة مقرر ${subject.name}` : `Notes ${subject.name}`)}
-                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-slate-350 bg-slate-950/50 hover:bg-slate-850/80 rounded-xl text-[10px] font-extrabold transition-all border border-slate-800 hover:border-amber-500/40 hover:text-amber-400 cursor-pointer"
-                          >
-                            <Download className="w-3.5 h-3.5 text-amber-500" />
-                            <span>{currentLang === "ar" ? "حفظ وتنزيل المذكرة والملخص (أوفلاين) 💾" : "Save and Download Notes (Offline) 💾"}</span>
                           </button>
                         </>
                       ) : (
