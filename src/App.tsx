@@ -5,7 +5,8 @@ import {
   Map, Sparkles, Star, ChevronLeft, ChevronDown, ChevronUp, CheckCircle, 
   Search, ShieldAlert, History, Globe, Plus, FileText, Video, Filter,
   Lock, Network, MessageSquare, X, Bell, MessagesSquare, UserCheck, Check, Link, ArrowLeftRight,
-  User, LogOut, Settings, Wifi, WifiOff, RotateCw, UserPlus, LogIn, Image, Pencil, Gamepad2, HelpCircle
+  User, LogOut, Settings, Wifi, WifiOff, RotateCw, UserPlus, LogIn, Image, Pencil, Gamepad2, HelpCircle,
+  Baby, Backpack
 } from "lucide-react";
 import { stagesData, Stage, Grade, Subject } from "./data/curriculum";
 import SubjectModal from "./components/SubjectModal";
@@ -59,16 +60,155 @@ function convertGoogleDriveVideoUrl(url: string): string {
   return url;
 }
 
+function getStageEnglishName(stageId: string): string {
+  switch (stageId) {
+    case "kindergarten":
+      return "Kindergarten";
+    case "primary":
+      return "Primary Stage";
+    case "intermediate":
+    case "middle":
+      return "Intermediate Stage";
+    case "secondary":
+      return "Secondary Stage";
+    default:
+      return "";
+  }
+}
+
+const SudaneseHeritageDecor = () => {
+  return (
+    <div className="absolute top-48 -left-12 lg:left-6 w-52 h-auto opacity-15 select-none pointer-events-none hidden md:block z-0">
+      <svg viewBox="0 0 200 400" className="w-full h-full text-mud" fill="none" stroke="currentColor" strokeWidth="1.5">
+        {/* Clay House Towers */}
+        <path d="M 20 380 L 20 200 L 40 160 L 60 200 L 60 380 Z" fill="#FDFBF7" />
+        <path d="M 60 380 L 60 120 L 90 80 L 120 120 L 120 380 Z" fill="#FAF5EC" />
+        <path d="M 120 380 L 120 180 L 140 140 L 160 180 L 160 380 Z" fill="#FDFBF7" />
+        
+        {/* Parapet Triangles on top of towers */}
+        <path d="M 20 200 L 30 190 L 40 200 L 50 190 L 60 200" />
+        <path d="M 60 120 L 70 110 L 80 120 L 90 110 L 100 120 L 110 110 L 120 120" />
+        <path d="M 120 180 L 130 170 L 140 180 L 150 170 L 160 180" />
+        
+        {/* Arched Doors */}
+        <path d="M 75 380 L 75 340 A 15 15 0 0 1 105 340 L 105 380 Z" fill="#EAD4A8" />
+        <path d="M 32 380 L 32 355 A 8 8 0 0 1 48 355 L 48 380 Z" />
+        
+        {/* Arched Windows and triangular slots */}
+        <path d="M 82 200 L 82 180 A 8 8 0 0 1 98 180 L 98 200 Z" />
+        <path d="M 35 240 L 45 240 L 40 230 Z" fill="currentColor" />
+        <path d="M 135 220 L 145 220 L 140 210 Z" fill="currentColor" />
+        
+        {/* Traditional wall carvings/engravings */}
+        <path d="M 25 300 L 35 290 L 45 300 L 55 290" />
+        <path d="M 25 310 L 35 300 L 45 310 L 55 300" />
+        
+        <path d="M 65 250 L 75 240 L 85 250 L 95 240 L 105 250 L 115 240" />
+        <path d="M 65 260 L 75 250 L 85 260 L 95 250 L 105 260 L 115 250" />
+        
+        <path d="M 125 280 L 135 270 L 145 280 L 155 270" />
+        <path d="M 125 290 L 135 280 L 145 290 L 155 280" />
+        
+        {/* Base ground line */}
+        <line x1="10" y1="380" x2="190" y2="380" strokeWidth="2" />
+      </svg>
+    </div>
+  );
+};
+
+function renderHeritageSubjectShelfIcon(subjectName: string) {
+  const name = subjectName.toLowerCase();
+
+  if (name.includes("عربية") || name.includes("arabic") || name.includes("حكايات") || name.includes("قرآن") || name.includes("إسلامية")) {
+    return (
+      <div className="relative w-full h-16 flex flex-col items-center justify-end">
+        {/* Alphabet Blocks */}
+        <div className="flex gap-1.5 items-end mb-1">
+          <div className="w-7 h-7 bg-amber-500 rounded-lg flex items-center justify-center text-white font-black text-xs shadow-md border-b-2 border-amber-700 animate-bounce" style={{ animationDelay: '0.1s' }}>أ</div>
+          <div className="w-7 h-7 bg-red-500 rounded-lg flex items-center justify-center text-white font-black text-xs shadow-md border-b-2 border-red-700 animate-bounce" style={{ animationDelay: '0.3s' }}>ب</div>
+          <div className="w-7 h-7 bg-[#A35130] rounded-lg flex items-center justify-center text-white font-black text-xs shadow-md border-b-2 border-amber-900 animate-bounce" style={{ animationDelay: '0.5s' }}>ت</div>
+        </div>
+        {/* Wooden Shelf */}
+        <div className="w-28 h-2 bg-gradient-to-r from-[#8B4513] to-[#A0522D] rounded-full shadow-md border-b border-[#5C2C16]"></div>
+        <div className="w-20 h-1 bg-[#8B4513]/10 blur-xs rounded-full"></div>
+      </div>
+    );
+  } else if (name.includes("رياضيات") || name.includes("أرقام") || name.includes("حساب") || name.includes("math")) {
+    return (
+      <div className="relative w-full h-16 flex flex-col items-center justify-end">
+        {/* Custom Cute Abacus */}
+        <div className="w-14 h-11 border-2 border-[#8B4513] rounded-lg bg-[#FAF5EC]/45 p-1 flex flex-col justify-between mb-1 shadow-inner relative">
+          <div className="h-0.5 bg-[#8B4513]/40 w-full flex items-center justify-start gap-1 px-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-xs"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-xs"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-xs"></span>
+          </div>
+          <div className="h-0.5 bg-[#8B4513]/40 w-full flex items-center justify-end gap-1 px-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-xs"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-xs"></span>
+          </div>
+          <div className="h-0.5 bg-[#8B4513]/40 w-full flex items-center justify-center gap-1 px-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-xs"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-xs"></span>
+          </div>
+        </div>
+        {/* Wooden Shelf */}
+        <div className="w-28 h-2 bg-gradient-to-r from-[#8B4513] to-[#A0522D] rounded-full shadow-md border-b border-[#5C2C16]"></div>
+        <div className="w-20 h-1 bg-[#8B4513]/10 blur-xs rounded-full"></div>
+      </div>
+    );
+  } else if (name.includes("english") || name.includes("إنجليزي") || name.includes("جغرافيا") || name.includes("علوم") || name.includes("science")) {
+    return (
+      <div className="relative w-full h-16 flex flex-col items-center justify-end">
+        {/* Globe stand and earth sphere */}
+        <div className="relative mb-1 flex items-center justify-center animate-spin" style={{ animationDuration: '20s' }}>
+          <div className="w-9 h-9 rounded-full bg-sky-400 border-2 border-emerald-500 flex items-center justify-center shadow-md overflow-hidden relative">
+            <div className="absolute top-1 left-2 w-4 h-2 bg-emerald-500 rounded-full opacity-80"></div>
+            <div className="absolute bottom-2 right-1.5 w-3 h-3 bg-emerald-500 rounded-full opacity-80"></div>
+            <div className="absolute top-4 right-1 w-2 h-2 bg-emerald-500 rounded-full opacity-80"></div>
+          </div>
+          <div className="absolute -bottom-1 w-10 h-10 rounded-full border-b-2 border-r-2 border-[#8B4513]/60 rotate-45 pointer-events-none"></div>
+        </div>
+        {/* Wooden Shelf */}
+        <div className="w-28 h-2 bg-gradient-to-r from-[#8B4513] to-[#A0522D] rounded-full shadow-md border-b border-[#5C2C16]"></div>
+        <div className="w-20 h-1 bg-[#8B4513]/10 blur-xs rounded-full"></div>
+      </div>
+    );
+  } else {
+    return (
+      <div className="relative w-full h-16 flex flex-col items-center justify-end">
+        <div className="flex gap-1 items-end mb-1 transform rotate-1">
+          <div className="w-2.5 h-9 bg-red-600 rounded-xs shadow border-r border-red-700 transform -rotate-6"></div>
+          <div className="w-2.5 h-10 bg-amber-500 rounded-xs shadow border-r border-amber-600 transform -rotate-3"></div>
+          <div className="w-3.5 h-8 bg-emerald-600 rounded-xs shadow border-r border-emerald-700 transform rotate-12"></div>
+        </div>
+        {/* Wooden Shelf */}
+        <div className="w-28 h-2 bg-gradient-to-r from-[#8B4513] to-[#A0522D] rounded-full shadow-md border-b border-[#5C2C16]"></div>
+        <div className="w-20 h-1 bg-[#8B4513]/10 blur-xs rounded-full"></div>
+      </div>
+    );
+  }
+}
+
 export default function App() {
-  const [siteTheme, setSiteTheme] = useState<"sudanese" | "legacy">(() => {
-    return (localStorage.getItem("sudan_site_theme") as "sudanese" | "legacy") || "sudanese";
+  const [siteTheme, setSiteTheme] = useState<"heritage" | "sudanese" | "legacy">(() => {
+    return (localStorage.getItem("sudan_site_theme") as "heritage" | "sudanese" | "legacy") || "heritage";
   });
 
   const toggleSiteTheme = () => {
-    const nextTheme = siteTheme === "sudanese" ? "legacy" : "sudanese";
+    let nextTheme: "heritage" | "sudanese" | "legacy" = "heritage";
+    if (siteTheme === "heritage") {
+      nextTheme = "sudanese";
+    } else if (siteTheme === "sudanese") {
+      nextTheme = "legacy";
+    } else {
+      nextTheme = "heritage";
+    }
     setSiteTheme(nextTheme);
     localStorage.setItem("sudan_site_theme", nextTheme);
   };
+
+  const isWarmTheme = siteTheme === "sudanese" || siteTheme === "heritage";
 
   // Curriculum data is retrieved directly from the server-side compiled curriculum.ts (stagesData)
   // We use local storage fallback for cross-environment consistency (e.g. on Vercel)
@@ -3065,11 +3205,12 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
   };
 
   return (
-    <div className={`min-h-screen font-sans pb-16 transition-all duration-300 ${
-      siteTheme === "sudanese" 
+    <div className={`min-h-screen font-sans pb-16 transition-all duration-300 relative ${
+      isWarmTheme 
         ? "bg-cream text-mud selection:bg-earthgold/20 selection:text-mud" 
         : "bg-slate-950 text-slate-100 selection:bg-emerald-600 selection:text-white"
     }`} dir={currentLang === "ar" ? "rtl" : "ltr"}>
+      {siteTheme === "heritage" && <SudaneseHeritageDecor />}
       {/* Upper Flag Trim (Sudan Flag Colors: Red, White, Black, Green) */}
       <div 
         onClick={handleTrimClick}
@@ -3159,7 +3300,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
       {/* Top Header Bar for Admin Portal */}
       <div className={`transition-all duration-300 border-b px-3 sm:px-6 py-2.5 relative z-50 ${
-        siteTheme === "sudanese"
+        isWarmTheme
           ? "bg-white shadow-sm shadow-[#5C2C16]/5 border-mud/10 text-mud"
           : "bg-slate-900/90 border-slate-800/60 text-slate-100"
       }`}>
@@ -3201,7 +3342,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       window.location.reload();
                     }}
                     className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
-                      siteTheme === "sudanese"
+                      isWarmTheme
                         ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-earthgold/60"
                         : "bg-slate-950/60 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/60 text-slate-200"
                     }`}
@@ -3214,17 +3355,17 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   <button
                     onClick={toggleSiteTheme}
                     className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
-                      siteTheme === "sudanese"
+                      isWarmTheme
                         ? "bg-white hover:bg-cream/50 border-mud/25 text-mud hover:border-earthgold/60"
                         : "bg-slate-950/60 hover:bg-slate-900 border-slate-800 hover:border-emerald-500/60 text-slate-200"
                     }`}
-                    title={currentLang === "ar" ? "تغيير المظهر (المظهر الداكن)" : "Switch Theme (Legacy Dark)"}
+                    title={currentLang === "ar" ? "تغيير مظهر المنصة" : "Switch Theme"}
                   >
                     <span className="text-[14px]">🎨</span>
                     <span className="hidden sm:inline">
                       {currentLang === "ar" 
-                        ? (siteTheme === "sudanese" ? "التصميم السوداني" : "التصميم الداكن") 
-                        : (siteTheme === "sudanese" ? "Sudanese Style" : "Dark Legacy")}
+                        ? (siteTheme === "heritage" ? "التصميم التراثي" : siteTheme === "sudanese" ? "التصميم السوداني" : "التصميم الداكن") 
+                        : (siteTheme === "heritage" ? "Heritage Style" : siteTheme === "sudanese" ? "Sudanese Style" : "Dark Legacy")}
                     </span>
                   </button>
 
@@ -3249,11 +3390,12 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
                   {/* Platform User Guide (دليل المنصة) */}
                   <button
+                    id="platform-guide-button"
                     onClick={() => setShowOnboardingGuide(true)}
                     className={`inline-flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 font-extrabold text-3xs md:text-2xs rounded-xl shadow-sm transition-all duration-300 cursor-pointer font-sans border ${
                       siteTheme === "sudanese"
                         ? "bg-[#FAF5EC] hover:bg-[#F3EFE6] border-mud/25 text-[#5C2C16] hover:border-earthgold/60"
-                        : "bg-emerald-950/20 hover:bg-emerald-900/35 border-emerald-500/40 text-emerald-300 hover:border-emerald-500/60"
+                        : "bg-emerald-950/20 hover:bg-emerald-900/35 border-[#e5e5e5] text-emerald-300 hover:border-emerald-500/60"
                     }`}
                     title={currentLang === "ar" ? "دليل استخدام المنصة" : "Platform Guide"}
                   >
@@ -4025,7 +4167,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         )}
 
         {/* Stage selection selector tabs */}
-        {siteTheme === "sudanese" ? (
+        {isWarmTheme ? (
           // Beautiful Traditional Sudanese Traditional clay architecture layout!
           <div className="flex flex-col gap-8 mt-5 items-start w-full">
              {/* Core Content Layout (Takes Full Width) */}
@@ -4418,7 +4560,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
                    {/* Elegant Cards Grid */}
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
-                      {displayedStages.map((stage) => {
+                      {displayedStages.map((stage) => { const isHeritage = siteTheme === "heritage";
                          const isSelected = selectedStage?.id === stage.id && !showOnlyFavorites && !showStudyCamp && !showEducationalMindMap && !showStudentChat;
                          const totalSubjects = stage.grades.reduce((sum, g) => sum + g.subjects.length, 0);
                          
@@ -4439,40 +4581,50 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                     setShowParentPortal(false);
                                  }
                               }}
-                              className={`group relative p-4 rounded-2xl flex flex-col items-center text-center transition-all duration-300 cursor-pointer transform select-none ${
-                                 isSelected
-                                   ? "bg-white border-2 border-earthgold shadow-lg scale-[1.01]"
-                                   : "bg-white border border-mud/15 hover:border-earthgold/50 shadow-sm hover:translate-y-[-2px] hover:shadow-md"
-                              }`}
-                            >
-                               {/* Circle Portrait Badge representing stage */}
-                               <div className="w-14 h-14 rounded-full flex items-center justify-center bg-[#FDFBF7] border border-mud/10 shrink-0 mb-3 text-2xl shadow-inner group-hover:scale-105 transition-transform">
-                                  {stage.id === "kindergarten" ? "🧸" : stage.id === "primary" ? "🎒" : stage.id === "middle" ? "📚" : "🎓"}
+                              className={`group relative p-6 rounded-3xl flex flex-col items-center text-center transition-all duration-300 cursor-pointer transform select-none ${
+                                  isSelected
+                                    ? "bg-[#A35130] border-2 border-[#E5C185] shadow-xl scale-[1.01]"
+                                    : "bg-[#B76240] border border-[#B76240] hover:border-[#E5C185]/40 shadow-md hover:translate-y-[-4px] hover:shadow-lg"
+                               }`}
+                             >
+                                {/* Circle Portrait Badge representing stage */}
+                                <div className="w-16 h-16 rounded-full flex items-center justify-center bg-[#DFAB79] shrink-0 mb-4 shadow-inner group-hover:scale-105 transition-all">
+                                   {(() => {
+                                      const iconProps = { className: "w-8 h-8 text-[#2C1810]", strokeWidth: 1.5 };
+                                      if (stage.id === "kindergarten") {
+                                         return <Baby {...iconProps} />;
+                                      } else if (stage.id === "primary") {
+                                         return <Backpack {...iconProps} />;
+                                      } else {
+                                         return <GraduationCap {...iconProps} />;
+                                      }
+                                   })()}
                                 </div>
 
-                               <h3 className="text-mud font-black text-xs md:text-sm line-clamp-1">{t(stage.name)}</h3>
-                               {stage.description && (
-                                 <p className="text-4xs text-mud/60 mt-1 leading-relaxed line-clamp-2 px-1">
-                                    {stage.description}
-                                 </p>
-                               )}
-
-                                <div className="mt-3 flex items-center gap-1 text-[9px] bg-[#FDFBF7] px-2 py-0.5 rounded-full border border-mud/5 text-mud/85 font-extrabold">
-                                  <span>📚</span>
-                                  <span>{currentLang === "ar" ? `المواد: ${totalSubjects}` : `Subjects: ${totalSubjects}`}</span>
+                                <h3 className="text-white font-black text-sm md:text-base line-clamp-1">{t(stage.name)}</h3>
+                                {(() => {
+                                   const englishName = getStageEnglishName(stage.id);
+                                   return englishName ? (
+                                      <p className="text-4xs text-[#E7C7B7] font-bold mt-1 tracking-wide uppercase">
+                                         {englishName}
+                                      </p>
+                                   ) : null;
+                                })()}
+                                
+                                <div className="mt-2 text-3xs text-[#E7C7B7]/90 font-bold">
+                                   {currentLang === "ar" ? `${totalSubjects} مادة` : `${totalSubjects} Subjects`}
                                 </div>
 
                                 <button
-                                  className={`w-full mt-4 py-2 rounded-xl text-3xs font-extrabold transition-all duration-155 [font-family:inherit] cursor-pointer flex items-center justify-center gap-1 border ${
+                                  className={`w-full mt-5 py-2.5 rounded-2xl text-xs font-black transition-all duration-155 cursor-pointer flex items-center justify-center gap-1 shadow-md ${
                                       isSelected
-                                        ? "bg-earthgold text-white border-earthgold shadow-md shadow-earthgold/10"
-                                        : "bg-white border-mud/20 text-mud hover:bg-cream"
+                                        ? "bg-white text-[#2C1810] border-2 border-[#E5C185] shadow-[#E5C185]/10 scale-[0.98]"
+                                        : "bg-[#E5C185] text-[#2C1810] hover:bg-[#EAD4A8]"
                                   }`}
                                 >
-                                  <span>{isSelected ? "📋" : "🔍"}</span>
-                                  <span>{isSelected ? (currentLang === "ar" ? "الصف مفتوح" : "Opened") : (currentLang === "ar" ? "تصفح الكتب" : "Browse")}</span>
+                                  <span>{isSelected ? (currentLang === "ar" ? "مفتوح حالياً" : "Opened") : (currentLang === "ar" ? "تصفح المواد" : "Browse")}</span>
                                 </button>
-                            </div>
+                             </div>
                          );
                       })}
                    </div>
@@ -4500,7 +4652,15 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                               <div className="space-y-1 text-center sm:text-right">
                                  <span className="text-[10px] text-earthgold font-black uppercase tracking-widest block">{t("gradesLevels")}</span>
                                  <h4 className="text-base font-black text-mud flex items-center justify-center sm:justify-start gap-1.5">
-                                    <span>{selectedStage.id === "kindergarten" ? "🧸" : selectedStage.id === "primary" ? "🎒" : selectedStage.id === "middle" ? "📚" : "🎓"}</span>
+                                    <span className="w-7 h-7 rounded-full bg-[#DFAB79]/25 flex items-center justify-center shrink-0">
+                                       {selectedStage.id === "kindergarten" ? (
+                                          <Baby className="w-4 h-4 text-[#B76240]" strokeWidth={2} />
+                                       ) : selectedStage.id === "primary" ? (
+                                          <Backpack className="w-4 h-4 text-[#B76240]" strokeWidth={2} />
+                                       ) : (
+                                          <GraduationCap className="w-4 h-4 text-[#B76240]" strokeWidth={2} />
+                                       )}
+                                    </span>
                                     <span>{currentLang === "ar" ? `مناهج تفصيلية: ${selectedStage.name}` : `${t(selectedStage.name)} Detailed Curriculae`}</span>
                                  </h4>
                               </div>
@@ -4594,7 +4754,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                                           {/* Star / Done checklists */}
                                                           <div className="flex justify-between items-start gap-2 mb-3">
                                                              <div className="p-2 bg-white rounded-lg border border-mud/5 text-base shadow-sm">
-                                                                🌱
+                                                                {siteTheme === "heritage" ? renderHeritageSubjectShelfIcon(subject.name) : "🌱"}
                                                              </div>
                                                              <div className="flex gap-1">
                                                                 <button onClick={(e) => toggleFavorite(subject.id, e)} className={`p-1 bg-white rounded border cursor-pointer text-3xs ${isFav ? 'text-amber-500 border-amber-400' : 'text-mud/40 border-mud/10'}`}>⭐</button>
