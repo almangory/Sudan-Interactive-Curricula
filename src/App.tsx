@@ -4293,7 +4293,8 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   {/* 📚 Premium Vintage Book Cover Card for Public Library (المكتبة العامة) - Legacy Theme */}
                   <div 
                     onClick={handleLibraryClick}
-                    className="p-4 bg-gradient-to-br from-[#3D1E12] via-[#2B140B] to-[#1E0D06] border-2 border-amber-500/40 rounded-2xl text-center space-y-1 min-w-[140px] shadow-lg cursor-pointer transition-all duration-200 hover:scale-[1.03] flex flex-col justify-between min-h-[110px] select-none group"
+                    className="p-4 bg-gradient-to-br from-[#3D1E12] via-[#2B140B] to-[#1E0D06] border-2 border-amber-500/40 rounded-2xl text-center space-y-1 shadow-lg cursor-pointer transition-all duration-200 hover:scale-[1.03] flex flex-col justify-between select-none group"
+                    style={{ width: '200px', height: '250px' }}
                   >
                     <div className="bg-[#1E0D06]/70 px-1 py-0.5 rounded border border-amber-500/20 text-[7px] font-bold text-amber-400 text-center w-fit mx-auto leading-none">
                       كنوز المعرفة 📜
@@ -4645,8 +4646,8 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                      {/* 📚 Premium Vintage Book Cover Card for Public Library (المكتبة العامة) - Sudanese Theme */}
                      <div
                        onClick={handleLibraryClick}
-                       className="w-28 h-36 sm:w-32 sm:h-44 shrink-0 bg-gradient-to-b from-[#3D1E12] via-[#2B140B] to-[#1E0D06] border-2 border-amber-500/40 hover:border-amber-400 p-2.5 flex flex-col justify-between rounded-2xl shadow-xl relative cursor-pointer hover:shadow-amber-500/30 hover:shadow-2xl transition-all duration-300 hover:scale-[1.05] overflow-hidden select-none group"
-                     >
+                       className="shrink-0 bg-gradient-to-b from-[#3D1E12] via-[#2B140B] to-[#1E0D06] border-2 border-amber-500/40 hover:border-amber-400 p-2.5 flex flex-col justify-between rounded-2xl shadow-xl relative cursor-pointer hover:shadow-amber-500/30 hover:shadow-2xl transition-all duration-300 hover:scale-[1.05] overflow-hidden select-none group"
+                       style={{ width: "200px", height: "250px" }}>
                         {/* Dashed Gold Inner Stitches */}
                         <div className="absolute inset-1.5 border border-dashed border-amber-500/20 rounded-xl pointer-events-none" />
                         
