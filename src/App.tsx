@@ -4783,9 +4783,8 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
                 {siteTheme !== "legacy" ? (
                   <>
-                /* Grade Cards Grid */
                 <div className="space-y-4">
-                   <div className="flex items-center justify-between border-b border-mud/10 pb-3">
+                   <div className="flex items-center justify-between border-b border-mud/10 pb-[9px] mb-[16px] lg:w-[1100px] max-w-full mx-auto">
                       <div>
                          <h3 className="font-bold text-[#5C2C16] text-base">{currentLang === "ar" ? "المراحل التعليمية المتاحة" : "Available Educational Stages"}</h3>
                          <p className="text-3xs text-mud/60">{currentLang === "ar" ? "اختر المرحلة لعرض الصفوف والمقررات التفاعلية" : "Select a stage to view school levels and interactive books"}</p>
@@ -4796,8 +4795,8 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                    </div>
 
                    {/* Elegant Cards Grid */}
-                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
-                      {displayedStages.map((stage) => { const isHeritage = siteTheme === "heritage";
+                   <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 pt-1 lg:w-[1100px] max-w-full mx-auto">
+                      {displayedStages.map((stage, idx) => { const isHeritage = siteTheme === "heritage";
                          const isSelected = selectedStage?.id === stage.id && !showOnlyFavorites && !showStudyCamp && !showEducationalMindMap && !showStudentChat;
                          const totalSubjects = stage.grades.reduce((sum, g) => sum + g.subjects.length, 0);
                          
@@ -4818,16 +4817,20 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                     setShowParentPortal(false);
                                  }
                               }}
-                              className={`group relative p-6 rounded-3xl flex flex-col items-center text-center transition-all duration-300 cursor-pointer transform select-none ${
+                              className={`group relative p-3 sm:p-6 rounded-2xl sm:rounded-3xl flex flex-col items-center justify-center text-center transition-all duration-300 cursor-pointer transform select-none ${
                                   isSelected
                                     ? "bg-[#A35130] border-2 border-[#E5C185] shadow-xl scale-[1.01]"
                                     : "bg-[#B76240] border border-[#B76240] hover:border-[#E5C185]/40 shadow-md hover:translate-y-[-4px] hover:shadow-lg"
+                               } ${
+                                  idx === 0
+                                    ? "lg:w-[250px] lg:h-[250px] w-full"
+                                    : "lg:w-[250px] w-full"
                                }`}
                              >
                                 {/* Circle Portrait Badge representing stage */}
-                                <div className="w-16 h-16 rounded-full flex items-center justify-center bg-[#DFAB79] shrink-0 mb-4 shadow-inner group-hover:scale-105 transition-all">
+                                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center bg-[#DFAB79] shrink-0 mb-2 sm:mb-4 shadow-inner group-hover:scale-105 transition-all">
                                    {(() => {
-                                      const iconProps = { className: "w-8 h-8 text-[#2C1810]", strokeWidth: 1.5 };
+                                      const iconProps = { className: "w-6 h-6 sm:w-8 sm:h-8 text-[#2C1810]", strokeWidth: 1.5 };
                                       if (stage.id === "kindergarten") {
                                          return <Baby {...iconProps} />;
                                       } else if (stage.id === "primary") {
@@ -4838,22 +4841,22 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                    })()}
                                 </div>
 
-                                <h3 className="text-white font-black text-sm md:text-base line-clamp-1">{t(stage.name)}</h3>
+                                <h3 className="text-white font-black text-xs sm:text-sm md:text-base line-clamp-1">{t(stage.name)}</h3>
                                 {(() => {
                                    const englishName = getStageEnglishName(stage.id);
                                    return englishName ? (
-                                      <p className="text-4xs text-[#E7C7B7] font-bold mt-1 tracking-wide uppercase">
+                                      <p className="text-[7px] sm:text-4xs text-[#E7C7B7] font-bold mt-0.5 sm:mt-1 tracking-wide uppercase">
                                          {englishName}
                                       </p>
                                    ) : null;
                                 })()}
                                 
-                                <div className="mt-2 text-3xs text-[#E7C7B7]/90 font-bold">
+                                <div className="mt-1 sm:mt-2 text-[8px] sm:text-3xs text-[#E7C7B7]/90 font-bold">
                                    {currentLang === "ar" ? `${totalSubjects} مادة` : `${totalSubjects} Subjects`}
                                 </div>
 
                                 <button
-                                  className={`w-full mt-5 py-2.5 rounded-2xl text-xs font-black transition-all duration-155 cursor-pointer flex items-center justify-center gap-1 shadow-md ${
+                                  className={`w-full mt-3 sm:mt-5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-[10px] sm:text-xs font-black transition-all duration-155 cursor-pointer flex items-center justify-center gap-1 shadow-md ${
                                       isSelected
                                         ? "bg-white text-[#2C1810] border-2 border-[#E5C185] shadow-[#E5C185]/10 scale-[0.98]"
                                         : "bg-[#E5C185] text-[#2C1810] hover:bg-[#EAD4A8]"
@@ -6948,7 +6951,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             <p className="font-semibold text-slate-300">🇸🇩 منصة المناهج السودانية التفاعلية لعام 2026</p>
           </div>
           <p className="max-w-xl mx-auto text-2xs text-slate-500 leading-relaxed">
-             تم تطوير هذا المنصة بواسطة عثمان المنقوري لمساعدة المنظومة التعليمية وطلاب السودان الأحباء لتسهيل التعلم ولملاحظاتكم واستفساراتكم يمكنكم التواصل على البريد الالكتروني  amangoryo@gmail.com               .
+             تم تطوير هذا المنصة بواسطة عثمان المنقوري لمساعدة المنظومة التعليمية وطلاب السودان الأحباء لتسهيل التعلم ولملاحظاتكم واستفساراتكم يمكنكم التواصل على البريد الالكتروني  almangoryo@gmail.com               .
           </p>
         </div>
       </footer>
