@@ -3301,7 +3301,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
       {/* Top Header Bar for Admin Portal */}
       {siteTheme === "heritage" ? (
         <div className="max-w-7xl mx-auto px-4 pt-4 relative z-50">
-          <div className="bg-[#FFFDF9] rounded-3xl border border-mud/10 shadow-sm px-4 sm:px-8 py-4 flex flex-col md:flex-row items-center justify-between gap-4 font-sans text-right" dir="rtl">
+          <div className="bg-[#FFFDF9] rounded-3xl border border-mud/10 shadow-sm px-4 sm:px-8 py-4 flex flex-col md:flex-row items-center justify-between gap-4 font-sans text-right lg:w-[1100px] max-w-full mx-auto" dir="rtl">
             
             {/* Right side: Logo & Title */}
             <div 
@@ -4318,7 +4318,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
           {siteTheme !== "legacy" && (
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                {/* Visual Sudanese Heritage Gottia Pattern Backdrop Hero */}
-               <div className="bg-[#FDFBF7] border border-mud/15 rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden shadow-inner">
+               <div className="bg-[#FDFBF7] border border-mud/15 rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden shadow-inner lg:w-[1100px] max-w-full mx-auto">
                   
                   {/* Backdrop styling depending on theme */}
                   {siteTheme === "heritage" ? (
@@ -4885,10 +4885,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                            exit={{ opacity: 0, y: -15 }}
                            transition={{ duration: 0.35, ease: "easeInOut" }}
                            id="selected-stage-section"
-                           className="bg-white/95 rounded-3xl p-6 border border-mud/15 shadow-md mt-6 space-y-6 select-text text-right"
+                           className="bg-white/95 rounded-3xl p-6 border border-mud/15 shadow-md mt-6 space-y-6 select-text text-right lg:w-[1100px] max-w-full mx-auto"
                            dir="rtl"
                          >
-                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-mud/10 pb-4">
+                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-mud/10 pb-4 p-4 rounded-2xl" style={{ backgroundColor: '#76615d' }}>
                               <div className="space-y-1 text-center sm:text-right">
                                  <span className="text-[10px] text-earthgold font-black uppercase tracking-widest block">{t("gradesLevels")}</span>
                                  <h4 className="text-base font-black text-mud flex items-center justify-center sm:justify-start gap-1.5">
@@ -4901,7 +4901,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                           <GraduationCap className="w-4 h-4 text-[#B76240]" strokeWidth={2} />
                                        )}
                                     </span>
-                                    <span>{currentLang === "ar" ? `مناهج تفصيلية: ${selectedStage.name}` : `${t(selectedStage.name)} Detailed Curriculae`}</span>
+                                    <span style={{ color: '#f7f7f7', fontSize: '20px' }}>{currentLang === "ar" ? `مناهج تفصيلية: ${selectedStage.name}` : `${t(selectedStage.name)} Detailed Curriculae`}</span>
                                  </h4>
                               </div>
 
@@ -4952,7 +4952,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                                 setActiveGrade(grade);
                                              }
                                           }}
-                                          className="w-full px-5 py-4 flex items-center justify-between hover:bg-cream/40 text-right cursor-pointer group"
+                                           className={`w-full px-5 py-4 flex items-center justify-between text-right cursor-pointer group transition-colors bg-[#fddda1] hover:bg-[#ebd097] text-[#5C2C16]`}
                                         >
                                            <div className="flex items-center gap-3">
                                               <div className="w-9 h-9 rounded-xl bg-white border border-mud/15 flex items-center justify-center text-mud font-extrabold shadow-sm">
@@ -4989,7 +4989,8 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                                        <div
                                                          key={subject.id}
                                                          onClick={() => handleOpenSubject(subject as any)}
-                                                         className="relative p-4 bg-[#FDFBF7] hover:bg-white border border-mud/10 hover:border-earthgold rounded-xl transition-all duration-150 cursor-pointer flex flex-col justify-between group shadow-2xs hover:shadow-sm"
+                                                         className="relative p-4 bg-[#FDFBF7] hover:bg-white border rounded-xl transition-all duration-150 cursor-pointer flex flex-col justify-between group shadow-2xs hover:shadow-sm"
+                                                          style={{ borderColor: '#c85600' }}
                                                        >
                                                           {/* Star / Done checklists */}
                                                           <div className="flex justify-between items-start gap-2 mb-3">
