@@ -76,6 +76,29 @@ function getStageEnglishName(stageId: string): string {
   }
 }
 
+
+const CustomSettingsIcon = ({ className }: { className?: string }) => {
+  return (
+    <svg 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+      className={className}
+    >
+      {/* Outer Gear Body (Standard Lucide Settings path) */}
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+      {/* Inner Path: Custom Sudanese/Islamic 8-pointed star to reflect platform's identity */}
+      <path 
+        d="M 12 8.5 L 12.6 10.6 L 14.5 9.5 L 13.4 11.4 L 15.5 12 L 13.4 12.6 L 14.5 14.5 L 12.6 13.4 L 12 15.5 L 11.4 13.4 L 9.5 14.5 L 10.6 12.6 L 8.5 12 L 10.6 11.4 L 9.5 9.5 L 11.4 10.6 Z" 
+        fill="currentColor"
+      />
+    </svg>
+  );
+};
+
 const SudaneseHeritageDecor = () => {
   return (
     <div className="absolute top-48 -left-12 lg:left-6 w-52 h-auto opacity-15 select-none pointer-events-none hidden md:block z-0">
@@ -3455,7 +3478,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   className={`w-8 h-8 rounded-xl border flex items-center justify-center cursor-pointer ${showUserSettingsIcons ? "bg-[#A35130] text-white border-[#A35130]" : "bg-[#FAF5EC] hover:bg-cream border-mud/10 text-[#A35130]"}`}
                   title="أدوات ومظهر المنصة"
                 >
-                  <Settings className={`w-3.5 h-3.5 ${showUserSettingsIcons ? "animate-spin-slow" : ""}`} />
+                  <CustomSettingsIcon className={`w-3.5 h-3.5 ${showUserSettingsIcons ? "animate-spin-slow" : ""}`} />
                 </button>
               </div>
 
@@ -4147,7 +4170,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   }`}
                   title={currentLang === "ar" ? "أدوات وتعديلات المنصة" : "Platform Settings & Tools"}
                 >
-                  <Settings className={`w-3.5 h-3.5 ${showUserSettingsIcons ? "text-emerald-400 animate-spin-slow" : "text-amber-500"}`} />
+                  <CustomSettingsIcon className={`w-3.5 h-3.5 ${showUserSettingsIcons ? "text-emerald-400 animate-spin-slow" : "text-amber-500"}`} />
                   <span className="hidden sm:inline">
                     {currentLang === "ar" ? "الأدوات" : "Tools"}
                   </span>
@@ -4195,7 +4218,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   whileHover={{ scale: 1.05 }}
                   transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
                 >
-                  <Settings className={`w-3.5 h-3.5 ${showUserSettingsIcons ? "animate-spin-slow" : ""}`} />
+                  <CustomSettingsIcon className={`w-3.5 h-3.5 ${showUserSettingsIcons ? "animate-spin-slow" : ""}`} />
                 </motion.button>
 
                 <button
