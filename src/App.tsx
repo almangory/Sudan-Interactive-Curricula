@@ -101,41 +101,101 @@ const CustomSettingsIcon = ({ className }: { className?: string }) => {
 
 const SudaneseHeritageDecor = () => {
   return (
-    <div className="absolute top-48 -left-12 lg:left-6 w-52 h-auto opacity-15 select-none pointer-events-none hidden md:block z-0">
-      <svg viewBox="0 0 200 400" className="w-full h-full text-mud" fill="none" stroke="currentColor" strokeWidth="1.5">
-        {/* Clay House Towers */}
-        <path d="M 20 380 L 20 200 L 40 160 L 60 200 L 60 380 Z" fill="#FDFBF7" />
-        <path d="M 60 380 L 60 120 L 90 80 L 120 120 L 120 380 Z" fill="#FAF5EC" />
-        <path d="M 120 380 L 120 180 L 140 140 L 160 180 L 160 380 Z" fill="#FDFBF7" />
-        
-        {/* Parapet Triangles on top of towers */}
-        <path d="M 20 200 L 30 190 L 40 200 L 50 190 L 60 200" />
-        <path d="M 60 120 L 70 110 L 80 120 L 90 110 L 100 120 L 110 110 L 120 120" />
-        <path d="M 120 180 L 130 170 L 140 180 L 150 170 L 160 180" />
-        
-        {/* Arched Doors */}
-        <path d="M 75 380 L 75 340 A 15 15 0 0 1 105 340 L 105 380 Z" fill="#EAD4A8" />
-        <path d="M 32 380 L 32 355 A 8 8 0 0 1 48 355 L 48 380 Z" />
-        
-        {/* Arched Windows and triangular slots */}
-        <path d="M 82 200 L 82 180 A 8 8 0 0 1 98 180 L 98 200 Z" />
-        <path d="M 35 240 L 45 240 L 40 230 Z" fill="currentColor" />
-        <path d="M 135 220 L 145 220 L 140 210 Z" fill="currentColor" />
-        
-        {/* Traditional wall carvings/engravings */}
-        <path d="M 25 300 L 35 290 L 45 300 L 55 290" />
-        <path d="M 25 310 L 35 300 L 45 310 L 55 300" />
-        
-        <path d="M 65 250 L 75 240 L 85 250 L 95 240 L 105 250 L 115 240" />
-        <path d="M 65 260 L 75 250 L 85 260 L 95 250 L 105 260 L 115 250" />
-        
-        <path d="M 125 280 L 135 270 L 145 280 L 155 270" />
-        <path d="M 125 290 L 135 280 L 145 290 L 155 280" />
-        
-        {/* Base ground line */}
-        <line x1="10" y1="380" x2="190" y2="380" strokeWidth="2" />
-      </svg>
-    </div>
+    <>
+      {/* Left Decoration: Nubian Clay House & Palm Tree */}
+      <div className="absolute top-48 -left-12 lg:left-6 w-52 h-auto opacity-[0.18] select-none pointer-events-none hidden md:block z-0 transition-opacity duration-500">
+        <svg viewBox="0 0 200 400" className="w-full h-full text-mud" fill="none" stroke="currentColor" strokeWidth="1.5">
+          {/* Clay House Towers */}
+          <path d="M 20 380 L 20 200 L 40 160 L 60 200 L 60 380 Z" fill="#FDFBF7" />
+          <path d="M 60 380 L 60 120 L 90 80 L 120 120 L 120 380 Z" fill="#FAF5EC" />
+          <path d="M 120 380 L 120 180 L 140 140 L 160 180 L 160 380 Z" fill="#FDFBF7" />
+          
+          {/* Parapet Triangles on top of towers */}
+          <path d="M 20 200 L 30 190 L 40 200 L 50 190 L 60 200" />
+          <path d="M 60 120 L 70 110 L 80 120 L 90 110 L 100 120 L 110 110 L 120 120" />
+          <path d="M 120 180 L 130 170 L 140 180 L 150 170 L 160 180" />
+          
+          {/* Arched Doors */}
+          <path d="M 75 380 L 75 340 A 15 15 0 0 1 105 340 L 105 380 Z" fill="#EAD4A8" />
+          <path d="M 32 380 L 32 355 A 8 8 0 0 1 48 355 L 48 380 Z" />
+          
+          {/* Arched Windows and triangular slots */}
+          <path d="M 82 200 L 82 180 A 8 8 0 0 1 98 180 L 98 200 Z" />
+          <path d="M 35 240 L 45 240 L 40 230 Z" fill="currentColor" />
+          <path d="M 135 220 L 145 220 L 140 210 Z" fill="currentColor" />
+          
+          {/* Traditional wall carvings/engravings */}
+          <path d="M 25 300 L 35 290 L 45 300 L 55 290" />
+          <path d="M 25 310 L 35 300 L 45 310 L 55 300" />
+          
+          <path d="M 65 250 L 75 240 L 85 250 L 95 240 L 105 250 L 115 240" />
+          <path d="M 65 260 L 75 250 L 85 260 L 95 250 L 105 260 L 115 250" />
+          
+          <path d="M 125 280 L 135 270 L 145 280 L 155 270" />
+          <path d="M 125 290 L 135 280 L 145 290 L 155 280" />
+          
+          {/* Sudanese Palm Tree waving gently next to the house */}
+          <path d="M 175 380 Q 182 310 178 250" stroke="currentColor" strokeWidth="3" strokeLinecap="round" fill="none" />
+          {/* Palm Fronds */}
+          <path d="M 178 250 Q 150 240 140 255" stroke="#007229" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+          <path d="M 178 250 Q 155 220 152 232" stroke="#007229" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+          <path d="M 178 250 Q 178 200 180 212" stroke="#007229" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+          <path d="M 178 250 Q 200 220 204 232" stroke="#007229" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+          <path d="M 178 250 Q 205 240 215 255" stroke="#007229" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+
+          {/* Base ground line */}
+          <line x1="10" y1="380" x2="190" y2="380" strokeWidth="2" />
+        </svg>
+      </div>
+
+      {/* Right Decoration: Pyramids of Meroe & Traditional Jebena Coffee Pot */}
+      <div className="absolute top-48 -right-12 lg:right-6 w-52 h-auto opacity-[0.18] select-none pointer-events-none hidden md:block z-0 transition-opacity duration-500">
+        <svg viewBox="0 0 200 400" className="w-full h-full text-mud" fill="none" stroke="currentColor" strokeWidth="1.5">
+          {/* Pyramid 1 (Main Steep Meroe Pyramid) */}
+          <path d="M 20 250 L 65 70 L 110 250 Z" fill="#FAF5EC" stroke="currentColor" strokeWidth="1.5" />
+          {/* Horizontal tiers/brick layers on pyramid 1 */}
+          <line x1="53" y1="120" x2="77" y2="120" stroke="currentColor" strokeWidth="1" />
+          <line x1="42" y1="160" x2="88" y2="160" stroke="currentColor" strokeWidth="1" />
+          <line x1="31" y1="200" x2="99" y2="200" stroke="currentColor" strokeWidth="1" />
+          <line x1="22" y1="240" x2="108" y2="240" stroke="currentColor" strokeWidth="1" />
+          
+          {/* Pyramid 2 (Smaller overlapping steep pyramid) */}
+          <path d="M 90 250 L 125 110 L 160 250 Z" fill="#FDFBF7" stroke="currentColor" strokeWidth="1.5" />
+          {/* Tiers on pyramid 2 */}
+          <line x1="114" y1="150" x2="136" y2="150" stroke="currentColor" strokeWidth="1" />
+          <line x1="104" y1="190" x2="146" y2="190" stroke="currentColor" strokeWidth="1" />
+          <line x1="94" y1="230" x2="156" y2="230" stroke="currentColor" strokeWidth="1" />
+
+          {/* Traditional Sudanese Jebena (Coffee Pot) sitting on the ground next to pyramids */}
+          {/* Jebena Body */}
+          <circle cx="90" cy="330" r="22" fill="#FAF5EC" stroke="currentColor" strokeWidth="1.5" />
+          {/* Jebena Neck */}
+          <path d="M 84 309 L 84 275 L 96 275 L 96 309 Z" fill="#FAF5EC" stroke="currentColor" strokeWidth="1.5" />
+          {/* Flared Rim */}
+          <ellipse cx="90" cy="275" rx="8" ry="3.5" fill="currentColor" />
+          {/* Handle */}
+          <path d="M 84 290 Q 64 290 78 335" fill="none" stroke="currentColor" strokeWidth="2" />
+          {/* Spout */}
+          <path d="M 96 320 L 114 305 L 112 300 L 96 315 Z" fill="currentColor" />
+          
+          {/* Traditional Base (Al-Wiqaya / الوقاية) */}
+          <ellipse cx="90" cy="353" rx="18" ry="5.5" fill="#FAF5EC" stroke="currentColor" strokeWidth="1.5" />
+          
+          {/* Little Finjal (coffee cup) next to it */}
+          <path d="M 130 340 L 140 340 L 142 350 L 128 350 Z" fill="#FAF5EC" stroke="currentColor" strokeWidth="1" />
+          {/* Steam rising from Finjal */}
+          <path d="M 132 334 Q 135 328 132 322" stroke="currentColor" strokeWidth="1" strokeLinecap="round" fill="none" className="animate-pulse" />
+          <path d="M 137 335 Q 140 329 137 323" stroke="currentColor" strokeWidth="1" strokeLinecap="round" fill="none" className="animate-pulse" />
+
+          {/* Traditional patterns carved in space */}
+          <path d="M 15 300 L 25 290 L 35 300 L 45 290" />
+          <path d="M 15 310 L 25 300 L 35 310 L 45 300" />
+
+          {/* Ground Line */}
+          <line x1="10" y1="353" x2="190" y2="353" stroke="currentColor" strokeWidth="2" />
+        </svg>
+      </div>
+    </>
   );
 };
 
@@ -3238,7 +3298,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
       <div 
         onClick={handleTrimClick}
         className="h-2 w-full flex cursor-pointer hover:opacity-95 active:opacity-80 transition-opacity" 
-        title="المنصة السودانية التعليمية الموحدة"
+        title=" منصة نقلة للمناهج الالكترونية التفاعلية  "
       >
         <div className="bg-[#D21034] flex-1"></div>
         <div className="bg-white flex-1"></div>
@@ -3357,7 +3417,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 </svg>
               </div>
               <div className="text-right">
-                <h1 className="text-[#3D2314] font-black text-sm sm:text-base leading-tight font-sans">منصة المناهج</h1>
+                <h1 className="text-[#3D2314] font-black text-sm sm:text-base leading-tight font-sans">نقة للمناهج الإلكترونية</h1>
                 <p className="text-[#A35130] font-extrabold text-3xs tracking-widest leading-none">السودانية الموحدة</p>
               </div>
             </div>
@@ -3381,8 +3441,18 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               </button>
               <button 
                 onClick={() => {
-                  const stagesEl = document.getElementById("stages-section-anchor");
-                  stagesEl?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  setSelectedStage(null); 
+                  setShowOnlyFavorites(false); 
+                  setShowStudyCamp(false); 
+                  setShowEducationalMindMap(false); 
+                  setShowStudentChat(false); 
+                  setShowAdminDashboard(false);
+                  setShowParentPortal(false);
+                  setActiveGrade(null);
+                  setTimeout(() => {
+                    const stagesEl = document.getElementById("stages-section-anchor");
+                    stagesEl?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 120);
                 }} 
                 className="hover:text-[#A35130] transition-colors border-b-2 border-transparent hover:border-[#A35130] pb-1 cursor-pointer select-none"
               >
@@ -4354,7 +4424,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   {/* Left side: welcome content and counters */}
                   <div className="space-y-4 max-w-2xl text-center md:text-right relative z-10">
                      <h2 className="text-sm sm:text-2xl md:text-3xl font-black text-mud leading-snug">
-                        {currentLang === "ar" ? "أهلاً بك في البوابة التعليمية التفاعلية الموحدة" : "Interactive Gateway to Sudanese Unified Curricula"}
+                        {currentLang === "ar" ? " بوابة نقلة للمناهج الالكترونية التعليمية التفاعلية " : "Interactive Gateway to Sudanese Unified Curricula"}
                      </h2>
                      <p className="text-[10px] sm:text-xs text-mud/85 leading-relaxed max-w-lg font-sans">
                         {currentLang === "ar" 
@@ -4807,7 +4877,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
                 {siteTheme !== "legacy" ? (
                   <>
-                <div className="space-y-4">
+                <div id="stages-section-anchor" className="space-y-4">
                    <div className="flex items-center justify-between border-b border-mud/10 pb-[9px] mb-[16px] lg:w-[1100px] max-w-full mx-auto">
                       <div>
                          <h3 className="font-bold text-[#5C2C16] text-base">{currentLang === "ar" ? "المراحل التعليمية المتاحة" : "Available Educational Stages"}</h3>
@@ -5057,7 +5127,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   </>
         ) : (
           // Stage selection selector tabs
-          <section className="space-y-4 relative overflow-hidden p-1 rounded-2xl">
+          <section id="stages-section-anchor" className="space-y-4 relative overflow-hidden p-1 rounded-2xl">
           {/* Ambient kid-friendly background sparkles or clouds */}
           {isKidModeActive && (
             <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30 select-none z-0">
@@ -6468,7 +6538,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       {userModalTab === "profile" ? "تعديل بيانات الحساب ⚙️" : "بوابة الطالب والزائر 🇸🇩"}
                     </h5>
                     <p className="text-[10px] text-slate-400 mt-0.5">
-                      {userModalTab === "profile" ? "تعديل معلومات حسابك الدراسي لعام ٢٠٢٦" : "منصة المناهج السودانية التفاعلية لعام ٢٠٢٦"}
+                      {userModalTab === "profile" ? "تعديل معلومات حسابك الدراسي لعام ٢٠٢٦" : "منصة نقلة للمناهج الالكترونية السودانية  لعام ٢٠٢٦"}
                     </p>
                   </div>
                 </div>
@@ -6973,7 +7043,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         <div className="space-y-4 text-xs text-slate-400">
           <div className="flex items-center justify-center gap-2">
             <WebsiteLogo size={24} />
-            <p className="font-semibold text-slate-300">🇸🇩 منصة المناهج السودانية التفاعلية لعام 2026</p>
+            <p className="font-semibold text-slate-300">🇸🇩منصة نقلة للمناهج الالكترونية السودانية التفاعلية لعام 2026</p>
           </div>
           <p className="max-w-xl mx-auto text-2xs text-slate-500 leading-relaxed">
              تم تطوير هذا المنصة بواسطة عثمان المنقوري لمساعدة المنظومة التعليمية وطلاب السودان الأحباء لتسهيل التعلم ولملاحظاتكم واستفساراتكم يمكنكم التواصل على البريد الالكتروني  almangoryo@gmail.com               .
