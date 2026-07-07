@@ -293,6 +293,8 @@ export default function App() {
 
   const isWarmTheme = siteTheme === "sudanese" || siteTheme === "heritage";
 
+  const [visitorCount, setVisitorCount] = useState<number | null>(null);
+
   // Curriculum data is retrieved directly from the server-side compiled curriculum.ts (stagesData)
   // We use local storage fallback for cross-environment consistency (e.g. on Vercel)
   const [curriculumData, setCurriculumData] = useState<Stage[]>(() => {
@@ -808,6 +810,39 @@ export default function App() {
     return () => {
       document.removeEventListener("mousedown", handleGlobalRipple);
     };
+  }, []);
+
+  // 📈 تحميل وزيادة عداد زوار المنصة التعليمية
+  useEffect(() => {
+    const handleVisitorCount = async () => {
+      try {
+        const sessionKey = "nakla_visitor_counted_v1";
+        const hasVisited = sessionStorage.getItem(sessionKey);
+        
+        let url = getApiUrl("/api/visitor-count");
+        let method = "GET";
+        
+        if (!hasVisited) {
+          url = getApiUrl("/api/visitor-count/increment");
+          method = "POST";
+        }
+        
+        const res = await fetch(url, { method });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success && typeof data.count === "number") {
+            setVisitorCount(data.count);
+            if (!hasVisited) {
+              sessionStorage.setItem(sessionKey, "true");
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to process visitor count:", err);
+      }
+    };
+    
+    handleVisitorCount();
   }, []);
 
   // Load from Supabase on start if available and subscribe to Webhook SSE events
@@ -4434,6 +4469,24 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
 
                      {/* Beautiful Traditional Sudanese Heritage Stats/Favorites/Admin Counters */}
                      <div className="flex flex-wrap gap-1.5 sm:gap-2.5 pt-1 sm:pt-2 font-sans">
+                        {/* 📈 Beautiful Heritage Visitor Counter Badge */}
+                        <div 
+                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl sm:rounded-2xl bg-[#EAD4A8]/15 border border-[#D4AF37]/35 text-[10px] sm:text-2xs font-extrabold text-mud/90 shadow-2xs hover:scale-105 transition-all duration-300 select-none cursor-pointer"
+                           title={currentLang === "ar" ? "عدد زوار منصة نقلة للتعليم التفاعلي" : "Total visitors of Nakla interactive platform"}
+                        >
+                           <span className="text-xs">🇸🇩</span>
+                           <span className="text-[#A35130] font-black tracking-wide text-[11px] sm:text-xs">
+                             {visitorCount !== null 
+                               ? (currentLang === "ar" 
+                                   ? visitorCount.toLocaleString("ar-EG") 
+                                   : visitorCount.toLocaleString("en-US")) 
+                               : "..."}
+                           </span>
+                           <span>
+                             {currentLang === "ar" ? "زائر سعيد" : "Happy Visitors"}
+                           </span>
+                        </div>
+
                         <button 
                            onClick={() => {
                               setShowOnlyFavorites(prev => !prev);

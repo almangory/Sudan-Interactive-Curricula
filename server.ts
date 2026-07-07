@@ -234,6 +234,33 @@ async function saveChatMessages() {
 }
 loadChatMessages();
 
+// ==========================================
+// 📈 إعداد وتهيئة عداد الزوار لـ منصة نقلة
+// ==========================================
+let serverVisitorCount = 1;
+const visitorCountFilePath = path.join(process.cwd(), "visitor_count.json");
+
+async function loadVisitorCount() {
+  try {
+    const fileData = await fs.readFile(visitorCountFilePath, "utf8");
+    const parsed = JSON.parse(fileData);
+    if (parsed && typeof parsed.count === "number") {
+      serverVisitorCount = parsed.count;
+    }
+  } catch (err) {
+    await saveVisitorCount();
+  }
+}
+
+async function saveVisitorCount() {
+  try {
+    await fs.writeFile(visitorCountFilePath, JSON.stringify({ count: serverVisitorCount }, null, 2), "utf8");
+  } catch (err) {
+    console.warn("Failed to write visitor count to disk:", err);
+  }
+}
+loadVisitorCount();
+
 function censorBadWords(text: string): string {
   let censored = text;
   const profaneList = [
@@ -262,6 +289,23 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 // ==========================================
 // 🛡️ الروابط المؤمنة والسريعة المتوافقة مع سوبابيس
 // ==========================================
+
+// ==========================================
+// 📈 مسارات عداد الزوار لـ منصة نقلة التعليمية
+// ==========================================
+app.get("/api/visitor-count", (req, res) => {
+  res.json({ success: true, count: serverVisitorCount });
+});
+
+app.post("/api/visitor-count/increment", async (req, res) => {
+  try {
+    serverVisitorCount += 1;
+    await saveVisitorCount();
+    res.json({ success: true, count: serverVisitorCount });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // 1. جلب إعدادات سوبابيس للـ UI (مؤمنة بالكامل وسريعة ضد الـ 500)
 app.get("/api/config/supabase", (req, res) => {
