@@ -313,6 +313,7 @@ export async function fetchCurriculumFromSupabase(): Promise<Stage[] | null> {
         let id = row.id || "";
 
         if (!stageId || !gradeId || !id) return;
+        if (id === "visitor_count_metric" || id === "visitor_count" || stageId === "system" || gradeId === "system") return;
 
         // If the subject ID was saved with a composite unique prefix "stageId_gradeId_",
         // we strip it to restore the clean local subject ID (e.g., "math")
@@ -348,26 +349,17 @@ export async function fetchCurriculumFromSupabase(): Promise<Stage[] | null> {
 
         // Try to find subject
         let subj = grade.subjects.find(s => s.id === id);
-        
-        let colorClass = row.color_class || row.color || "bg-blue-105 text-blue-900 border-blue-200";
-        let isHidden = !!row.is_hidden || !!row.hidden || false;
-        if (colorClass.includes("||hidden::true")) {
-          colorClass = colorClass.replace("||hidden::true", "");
-          isHidden = true;
-        }
-
         const mappedSubj: Subject = {
           id: id,
           name: row.name || row.subject_name || row.title || "مادة دراسية",
           iconName: row.icon_name || row.icon || "BookOpen",
-          colorClass: colorClass,
+          colorClass: row.color_class || row.color || "bg-blue-105 text-blue-900 border-blue-200",
           interactiveUrl: row.interactive_url || "",
           interactiveLabel: row.interactive_label || "الموقع التفاعلي",
           curriculumSummary: row.curriculum_summary || row.summary || "",
           pdfUrl: row.pdf_url || row.book_url || undefined,
           memoPdfUrl: row.memo_pdf_url || row.memo_url || undefined,
-          videoUrl: row.video_url || undefined,
-          hidden: isHidden
+          videoUrl: row.video_url || undefined
         };
 
         if (subj) {
@@ -427,8 +419,7 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<SyncRes
             grade_name: grade.name,
             name: subj.name,
             icon_name: subj.iconName,
-            color_class: subj.colorClass + (subj.hidden ? "||hidden::true" : ""),
-            is_hidden: !!subj.hidden,
+            color_class: subj.colorClass,
             interactive_url: subj.interactiveUrl || "",
             interactive_label: subj.interactiveLabel || "الموقع التفاعلي",
             curriculum_summary: subj.curriculumSummary || "",

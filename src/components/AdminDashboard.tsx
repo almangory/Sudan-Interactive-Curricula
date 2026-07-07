@@ -637,7 +637,6 @@ CREATE TABLE IF NOT EXISTS curricula_links (
   name TEXT,
   icon_name TEXT,
   color_class TEXT,
-  is_hidden BOOLEAN DEFAULT FALSE,
   interactive_url TEXT,
   interactive_label TEXT,
   curriculum_summary TEXT,
