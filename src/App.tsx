@@ -5151,7 +5151,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                                           </div>
 
                                                           <div className="space-y-1">
-                                                             <h3 className="font-bold text-mud text-xs group-hover:text-earthgold truncate">{subject.name}</h3>
+                                                             <h3 className="font-bold text-mud text-xs group-hover:text-earthgold truncate flex items-center gap-1"><span>{subject.name}</span>{subject.hidden && <span className="px-1 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[8px] text-amber-700 font-extrabold">👁️‍قيد الإخفاء</span>}</h3>
                                                              <p className="text-[10px] text-mud/70 leading-relaxed line-clamp-2">{subject.curriculumSummary}</p>
                                                           </div>
 
