@@ -487,7 +487,7 @@ export async function saveCurriculumToSupabase(stages: Stage[]): Promise<SyncRes
 
         if (!fetchErr && dbRows) {
           const dbIds = dbRows.map((r: any) => r.id);
-          const idsToDelete = dbIds.filter((id: string) => id !== "curriculum" && !currentIds.includes(id));
+          const idsToDelete = dbIds.filter((id: string) => id !== "curriculum" && id !== "visitor_count_metric" && id !== "visitor_count" && !currentIds.includes(id));
           
           if (idsToDelete.length > 0) {
             console.log("Safely deleting obsolete subject IDs from Supabase:", idsToDelete);

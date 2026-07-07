@@ -235,12 +235,13 @@ async function saveChatMessages() {
 loadChatMessages();
 
 // ==========================================
-// 📈 إعداد وتهيئة عداد الزوار لـ منصة نقلة
+// 📈 إعداد وتهيئة عداد الزوار لـ منصة نقلة (متصل بـ سوبابيس للاستمرارية الكاملة)
 // ==========================================
 let serverVisitorCount = 1;
 const visitorCountFilePath = path.join(process.cwd(), "visitor_count.json");
 
 async function loadVisitorCount() {
+  // 1. أولاً، نقرأ من الملف المحلي كنسخة احتياطية سريعة
   try {
     const fileData = await fs.readFile(visitorCountFilePath, "utf8");
     const parsed = JSON.parse(fileData);
@@ -248,15 +249,75 @@ async function loadVisitorCount() {
       serverVisitorCount = parsed.count;
     }
   } catch (err) {
-    await saveVisitorCount();
+    // لا يوجد ملف محلي بعد، سيتم إنشاؤه لاحقاً
+  }
+
+  // 2. ثانياً، نجلب القيمة الفعالة والمسجلة بقاعدة بيانات سوبابيس (لمنع تصفير العداد عند إعادة تشغيل الحاوية)
+  try {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+
+    if (supabaseKey) {
+      const response = await fetch(`${supabaseUrl}/rest/v1/curricula_links?id=eq.visitor_count_metric`, {
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": `Bearer ${supabaseKey}`
+        }
+      });
+      if (response.ok) {
+        const rows = await response.json();
+        if (rows && rows.length > 0) {
+          const dbCount = parseInt(rows[0].curriculum_summary, 10);
+          if (!isNaN(dbCount)) {
+            // نأخذ القيمة الأكبر لضمان عدم حدوث أي تراجع
+            serverVisitorCount = Math.max(serverVisitorCount, dbCount);
+            await saveLocalVisitorCount();
+          }
+        } else {
+          // إذا لم تكن مسجلة بسوبابيس، نسجلها الآن
+          await saveVisitorCountToSupabase(serverVisitorCount);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to sync visitor count with Supabase on startup, using local count:", err);
   }
 }
 
-async function saveVisitorCount() {
+async function saveLocalVisitorCount() {
   try {
     await fs.writeFile(visitorCountFilePath, JSON.stringify({ count: serverVisitorCount }, null, 2), "utf8");
   } catch (err) {
     console.warn("Failed to write visitor count to disk:", err);
+  }
+}
+
+async function saveVisitorCountToSupabase(count: number) {
+  try {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://ecgqrdkiybhhncdrtlea.supabase.co";
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+
+    if (supabaseKey) {
+      await fetch(`${supabaseUrl}/rest/v1/curricula_links`, {
+        method: "POST",
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": `Bearer ${supabaseKey}`,
+          "Content-Type": "application/json",
+          "Prefer": "resolution=merge-duplicates"
+        },
+        body: JSON.stringify({
+          id: "visitor_count_metric",
+          name: "visitor_count",
+          curriculum_summary: String(count),
+          stage_id: "system",
+          grade_id: "system",
+          updated_at: new Date().toISOString()
+        })
+      });
+    }
+  } catch (err) {
+    console.warn("Failed to save visitor count to Supabase:", err);
   }
 }
 loadVisitorCount();
@@ -300,7 +361,8 @@ app.get("/api/visitor-count", (req, res) => {
 app.post("/api/visitor-count/increment", async (req, res) => {
   try {
     serverVisitorCount += 1;
-    await saveVisitorCount();
+    await saveLocalVisitorCount();
+    await saveVisitorCountToSupabase(serverVisitorCount);
     res.json({ success: true, count: serverVisitorCount });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
