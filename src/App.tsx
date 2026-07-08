@@ -3452,7 +3452,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 </svg>
               </div>
               <div className="text-right">
-                <h1 className="text-[#3D2314] font-black text-sm sm:text-base leading-tight font-sans">نقة للمناهج الإلكترونية</h1>
+                <h1 className="text-[#3D2314] font-black text-sm sm:text-base leading-tight font-sans">نقلة للمناهج الإلكترونية</h1>
                 <p className="text-[#A35130] font-extrabold text-3xs tracking-widest leading-none">السودانية الموحدة</p>
               </div>
             </div>
