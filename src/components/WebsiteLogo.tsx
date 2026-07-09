@@ -6,172 +6,112 @@ interface WebsiteLogoProps {
   showText?: boolean;
 }
 
-export default function WebsiteLogo({ className = "", size = 32, showText = false }: WebsiteLogoProps) {
+export default function WebsiteLogo({ className = "", size = 44, showText = false }: WebsiteLogoProps) {
   return (
-    <div className={`inline-flex items-center gap-2 select-none ${className}`}>
+    <div className={`inline-flex items-center gap-3 select-none ${className}`}>
       <svg
         width={size}
         height={size}
-        viewBox="0 0 100 100"
+        viewBox="0 0 500 500"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="drop-shadow-sm hover:scale-105 transition-transform duration-300 active:scale-95 cursor-pointer"
+        className="drop-shadow-md hover:scale-105 transition-transform duration-300 active:scale-95 cursor-pointer"
       >
         <defs>
-          {/* Rich metallic gold gradient */}
-          <linearGradient id="gold-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#FFF8E1" />
-            <stop offset="30%" stopColor="#FFD54F" />
+          {/* Premium Metallic Gold Gradient */}
+          <linearGradient id="comp-gold-metallic" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#9B6F1A" />
+            <stop offset="20%" stopColor="#D4AF37" />
+            <stop offset="45%" stopColor="#F3D993" />
+            <stop offset="55%" stopColor="#FFF8E1" />
             <stop offset="70%" stopColor="#D4AF37" />
-            <stop offset="100%" stopColor="#AA7C11" />
+            <stop offset="100%" stopColor="#845D10" />
           </linearGradient>
 
-          {/* Golden glow effect for the trend arrow */}
-          <filter id="gold-glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="2" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          {/* Subtle Shadow Filter */}
+          <filter id="comp-shadow" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#000000" floodOpacity="0.15" />
           </filter>
-
-          {/* Deep royal background for the circular seal */}
-          <radialGradient id="seal-bg" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#2E1B15" />
-            <stop offset="60%" stopColor="#1C0E0A" />
-            <stop offset="100%" stopColor="#0B0503" />
-          </radialGradient>
-
-          {/* Sudan Flag Gradients & Colors */}
-          <linearGradient id="sudan-red" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#E53935" />
-            <stop offset="100%" stopColor="#C62828" />
-          </linearGradient>
-          <linearGradient id="sudan-green" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#43A047" />
-            <stop offset="100%" stopColor="#2E7D32" />
-          </linearGradient>
         </defs>
 
-        {/* Outer Circular Seal Frame */}
-        <circle cx="50" cy="50" r="47" fill="url(#seal-bg)" />
-        <circle cx="50" cy="50" r="45" stroke="url(#gold-grad)" strokeWidth="2.5" opacity="0.85" />
-        <circle cx="50" cy="50" r="41" stroke="url(#gold-grad)" strokeWidth="1" strokeDasharray="3,3" opacity="0.6" />
-
-        {/* Decorative inner circular gears/stars representing science & progress */}
-        <g opacity="0.25" stroke="url(#gold-grad)" strokeWidth="0.5" fill="none">
-          <circle cx="50" cy="50" r="36" />
-          <path d="M 50 14 L 50 86 M 14 50 L 86 50 M 24.5 24.5 L 75.5 75.5 M 24.5 75.5 L 75.5 24.5" />
-        </g>
-
-        {/* The Open Book representing Knowledge */}
-        {/* Book spine & gold backing outline */}
-        <path
-          d="M 50 71 Q 38 64 20 66 L 20 40 Q 38 38 50 45 Q 62 38 80 40 L 80 66 Q 62 64 50 71 Z"
-          fill="#1C0E0A"
-          stroke="url(#gold-grad)"
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
-
-        {/* Book Pages with paper white-gold premium gradient overlay */}
-        <path
-          d="M 48.5 69.5 Q 38 63 21.5 64.5 L 21.5 41.5 Q 38 40 48.5 46.5 Z"
-          fill="#FFFDF9"
-          opacity="0.95"
-        />
-        <path
-          d="M 51.5 69.5 Q 62 63 78.5 64.5 L 78.5 41.5 Q 62 40 51.5 46.5 Z"
-          fill="#FFFDF9"
-          opacity="0.95"
-        />
-
-        {/* Page lines inside book (Right and Left pages) */}
-        <g stroke="#E5D9C4" strokeWidth="0.75" opacity="0.7">
-          {/* Left page text lines */}
-          <line x1="26" y1="47" x2="44" y2="49" />
-          <line x1="26" y1="52" x2="44" y2="54" />
-          <line x1="26" y1="57" x2="44" y2="59" />
+        <g filter="url(#comp-shadow)">
+          {/* 📖 THE GOLDEN OPEN BOOK (Bottom Section) */}
+          <path d="M 250,225 L 250,295" stroke="url(#comp-gold-metallic)" strokeWidth="4.5" strokeLinecap="round" />
           
-          {/* Right page text lines */}
-          <line x1="56" y1="49" x2="74" y2="47" />
-          <line x1="56" y1="54" x2="74" y2="52" />
-          <line x1="56" y1="59" x2="74" y2="57" />
+          {/* Book Outer Cover / Bottom Rim */}
+          <path d="M 250,290 C 210,274 150,274 110,300 C 150,308 210,308 250,293" fill="none" stroke="url(#comp-gold-metallic)" strokeWidth="3" strokeLinejoin="round" />
+          <path d="M 250,290 C 290,274 350,274 390,300 C 350,308 290,308 250,293" fill="none" stroke="url(#comp-gold-metallic)" strokeWidth="3" strokeLinejoin="round" />
+
+          {/* Left Page Layer 1 */}
+          <path d="M 250,285 C 210,268 150,268 112,295 L 125,215 C 160,192 215,192 250,208 Z" fill="none" stroke="url(#comp-gold-metallic)" strokeWidth="3.5" strokeLinejoin="round" />
+          {/* Left Page Layer 2 */}
+          <path d="M 250,288 C 213,272 160,272 122,297 L 133,222 C 168,200 218,200 250,214" fill="none" stroke="url(#comp-gold-metallic)" strokeWidth="2" strokeLinejoin="round" opacity="0.85" />
+          {/* Left Page Layer 3 */}
+          <path d="M 250,291 C 216,276 170,276 132,299 L 141,229 C 176,208 221,208 250,220" fill="none" stroke="url(#comp-gold-metallic)" strokeWidth="1.5" strokeLinejoin="round" opacity="0.7" />
+
+          {/* Right Page Layer 1 */}
+          <path d="M 250,285 C 290,268 350,268 388,295 L 375,215 C 340,192 285,192 250,208 Z" fill="none" stroke="url(#comp-gold-metallic)" strokeWidth="3.5" strokeLinejoin="round" />
+          {/* Right Page Layer 2 */}
+          <path d="M 250,288 C 287,272 340,272 378,297 L 367,222 C 332,200 282,200 250,214" fill="none" stroke="url(#comp-gold-metallic)" strokeWidth="2" strokeLinejoin="round" opacity="0.85" />
+          {/* Right Page Layer 3 */}
+          <path d="M 250,291 C 284,276 330,276 368,299 L 359,229 C 324,208 279,208 250,220" fill="none" stroke="url(#comp-gold-metallic)" strokeWidth="1.5" strokeLinejoin="round" opacity="0.7" />
+
+          {/* 📈 THE GROWTH CHART & LEAF SPROUT (Center) */}
+          <path d="M 250,225 L 250,150" stroke="url(#comp-gold-metallic)" strokeWidth="4" strokeLinecap="round" />
+
+          {/* Left Sprout Leaves */}
+          <path d="M 250,210 C 225,200 215,180 230,170 C 245,160 250,190 250,210 Z" fill="url(#comp-gold-metallic)" opacity="0.9" />
+          <path d="M 250,175 C 220,165 210,140 228,132 C 246,124 250,155 250,175 Z" fill="url(#comp-gold-metallic)" />
+          <path d="M 250,140 C 240,120 240,95 250,90 C 260,95 260,120 250,140 Z" fill="url(#comp-gold-metallic)" />
+
+          {/* Growth Bar-Chart/Geometric Lines */}
+          <path d="M 200,212 L 300,212" stroke="url(#comp-gold-metallic)" strokeWidth="2.5" strokeLinecap="round" />
+          <path d="M 210,212 L 235,185 L 265,195 L 302,145 L 302,175" fill="none" stroke="url(#comp-gold-metallic)" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+          <path d="M 275,212 L 275,175" stroke="url(#comp-gold-metallic)" strokeWidth="3" strokeLinecap="round" />
+          <path d="M 290,212 L 290,150" stroke="url(#comp-gold-metallic)" strokeWidth="3" strokeLinecap="round" />
+          <path d="M 315,212 L 315,130" stroke="url(#comp-gold-metallic)" strokeWidth="3.5" strokeLinecap="round" />
+
+          {/* Bold Upward Trend Arrow */}
+          <path d="M 250,205 L 300,140 L 335,95" fill="none" stroke="url(#comp-gold-metallic)" strokeWidth="5" strokeLinecap="round" />
+          <path d="M 310,93 L 340,90 L 337,120 Z" fill="url(#comp-gold-metallic)" stroke="url(#comp-gold-metallic)" strokeWidth="1.5" strokeLinejoin="round" />
         </g>
 
-        {/* Sudanese Flag Badge on the Left Page */}
-        <g transform="translate(25, 43.5) scale(0.6)" opacity="0.9">
-          {/* Flag container rect */}
-          <rect x="0" y="0" width="15" height="9" fill="#FFFFFF" rx="0.5" />
-          {/* Red band */}
-          <rect x="0" y="0" width="15" height="3" fill="url(#sudan-red)" />
-          {/* Black band */}
-          <rect x="0" y="6" width="15" height="3" fill="#000000" />
-          {/* Green triangle */}
-          <path d="M 0 0 L 5 4.5 L 0 9 Z" fill="url(#sudan-green)" />
-          {/* Gold border */}
-          <rect x="0" y="0" width="15" height="9" stroke="url(#gold-grad)" strokeWidth="0.5" fill="none" />
+        {/* 🔠 NAQLA TYPOGRAPHY */}
+        <g id="naqla-text" transform="translate(145, 345)" filter="url(#comp-shadow)">
+          {/* N */}
+          <path d="M 5,35 L 5,5 M 5,5 L 28,35 M 28,35 L 28,5" stroke="#1C0E0A" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          <circle cx="5" cy="5" r="3.5" fill="url(#comp-gold-metallic)" />
+          <circle cx="28" cy="35" r="3.5" fill="url(#comp-gold-metallic)" />
+          
+          {/* A */}
+          <path d="M 38,35 L 50,5 L 62,35 M 43,23 L 57,23" stroke="#1C0E0A" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          
+          {/* Q */}
+          <path d="M 83,20 C 83,29 76,36 67,36 C 58,36 51,29 51,20 C 51,11 58,4 67,4 C 76,4 83,11 83,20 Z M 77,30 L 89,42" stroke="#1C0E0A" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          
+          {/* L */}
+          <path d="M 97,5 L 97,35 L 117,35" stroke="#1C0E0A" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          
+          {/* A */}
+          <path d="M 125,35 L 137,5 L 149,35 M 130,23 L 144,23" stroke="#1C0E0A" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </g>
 
-        {/* Small gold geometric star (Sudan traditional design) on the Right Page */}
-        <g transform="translate(64, 45) scale(0.4)" stroke="url(#gold-grad)" strokeWidth="1.5" fill="none">
-          <polygon points="10,0 13,7 20,10 13,13 10,20 7,13 0,10 7,7" />
-          <polygon points="10,3 15,10 10,17 5,10" fill="url(#gold-grad)" opacity="0.5" />
-        </g>
-
-        {/* Rising Golden Trend Arrow (representing "نقلة" - Digital Leap / Progress) */}
-        {/* Glow effect outline */}
-        <path
-          d="M 28 65 L 42 53 L 49 58 L 72 35"
-          stroke="#FFD54F"
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity="0.3"
-          filter="url(#gold-glow)"
-        />
-
-        {/* Main Golden Arrow Line */}
-        <path
-          d="M 28 65 L 42 53 L 49 58 L 70 37"
-          stroke="url(#gold-grad)"
-          strokeWidth="3.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {/* Golden Arrowhead */}
-        <path
-          d="M 64 36 L 73 34 L 71 43 Z"
-          fill="url(#gold-grad)"
-          stroke="url(#gold-grad)"
-          strokeWidth="1"
-          strokeLinejoin="round"
-        />
-
-        {/* Tech Circuit Nodes (circles at arrow vertices) representing interactive technology */}
-        <circle cx="28" cy="65" r="3" fill="#FFF8E1" stroke="url(#gold-grad)" strokeWidth="1" />
-        <circle cx="42" cy="53" r="2.5" fill="#FFF8E1" stroke="url(#gold-grad)" strokeWidth="1" />
-        <circle cx="49" cy="58" r="2.5" fill="#FFF8E1" stroke="url(#gold-grad)" strokeWidth="1" />
-        <circle cx="71" cy="36" r="1.5" fill="#FFFFFF" />
-
-        {/* Tech circuit connection lines */}
-        <line x1="42" y1="53" x2="42" y2="47" stroke="url(#gold-grad)" strokeWidth="0.75" />
-        <circle cx="42" cy="46" r="1" fill="url(#gold-grad)" />
-        
-        <line x1="49" y1="58" x2="53" y2="62" stroke="url(#gold-grad)" strokeWidth="0.75" />
-        <circle cx="54" cy="63" r="1" fill="url(#gold-grad)" />
-
-        {/* Subtle decorative scroll or shine ribbon at the very bottom */}
-        <path
-          d="M 30 84 Q 50 89 70 84"
-          stroke="url(#gold-grad)"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          opacity="0.5"
-        />
-        
-        <circle cx="50" cy="86.5" r="1" fill="url(#gold-grad)" opacity="0.8" />
+        {/* 🇸🇩 ARABIC SUBTITLE */}
+        <text
+          x="250"
+          y="422"
+          fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+          fontSize="16"
+          fontWeight="900"
+          fill="#5C2C16"
+          textAnchor="middle"
+          letterSpacing="0.5"
+        >
+          منصة المناهج الإلكترونية التفاعلية
+        </text>
       </svg>
       {showText && (
-        <span className="font-sans font-black text-xs tracking-wide bg-gradient-to-r from-amber-200 via-amber-400 to-yellow-500 bg-clip-text text-transparent">
+        <span className="font-sans font-black text-sm tracking-wide bg-gradient-to-r from-amber-600 via-amber-800 to-amber-950 bg-clip-text text-transparent">
           نقلة للمناهج الإلكترونية
         </span>
       )}

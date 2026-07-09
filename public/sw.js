@@ -2,6 +2,8 @@ const CACHE_NAME = 'sudan-edu-offline-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
+  '/manifest.json',
+  '/logo.svg',
   '/data/curriculum.ts',
   '/src/main.tsx',
   '/src/App.tsx',
