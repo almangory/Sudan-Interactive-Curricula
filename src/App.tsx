@@ -18,6 +18,7 @@ import EducationalMindMap from "./components/EducationalMindMap";
 import StudentChatRoom from "./components/StudentChatRoom";
 import WebsiteLogo from "./components/WebsiteLogo";
 import { OnboardingGuide } from "./components/OnboardingGuide";
+import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import { fetchCurriculumFromSupabase, verifyAdminInSupabase, saveCurriculumToSupabase, getSupabaseConfig, saveSupabaseConfig, AppUser, registerUser, loginUser, signInWithGoogle, checkAndSyncGoogleSession, getSupabaseClient, updateCurrentUserProfile, fetchLiveLessonsFromSupabase, LiveLesson, checkUserExistsAndActive, getApiUrl, obfuscateString, deobfuscateString, sha256, fetchAllRegisteredUsers } from "./lib/supabase";
 import { stageAndGradeTranslations, uiTranslations } from "./lib/translations";
 
@@ -3437,18 +3438,33 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
             >
               <div className="w-11 h-11 rounded-full bg-[#3D2314] flex items-center justify-center border border-[#E5C185] relative overflow-hidden group shadow-md shrink-0">
                 <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <svg viewBox="0 0 100 100" className="w-8 h-8 text-[#E5C185] stroke-[#E5C185]" fill="none" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="50" y1="20" x2="50" y2="10" stroke="#E5C185" />
-                  <line x1="50" y1="20" x2="35" y2="12" stroke="#E5C185" />
-                  <line x1="50" y1="20" x2="65" y2="12" stroke="#E5C185" />
-                  <line x1="50" y1="20" x2="25" y2="25" stroke="#E5C185" />
-                  <line x1="50" y1="20" x2="75" y2="25" stroke="#E5C185" />
-                  <circle cx="50" cy="20" r="4" fill="#E5C185" stroke="#E5C185" />
-                  <path d="M 50 65 C 38 58 20 60 20 38 L 20 22 C 38 20 50 27 50 35 C 50 27 62 20 80 22 L 80 38 C 80 60 62 58 50 65 Z" fill="#3D2314" stroke="#E5C185" strokeWidth="2.5" />
-                  <path d="M 23 25 Q 38 23 47 29" stroke="#E5C185" strokeWidth="1.5" opacity="0.6" />
-                  <path d="M 77 25 Q 62 23 53 29" stroke="#E5C185" strokeWidth="1.5" opacity="0.6" />
-                  <path d="M 23 30 Q 38 28 47 34" stroke="#E5C185" strokeWidth="1.5" opacity="0.6" />
-                  <path d="M 77 30 Q 62 28 53 34" stroke="#E5C185" strokeWidth="1.5" opacity="0.6" />
+                <svg viewBox="0 0 500 500" className="w-8 h-8 hover:scale-110 transition-transform duration-300" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="header-gold-metallic" x1="0%" y1="100%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#9B6F1A" />
+                      <stop offset="20%" stopColor="#D4AF37" />
+                      <stop offset="45%" stopColor="#F3D993" />
+                      <stop offset="55%" stopColor="#FFF8E1" />
+                      <stop offset="70%" stopColor="#D4AF37" />
+                      <stop offset="100%" stopColor="#845D10" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M 250,225 L 250,295" stroke="url(#header-gold-metallic)" strokeWidth="10" strokeLinecap="round" />
+                  <path d="M 250,290 C 210,274 150,274 110,300 C 150,308 210,308 250,293" fill="none" stroke="url(#header-gold-metallic)" strokeWidth="8" strokeLinejoin="round" />
+                  <path d="M 250,290 C 290,274 350,274 390,300 C 350,308 290,308 250,293" fill="none" stroke="url(#header-gold-metallic)" strokeWidth="8" strokeLinejoin="round" />
+                  <path d="M 250,285 C 210,268 150,268 112,295 L 125,215 C 160,192 215,192 250,208 Z" fill="none" stroke="url(#header-gold-metallic)" strokeWidth="9" strokeLinejoin="round" />
+                  <path d="M 250,285 C 290,268 350,268 388,295 L 375,215 C 340,192 285,192 250,208 Z" fill="none" stroke="url(#header-gold-metallic)" strokeWidth="9" strokeLinejoin="round" />
+                  <path d="M 250,225 L 250,150" stroke="url(#header-gold-metallic)" strokeWidth="10" strokeLinecap="round" />
+                  <path d="M 250,210 C 225,200 215,180 230,170 C 245,160 250,190 250,210 Z" fill="url(#header-gold-metallic)" />
+                  <path d="M 250,175 C 220,165 210,140 228,132 C 246,124 250,155 250,175 Z" fill="url(#header-gold-metallic)" />
+                  <path d="M 250,140 C 240,120 240,95 250,90 C 260,95 260,120 250,140 Z" fill="url(#header-gold-metallic)" />
+                  <path d="M 200,212 L 300,212" stroke="url(#header-gold-metallic)" strokeWidth="7" strokeLinecap="round" />
+                  <path d="M 210,212 L 235,185 L 265,195 L 302,145 L 302,175" fill="none" stroke="url(#header-gold-metallic)" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" />
+                  <path d="M 275,212 L 275,175" stroke="url(#header-gold-metallic)" strokeWidth="8" strokeLinecap="round" />
+                  <path d="M 290,212 L 290,150" stroke="url(#header-gold-metallic)" strokeWidth="8" strokeLinecap="round" />
+                  <path d="M 315,212 L 315,130" stroke="url(#header-gold-metallic)" strokeWidth="9" strokeLinecap="round" />
+                  <path d="M 250,205 L 300,140 L 335,95" fill="none" stroke="url(#header-gold-metallic)" strokeWidth="12" strokeLinecap="round" />
+                  <path d="M 310,93 L 340,90 L 337,120 Z" fill="url(#header-gold-metallic)" stroke="url(#header-gold-metallic)" strokeWidth="4" strokeLinejoin="round" />
                 </svg>
               </div>
               <div className="text-right">
@@ -7371,6 +7387,8 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
         currentLang={currentLang} 
         siteTheme={siteTheme} 
       />
+
+      <PWAInstallPrompt />
 
     </div>
   );
