@@ -3017,6 +3017,13 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
     return formattedNotifications.filter(n => n.isUnread).length;
   }, [formattedNotifications]);
 
+  const hasNewUpdates = React.useMemo(() => {
+    return siteUpdates.some(upd => {
+      if (upd.category === "breaking_news" || (upd.body_ar && upd.body_ar.includes('"bgColor"')) || (upd.body_ar && upd.body_ar.includes('"enabled"'))) return false;
+      return new Date(upd.created_at) > new Date(lastCheckedUpdates);
+    });
+  }, [siteUpdates, lastCheckedUpdates]);
+
   const handleNotificationClick = (item: any) => {
     if (item.action === "open_chat") {
       setShowStudentChat(true);
@@ -3594,13 +3601,29 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   </button>
                 )}
 
-                <button 
+                <motion.button 
                   onClick={() => setShowUserSettingsIcons(prev => !prev)}
-                  className={`w-8 h-8 rounded-xl border flex items-center justify-center cursor-pointer ${showUserSettingsIcons ? "bg-[#A35130] text-white border-[#A35130]" : "bg-[#FAF5EC] hover:bg-cream border-mud/10 text-[#A35130]"}`}
-                  title="أدوات ومظهر المنصة"
+                  className={`w-8 h-8 rounded-xl border flex items-center justify-center cursor-pointer relative ${showUserSettingsIcons ? "bg-[#A35130] text-white border-[#A35130]" : "bg-[#FAF5EC] hover:bg-cream border-mud/10 text-[#A35130]"}`}
+                  title={hasNewUpdates ? "تحديثات النظام متاحة 🔔" : "أدوات ومظهر المنصة"}
+                  animate={(!showUserSettingsIcons && hasNewUpdates) ? {
+                    scale: [1, 1.05, 1],
+                    boxShadow: [
+                      "0 0 0 0px rgba(163, 81, 48, 0.3)",
+                      "0 0 0 6px rgba(163, 81, 48, 0)",
+                      "0 0 0 0px rgba(163, 81, 48, 0.3)"
+                    ]
+                  } : {}}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 2,
+                    ease: "easeInOut"
+                  }}
                 >
                   <CustomSettingsIcon className={`w-3.5 h-3.5 ${showUserSettingsIcons ? "animate-spin-slow" : ""}`} />
-                </button>
+                  {hasNewUpdates && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-500 rounded-full border-2 border-[#FAF5EC] animate-pulse" />
+                  )}
+                </motion.button>
               </div>
 
             </div>
@@ -4282,20 +4305,38 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 <div className="h-4 w-px bg-slate-800 shrink-0" />
 
                 {/* Settings Toggle for Hidden Icons (اعدادات المستخدم) */}
-                <button
+                <motion.button
                   onClick={() => setShowUserSettingsIcons(prev => !prev)}
-                  className={`inline-flex items-center gap-1 text-3xs sm:text-2xs transition-all duration-300 cursor-pointer font-extrabold px-1 rounded-lg ${
+                  className={`inline-flex items-center gap-1 text-3xs sm:text-2xs transition-all duration-300 cursor-pointer font-extrabold px-1.5 py-0.5 rounded-lg relative ${
                     showUserSettingsIcons 
-                      ? "text-emerald-400 bg-emerald-950/30 border border-emerald-900/30" 
+                      ? "text-emerald-400 bg-emerald-955/30 border border-emerald-900/30" 
                       : "text-amber-500 hover:text-amber-400"
                   }`}
-                  title={currentLang === "ar" ? "أدوات وتعديلات المنصة" : "Platform Settings & Tools"}
+                  title={hasNewUpdates 
+                    ? (currentLang === "ar" ? "تحديثات النظام متاحة 🔔" : "System updates available 🔔") 
+                    : (currentLang === "ar" ? "أدوات وتعديلات المنصة" : "Platform Settings & Tools")}
+                  animate={(!showUserSettingsIcons && hasNewUpdates) ? {
+                    scale: [1, 1.05, 1],
+                    boxShadow: [
+                      "0 0 0 0px rgba(245, 158, 11, 0.3)",
+                      "0 0 0 6px rgba(245, 158, 11, 0)",
+                      "0 0 0 0px rgba(245, 158, 11, 0.3)"
+                    ]
+                  } : {}}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 2,
+                    ease: "easeInOut"
+                  }}
                 >
                   <CustomSettingsIcon className={`w-3.5 h-3.5 ${showUserSettingsIcons ? "text-emerald-400 animate-spin-slow" : "text-amber-500"}`} />
                   <span className="hidden sm:inline">
                     {currentLang === "ar" ? "الأدوات" : "Tools"}
                   </span>
-                </button>
+                  {hasNewUpdates && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full border border-slate-950 animate-pulse" />
+                  )}
+                </motion.button>
 
                 <div className="h-4 w-px bg-slate-800 shrink-0" />
 
@@ -4326,20 +4367,32 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                {/* Settings Toggle for Hidden Icons when logged out */}
+                 {/* Settings Toggle for Hidden Icons when logged out */}
                 <motion.button
                   onClick={() => setShowUserSettingsIcons(prev => !prev)}
-                  className={`inline-flex items-center justify-center p-1.5 rounded-xl border transition-all duration-300 transform hover:scale-105 cursor-pointer ${
+                  className={`inline-flex items-center justify-center p-1.5 rounded-xl border transition-all duration-300 transform hover:scale-105 cursor-pointer relative ${
                     showUserSettingsIcons 
                       ? "bg-emerald-955/35 hover:bg-emerald-900/50 border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/20" 
                       : "bg-slate-950/60 hover:bg-slate-900/90 hover:border-slate-700 text-slate-350"
                   }`}
-                  title={currentLang === "ar" ? "أدوات وتعديلات المنصة" : "Platform Settings & Tools"}
-                  animate={{ scale: [1, 1.04, 1] }}
+                  title={hasNewUpdates 
+                    ? (currentLang === "ar" ? "تحديثات النظام متاحة 🔔" : "System updates available 🔔") 
+                    : (currentLang === "ar" ? "أدوات وتعديلات المنصة" : "Platform Settings & Tools")}
+                  animate={(!showUserSettingsIcons && hasNewUpdates) ? {
+                    scale: [1, 1.05, 1],
+                    boxShadow: [
+                      "0 0 0 0px rgba(245, 158, 11, 0.3)",
+                      "0 0 0 6px rgba(245, 158, 11, 0)",
+                      "0 0 0 0px rgba(245, 158, 11, 0.3)"
+                    ]
+                  } : { scale: [1, 1.04, 1] }}
                   whileHover={{ scale: 1.05 }}
                   transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
                 >
                   <CustomSettingsIcon className={`w-3.5 h-3.5 ${showUserSettingsIcons ? "animate-spin-slow" : ""}`} />
+                  {hasNewUpdates && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full border border-slate-950 animate-pulse" />
+                  )}
                 </motion.button>
 
                 <button
@@ -4991,9 +5044,9 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                                }`}
                              >
                                 {/* Circle Portrait Badge representing stage */}
-                                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center bg-[#DFAB79] shrink-0 mb-2 sm:mb-4 shadow-inner group-hover:scale-105 transition-all">
+                                <div className="w-10 h-10 sm:w-13 sm:h-13 rounded-full flex items-center justify-center bg-[#DFAB79] shrink-0 mb-2 sm:mb-4 shadow-inner group-hover:scale-105 transition-all">
                                    {(() => {
-                                      const iconProps = { className: "w-6 h-6 sm:w-8 sm:h-8 text-[#2C1810]", strokeWidth: 1.5 };
+                                      const iconProps = { className: "w-5 h-5 sm:w-6.5 sm:h-6.5 text-[#2C1810]", strokeWidth: 1.5 };
                                       if (stage.id === "kindergarten") {
                                          return <Baby {...iconProps} />;
                                       } else if (stage.id === "primary") {
