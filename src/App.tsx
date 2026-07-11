@@ -6586,27 +6586,27 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
       {/* 👤 Student/User Registration and Login Modal */}
       <AnimatePresence>
         {showUserModal && (
-          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[99999] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[99999] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative text-right font-sans"
+              className="w-full max-w-md max-h-[96vh] sm:max-h-[92vh] flex flex-col bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative text-right font-sans"
               dir="rtl"
             >
               {/* Pattern Background Accent */}
               <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-indigo-900/10 to-transparent pointer-events-none" />
               
               {/* Modal Upper Top Bar */}
-              <div className="p-6 pb-4 border-b border-slate-800/60 flex items-center justify-between relative z-10">
-                <div className="flex items-center gap-2.5">
-                  <WebsiteLogo size={38} />
+              <div className="p-4 sm:p-5 pb-3 sm:pb-3.5 border-b border-slate-800/60 flex items-center justify-between relative z-10 shrink-0">
+                <div className="flex items-center gap-2">
+                  <WebsiteLogo size={32} />
                   <div>
-                    <h5 className="text-sm font-black text-slate-100">
+                    <h5 className="text-xs sm:text-sm font-black text-slate-100">
                       {userModalTab === "profile" ? "تعديل بيانات الحساب ⚙️" : "بوابة الطالب والزائر 🇸🇩"}
                     </h5>
-                    <p className="text-[10px] text-slate-400 mt-0.5">
+                    <p className="text-[9px] sm:text-[10px] text-slate-400 mt-0.5">
                       {userModalTab === "profile" ? "تعديل معلومات حسابك الدراسي لعام ٢٠٢٦" : "منصة نقلة للمناهج الالكترونية السودانية  لعام ٢٠٢٦"}
                     </p>
                   </div>
@@ -6626,16 +6626,19 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                 </button>
               </div>
 
+              {/* Scrollable Container for Modal Body to fit all mobile viewports */}
+              <div className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-slate-800 flex flex-col">
+
               {/* Tabs list (Sign-in / Register) */}
               {userModalTab !== "profile" && (
-                <div className="px-6 pt-4 flex gap-2 relative z-10">
+                <div className="px-4 sm:px-6 pt-3 sm:pt-4 flex gap-2 relative z-10 shrink-0">
                   <button
                     onClick={() => {
                       setUserModalTab("login");
                       setUserAuthError("");
                       setUserAuthSuccess("");
                     }}
-                    className={`flex-1 py-1.5 text-xs font-extrabold rounded-xl border transition-all cursor-pointer ${
+                    className={`flex-1 py-1.5 text-3xs sm:text-xs font-extrabold rounded-xl border transition-all cursor-pointer ${
                       userModalTab === "login"
                         ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-950/40"
                         : "bg-slate-950/30 border-slate-800 text-slate-400 hover:text-slate-205"
@@ -6649,7 +6652,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       setUserAuthError("");
                       setUserAuthSuccess("");
                     }}
-                    className={`flex-1 py-1.5 text-xs font-extrabold rounded-xl border transition-all cursor-pointer ${
+                    className={`flex-1 py-1.5 text-3xs sm:text-xs font-extrabold rounded-xl border transition-all cursor-pointer ${
                       userModalTab === "register"
                         ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-950/40"
                         : "bg-slate-950/30 border-slate-800 text-slate-400 hover:text-slate-205"
@@ -6661,7 +6664,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               )}
 
               {/* Form segment */}
-              <div className="p-6 relative z-10 space-y-4">
+              <div className="p-4 sm:p-6 relative z-10 space-y-3 sm:space-y-4 flex-1">
                 <form
                   onSubmit={
                     userModalTab === "profile"
@@ -6670,7 +6673,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       ? handleUserLoginSubmit
                       : handleUserRegisterSubmit
                   }
-                  className="space-y-3.5"
+                  className="space-y-2.5 sm:space-y-3.5"
                 >
                   {userModalTab === "profile" && (
                     <>
@@ -6682,7 +6685,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                           value={userUsername}
                           onChange={(e) => setUserUsername(e.target.value)}
                           placeholder="مثال: يوسف أحمد التكينة"
-                          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 outline-none focus:border-indigo-600 transition-all font-sans"
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 sm:p-3 text-xs text-slate-100 outline-none focus:border-indigo-600 transition-all font-sans"
                         />
                       </div>
 
@@ -6693,7 +6696,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                           <select
                             value={regGradeId}
                             onChange={(e) => setRegGradeId(e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 outline-none focus:border-indigo-600"
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 sm:p-3 text-xs text-slate-200 outline-none focus:border-indigo-600"
                           >
                             <option value="">-- اختر صفّك الدراسي --</option>
                             {curriculumData.flatMap(stage => 
@@ -6756,7 +6759,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                               value={regContactMethod}
                               onChange={(e) => setRegContactMethod(e.target.value)}
                               placeholder="مثال: 0123456789 أو whatsapp"
-                              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 outline-none focus:border-amber-600 transition-all font-sans text-right"
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 sm:p-3 text-xs text-slate-100 outline-none focus:border-amber-600 transition-all font-sans text-right"
                             />
                           </div>
                         </>
@@ -6767,7 +6770,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                           <label className="text-[10px] text-slate-400 font-bold block">
                             الصفوف الدراسية لأبنائك (تحديد متعدد من كافة المراحل) 👪:
                           </label>
-                          <div className="space-y-3 max-h-60 overflow-y-auto border border-slate-850 bg-slate-950 p-3 rounded-xl scrollbar-thin scrollbar-thumb-slate-800 text-right">
+                          <div className="space-y-3 max-h-40 sm:max-h-60 overflow-y-auto border border-slate-850 bg-slate-950 p-3 rounded-xl scrollbar-thin scrollbar-thumb-slate-800 text-right">
                             {curriculumData.map((stage) => (
                               <div key={stage.id} className="space-y-1.5 border-b border-slate-900 last:border-0 pb-2 last:pb-0">
                                 <span className="text-[10px] font-black text-emerald-400 block mb-1">
@@ -6817,7 +6820,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                           value={userUsername}
                           onChange={(e) => setUserUsername(e.target.value)}
                           placeholder="مثال: يوسف أحمد التكينة"
-                          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 outline-none focus:border-indigo-600 transition-all font-sans"
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 sm:p-3 text-xs text-slate-100 outline-none focus:border-indigo-600 transition-all font-sans"
                         />
                       </div>
 
@@ -6868,7 +6871,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                           <select
                             value={regGradeId}
                             onChange={(e) => setRegGradeId(e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 outline-none focus:border-indigo-600"
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 sm:p-3 text-xs text-slate-200 outline-none focus:border-indigo-600"
                           >
                             <option value="">-- اختر صفّك الدراسي --</option>
                             {curriculumData.flatMap(stage => 
@@ -6931,7 +6934,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                               value={regContactMethod}
                               onChange={(e) => setRegContactMethod(e.target.value)}
                               placeholder="مثال: 0123456789 أو whatsapp"
-                              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 outline-none focus:border-amber-600 transition-all font-sans text-right"
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 sm:p-3 text-xs text-slate-100 outline-none focus:border-amber-600 transition-all font-sans text-right"
                             />
                           </div>
                         </>
@@ -6943,7 +6946,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                           <label className="text-[10px] text-slate-400 font-bold block">
                             الصفوف الدراسية لأبنائك (تحديد متعدد من كافة المراحل) 👪:
                           </label>
-                          <div className="space-y-3 max-h-60 overflow-y-auto border border-slate-850 bg-slate-950 p-3 rounded-xl scrollbar-thin scrollbar-thumb-slate-800 text-right">
+                          <div className="space-y-3 max-h-40 sm:max-h-60 overflow-y-auto border border-slate-850 bg-slate-950 p-3 rounded-xl scrollbar-thin scrollbar-thumb-slate-800 text-right">
                             {curriculumData.map((stage) => (
                               <div key={stage.id} className="space-y-1.5 border-b border-slate-900 last:border-0 pb-2 last:pb-0">
                                 <span className="text-[10px] font-black text-emerald-400 block mb-1">
@@ -7033,7 +7036,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       value={userEmail}
                       onChange={(e) => setUserEmail(e.target.value)}
                       placeholder={loginRole === "admin" && userModalTab === "login" ? "admin@example.com" : loginRole === "parent" ? "parent@example.com" : "student@example.com"}
-                      className={`w-full border border-slate-800 rounded-xl p-3 text-xs outline-none transition-all font-sans text-left ${userModalTab === "profile" ? "bg-slate-950/60 text-slate-400 pointer-events-none" : "bg-slate-950 text-slate-100 focus:border-indigo-600"}`}
+                      className={`w-full border border-slate-800 rounded-xl p-2.5 sm:p-3 text-xs outline-none transition-all font-sans text-left ${userModalTab === "profile" ? "bg-slate-950/60 text-slate-400 pointer-events-none" : "bg-slate-950 text-slate-100 focus:border-indigo-600"}`}
                       dir="ltr"
                     />
                   </div>
@@ -7049,7 +7052,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       value={userPassword}
                       onChange={(e) => setUserPassword(e.target.value)}
                       placeholder={userModalTab === "profile" ? "•••••••• (تغيير كلمة المرور)" : "••••••••"}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 outline-none focus:border-indigo-600 transition-all font-sans"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 sm:p-3 text-xs text-slate-100 outline-none focus:border-indigo-600 transition-all font-sans"
                     />
                   </div>
 
@@ -7068,13 +7071,13 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                   <button
                     type="submit"
                     disabled={isAuthLoading}
-                    className="w-full py-3 bg-gradient-to-l from-indigo-600 to-indigo-700 hover:from-indigo-550 hover:to-indigo-650 disabled:opacity-50 text-white text-xs font-black rounded-xl transition-all cursor-pointer shadow-md active:scale-95 flex items-center justify-center gap-1.5"
+                    className="w-full py-2.5 sm:py-3 bg-gradient-to-l from-indigo-600 to-indigo-700 hover:from-indigo-550 hover:to-indigo-650 disabled:opacity-50 text-white text-xs font-black rounded-xl transition-all cursor-pointer shadow-md active:scale-95 flex items-center justify-center gap-1.5"
                   >
                     {isAuthLoading ? "جاري التحقق والمزامنة..." : userModalTab === "profile" ? "حفظ وتعديل البيانات الشخصية 💾" : userModalTab === "login" ? "تسجيل المزامنة والدخول 🚀" : "إتمام إنشاء الحساب وحفظه فورياً ✨"}
                   </button>
 
                   {userModalTab !== "profile" && (
-                    <div className="mt-3.5">
+                    <div className="mt-3">
                       <div className="relative flex py-1.5 items-center">
                         <div className="flex-grow border-t border-slate-800/50"></div>
                         <span className="flex-shrink mx-3 text-[9px] text-slate-500 font-bold select-none">أو</span>
@@ -7084,7 +7087,7 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
                       <button
                         type="button"
                         onClick={handleEnterAsGuest}
-                        className="w-full py-2.5 bg-slate-950 hover:bg-slate-850 text-slate-350 text-2xs font-extrabold rounded-xl transition-all cursor-pointer border border-slate-800 hover:border-emerald-500/40 hover:text-emerald-400 flex items-center justify-center gap-1.5 active:scale-95 shadow-inner"
+                        className="w-full py-2 sm:py-2.5 bg-slate-950 hover:bg-slate-850 text-slate-350 text-2xs font-extrabold rounded-xl transition-all cursor-pointer border border-slate-800 hover:border-emerald-500/40 hover:text-emerald-400 flex items-center justify-center gap-1.5 active:scale-95 shadow-inner"
                       >
                         <User className="w-3.5 h-3.5 text-emerald-500" />
                         <span>تصفح المنصة كـ زائر (بدون حساب) 🚪✨</span>
@@ -7097,9 +7100,10 @@ export const stagesData: Stage[] = ${JSON.stringify(curriculumData, null, 2)};
               {/* Informative Footer */}
               <div className="bg-slate-955/80 px-6 py-4 border-t border-slate-800/45 text-center">
                 <p className="text-[10px] text-slate-500 leading-normal font-medium">
-                  {userModalTab === "profile" ? "يتم حفظ التعديلات سحابياً فوراً بالربط السحابي مع Supabase لتأمين وتحديث الحساب الدراسي." : "بمجرد التسجيل، سيتم ربط حسابك بـ Supabase لمتابعة دراسة المناهج وحفظ الدروس المكتملة في المخدم سحابياً مجاناً ومباشرة."}
+                  {userModalTab === "profile" ? "الحساب مجاناً وبدون أي تكاليف ويمنع نهائياً استخدام المنصة لأغراض تجارية 🛡️" : "           الحساب مجانا وبدون أي تكاليف ويمنع  نهائيا استخدام المنصة لأغراض تجارية ."}
                 </p>
               </div>
+              </div> {/* End scrollable container */}
             </motion.div>
           </div>
         )}
